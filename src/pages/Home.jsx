@@ -1,131 +1,116 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import api from "../services/api";
+
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { Link } from "react-router-dom";
+import BannerCarousel from "../components/BannerCarousel";
 
 export default function Home() {
+  const [banners, setBanners] = useState([]);
+
+  // En tu componente Home.jsx
+    useEffect(() => {
+    api
+        .get("/banners")
+        .then((res) => {
+        // FILTRAR: Solo guardar los banners que tengan is_active en true (o 1)
+        const activeBanners = res.data.filter(b => b.is_active === true || b.is_active === 1);
+        setBanners(activeBanners);
+        })
+        .catch((err) => console.log("Error cargando banners", err));
+    }, []);
   return (
-    <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
+    <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden font-sans">
       <Navbar />
 
-      {/* Glow background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-32 -left-32 w-[420px] h-[420px] bg-purple-500/20 blur-[140px]" />
-        <div className="absolute top-1/3 -right-32 w-[380px] h-[380px] bg-cyan-500/20 blur-[140px]" />
-        <div className="absolute bottom-0 left-1/3 w-[300px] h-[300px] bg-fuchsia-500/10 blur-[120px]" />
+      {/* Luces Ambientales fijas */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-purple-600/10 blur-[150px] rounded-full" />
+        <div className="absolute bottom-[10%] right-[-5%] w-[500px] h-[500px] bg-blue-600/10 blur-[150px] rounded-full" />
       </div>
 
-      {/* HERO - pt-40 para dar espacio al Navbar fijo */}
-      <main className="relative z-10 max-w-7xl mx-auto px-6 pt-40 pb-24 text-center">
-        <span className="inline-block mb-6 px-4 py-1.5 text-sm uppercase tracking-widest bg-white/5 border border-white/10 rounded-full text-cyan-400 font-medium">
-          ⚡ Tecnología & Estilo
-        </span>
+      {/* AJUSTE: He añadido pt-20 para compensar la altura del Navbar */}
+      <main className="relative z-10 pt-16 md:pt-20"> 
+        
+        {/* ===== SECCIÓN BANNER (100% ANCHO) ===== */}
+        {banners.length > 0 && (
+          <section className="w-full h-[calc(100vh-64px)] md:h-[90vh] overflow-hidden relative border-b border-white/5 bg-[#050505]">
+            <BannerCarousel banners={banners} />
+          </section>
+        )}
 
-        <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6">
-          Eleva tu experiencia <br />
-          <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">
-            con productos premium
-          </span>
-        </h1>
+        <div className="max-w-7xl mx-auto px-6">
+          
+          {/* ===== HERO SECUNDARIO ===== */}
+          <section className="text-center py-32 md:py-44">
+            <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 text-[10px] uppercase tracking-[0.4em] bg-white/[0.03] border border-white/10 rounded-full text-slate-300 backdrop-blur-xl">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+              Ingeniería & Estética
+            </div>
 
-        <p className="max-w-xl mx-auto text-slate-400 mb-12 text-lg">
-          Curamos tecnología moderna para quienes buscan diseño,
-          rendimiento y presencia en cada detalle.
-        </p>
+            <h2 className="text-6xl md:text-8xl font-bold tracking-tighter mb-8 leading-[0.9] text-white">
+              Redefiniendo <br />
+              <span className="italic font-light text-slate-500">lo cotidiano.</span>
+            </h2>
 
-        <div className="flex justify-center gap-4 flex-wrap">
-          <Link
-            to="/productos"
-            className="px-8 py-4 bg-white text-black font-bold rounded-2xl hover:scale-105 transition shadow-lg shadow-white/5"
-          >
-            Explorar productos
-          </Link>
+            <p className="max-w-xl mx-auto text-slate-400 mb-14 text-lg md:text-xl font-light leading-relaxed">
+              Descubre una curaduría de objetos tecnológicos diseñados para quienes no aceptan compromisos entre funcionalidad y estilo.
+            </p>
 
-          <a
-            href="#categorias"
-            className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition backdrop-blur-md"
-          >
-            Ver categorías
-          </a>
-        </div>
-
-        {/* BENEFICIOS */}
-        <section
-          id="beneficios"
-          className="mt-32 grid grid-cols-1 md:grid-cols-3 gap-8"
-        >
-          <Feature icon="🚚" title="Entrega rápida">
-            Envíos seguros y rápidos a todo el país.
-          </Feature>
-
-          <Feature icon="🛡️" title="Compra protegida">
-            Pagos seguros y respaldo garantizado.
-          </Feature>
-
-          <Feature icon="💎" title="Selección premium">
-            Solo productos bien curados.
-          </Feature>
-        </section>
-
-        {/* CATEGORÍAS */}
-        <section
-          id="categorias"
-          className="mt-40 text-left"
-        >
-          <h2 className="text-3xl md:text-4xl font-black mb-10 text-center">
-            Categorías destacadas
-          </h2>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <Category title="Ropa" />
-            <Category title="Tecnología" />
-            <Category title="Accesorios" />
-            <Category title="Ediciones limitadas" />
-          </div>
-        </section>
-
-        {/* CÓMO FUNCIONA */}
-        <section className="mt-40">
-          <h2 className="text-3xl md:text-4xl font-black mb-12">
-            ¿Cómo funciona?
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Step number="1" title="Explora">
-              Navega por nuestro catálogo curado.
-            </Step>
-
-            <Step number="2" title="Elige">
-              Selecciona lo que va contigo.
-            </Step>
-
-            <Step number="3" title="Recibe">
-              Nosotros lo llevamos a tu puerta.
-            </Step>
-          </div>
-        </section>
-
-        {/* CTA FINAL */}
-        <section className="mt-40 mb-20">
-          <div className="relative bg-white/5 border border-white/10 rounded-[2.5rem] p-14 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 blur-3xl" />
-
-            <div className="relative z-10">
-              <h2 className="text-4xl md:text-5xl font-black mb-4">
-                ¿Listo para empezar?
-              </h2>
-              <p className="text-slate-400 mb-8 max-w-md mx-auto">
-                Descubre productos que hablan por ti y mejora tu setup hoy mismo.
-              </p>
-
+            <div className="flex justify-center gap-6 flex-wrap">
               <Link
                 to="/productos"
-                className="inline-block px-10 py-4 bg-cyan-500 text-black font-black rounded-2xl hover:bg-cyan-400 transition-all hover:scale-105"
+                className="group relative px-12 py-4 bg-white text-black font-semibold rounded-full transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
               >
-                VER CATÁLOGO
+                <span className="relative z-10 text-sm tracking-widest">VER PRODUCTOS</span>
               </Link>
             </div>
-          </div>
-        </section>
+          </section>
+
+          {/* ===== BENEFICIOS ===== */}
+          <section id="beneficios" className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-48">
+            <Feature title="Global Logístics" desc="Envíos prioritarios con seguimiento en tiempo real." />
+            <Feature title="Verified Hardware" desc="Certificación de calidad en cada componente seleccionado." />
+            <Feature title="Exclusive Access" desc="Lanzamientos limitados para nuestra comunidad." />
+          </section>
+
+          {/* ===== CATEGORÍAS GRID ===== */}
+          <section id="categorias" className="mb-48">
+            <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-4 border-l border-white/10 pl-8">
+              <h2 className="text-4xl md:text-6xl font-bold tracking-tight">
+                Nuestras <span className="text-slate-600 font-light">Colecciones</span>
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Category title="Audio Pro" />
+              <Category title="Performance" />
+              <Category title="Desktop" />
+              <Category title="Limited" />
+            </div>
+          </section>
+
+          {/* ===== CTA FINAL ===== */}
+          <section className="mb-32">
+            <div className="relative bg-[#080808] border border-white/5 rounded-[4rem] p-16 md:p-32 overflow-hidden text-center">
+              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 blur-[120px] rounded-full" />
+              
+              <div className="relative z-10">
+                <h2 className="text-5xl md:text-7xl font-bold tracking-tighter mb-10">
+                  ¿Listo para el <br /> siguiente nivel?
+                </h2>
+                <Link
+                  to="/productos"
+                  className="inline-flex items-center gap-6 text-white font-light tracking-[0.3em] text-xs uppercase group"
+                >
+                  Ir a la tienda oficial
+                  <span className="w-16 h-[1px] bg-white/20 transition-all duration-500 group-hover:w-28 group-hover:bg-cyan-500" />
+                </Link>
+              </div>
+            </div>
+          </section>
+        </div>
       </main>
 
       <Footer />
@@ -133,39 +118,28 @@ export default function Home() {
   );
 }
 
-/* COMPONENTES INTERNOS */
+/* ===== COMPONENTES DE APOYO ===== */
 
-function Feature({ icon, title, children }) {
+function Feature({ title, desc }) {
   return (
-    <div className="p-8 bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-3xl text-left hover:border-cyan-500/30 transition-all duration-500 hover:-translate-y-2">
-      <div className="text-4xl mb-4">{icon}</div>
-      <h3 className="text-xl font-bold mb-2">{title}</h3>
-      <p className="text-slate-400 text-sm leading-relaxed">{children}</p>
+    <div className="group p-12 bg-white/[0.01] border border-white/5 rounded-[2.5rem] hover:bg-white/[0.02] hover:border-white/20 transition-all duration-700 ease-out">
+      <h3 className="text-[10px] tracking-[0.3em] uppercase text-slate-500 mb-6 group-hover:text-cyan-400 transition-colors">
+        {title}
+      </h3>
+      <p className="text-xl text-slate-300 leading-tight font-medium">
+        {desc}
+      </p>
     </div>
   );
 }
 
 function Category({ title }) {
   return (
-    <div className="p-8 bg-white/5 border border-white/10 rounded-2xl text-center hover:bg-white/10 hover:border-white/20 transition-all cursor-pointer group">
-      <p className="font-bold group-hover:text-cyan-400 transition-colors uppercase tracking-widest text-xs">{title}</p>
-    </div>
-  );
-}
-
-function Step({ number, title, children }) {
-  return (
-    <div className="p-10 bg-white/5 border border-white/10 rounded-[2rem] relative overflow-hidden group">
-      <span className="absolute -right-4 -top-4 text-9xl font-black text-white/[0.02] group-hover:text-cyan-500/[0.05] transition-colors">
-        {number}
-      </span>
-      <span className="text-cyan-400 font-black text-2xl">
-        0{number}
-      </span>
-      <h3 className="text-2xl font-bold mt-4 mb-3">
+    <div className="relative h-72 flex items-center justify-center p-8 bg-white/[0.01] border border-white/5 rounded-[2rem] hover:border-white/30 transition-all cursor-pointer group overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+      <p className="relative z-10 font-light text-sm tracking-[0.4em] uppercase text-slate-400 group-hover:text-white transition-all transform group-hover:scale-110">
         {title}
-      </h3>
-      <p className="text-slate-400 text-sm leading-relaxed">{children}</p>
+      </p>
     </div>
   );
 }
