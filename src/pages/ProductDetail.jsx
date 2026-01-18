@@ -28,7 +28,7 @@ export default function ProductDetail() {
     </div>
   );
 
-  const whatsappUrl = `https://wa.me/573000000000?text=Hola,%20me%20interesa%20este%20producto:%20${product.name}`;
+  const whatsappUrl = `https://wa.me/573145055073?text=Hola,%20me%20interesa%20este%20producto:%20${product.name}`;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
