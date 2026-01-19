@@ -35,10 +35,10 @@ export default function BannerCarousel({ banners }) {
               <img 
                 src={slide.image_url} 
                 alt={slide.title} 
-                className={`w-full h-full object-cover opacity-60 transition-transform duration-[6000ms] ease-out ${
-                  isActive ? "scale-110" : "scale-100"
-                }`}
-              />
+                loading="lazy"
+                className="w-full h-full object-cover opacity-60 transition-transform duration-700 ease-out"
+            />
+
               <div className="absolute inset-0 bg-black/40" />
             </div>
 
