@@ -8,18 +8,25 @@ import BannerCarousel from "../components/BannerCarousel";
 
 export default function Home() {
   const [banners, setBanners] = useState([]);
+  const [loading, setLoading] = useState(true); // 1. Nuevo estado
 
-  // En tu componente Home.jsx
-    useEffect(() => {
-    api
-        .get("/banners")
-        .then((res) => {
-        // FILTRAR: Solo guardar los banners que tengan is_active en true (o 1)
+  useEffect(() => {
+    api.get("/banners")
+      .then((res) => {
         const activeBanners = res.data.filter(b => b.is_active === true || b.is_active === 1);
         setBanners(activeBanners);
-        })
-        .catch((err) => console.log("Error cargando banners", err));
-    }, []);
+      })
+      .catch((err) => console.log("Error cargando banners", err))
+      .finally(() => setLoading(false)); // 2. Finaliza la carga
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden font-sans">
       <Navbar />

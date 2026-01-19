@@ -30,7 +30,7 @@ export default function Products() {
             <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400">Colección Exclusiva</span>
           </div>
           <h2 className="text-6xl md:text-8xl font-black tracking-tighter">
-            ALESTEB<span className="bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">STORE</span>
+            ALE<span className="bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">STEB</span>
           </h2>
           <p className="text-slate-400 max-w-lg mx-auto italic text-lg">
             Tecnología premium seleccionada para quienes no aceptan menos que la perfección.

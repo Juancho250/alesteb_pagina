@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom"; // Solo una vez aquí
+import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, MessageCircle, CheckCircle, ShieldCheck } from "lucide-react";
 import api from "../services/api";
 import Navbar from "../components/Navbar";
@@ -11,30 +11,51 @@ export default function ProductDetail() {
   const [activeImg, setActiveImg] = useState("");
 
   useEffect(() => {
-    api.get(`/products/${id}`).then((res) => {
-      const productData = res.data;
-      setProduct(productData);
-      if (productData.main_image) {
-        setActiveImg(productData.main_image);
-      } else if (productData.images && productData.images.length > 0) {
-        setActiveImg(productData.images[0].url);
+    const fetchProduct = async () => {
+      try {
+        // Intentar obtener del backend
+        const res = await api.get(`/products/${id}`);
+        const productData = res.data;
+        setProduct(productData);
+
+        // Imagen activa
+        if (productData.main_image) setActiveImg(productData.main_image);
+        else if (productData.images?.length > 0) setActiveImg(productData.images[0].url);
+
+        // Guardar en cache
+        localStorage.setItem(`product_${id}`, JSON.stringify(productData));
+      } catch (err) {
+        console.log("Error cargando producto, usando cache local", err);
+
+        // Recuperar de localStorage si falla la petición
+        const cached = localStorage.getItem(`product_${id}`);
+        if (cached) {
+          const productData = JSON.parse(cached);
+          if (productData) {
+            setProduct(productData);
+            if (productData.main_image) setActiveImg(productData.main_image);
+            else if (productData.images?.length > 0) setActiveImg(productData.images[0].url);
+          }
+        }
       }
-    });
+    };
+
+    fetchProduct();
   }, [id]);
 
+  // Loader mientras no hay datos
   if (!product) return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-cyan-500"></div>
     </div>
   );
 
-  const whatsappUrl = `https://wa.me/573145055073?text=Hola,%20me%20interesa%20este%20producto:%20${product.name}`;
+  const whatsappUrl = `https://wa.me/573145055073?text=Hola,%20me%20interesa%20este%20producto:%20${product?.name || ""}`;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <Navbar />
 
-      {/* Contenedor con padding superior para que el Navbar no tape el contenido */}
       <main className="pt-28 pb-20 p-4 md:p-10">
         <div className="max-w-6xl mx-auto">
           {/* Botón Volver */}
@@ -50,7 +71,7 @@ export default function ProductDetail() {
               <div className="aspect-square rounded-3xl overflow-hidden border border-white/10 bg-white/5 backdrop-blur-sm">
                 <img 
                   src={activeImg} 
-                  alt={product.name} 
+                  alt={product?.name || "Producto"} 
                   className="w-full h-full object-cover animate-fade-in"
                 />
               </div>
@@ -78,15 +99,15 @@ export default function ProductDetail() {
             {/* SECCIÓN INFO */}
             <div className="space-y-8">
               <div>
-                <span className="text-cyan-400 font-bold tracking-widest uppercase text-sm">{product.category || "General"}</span>
+                <span className="text-cyan-400 font-bold tracking-widest uppercase text-sm">{product?.category || "General"}</span>
                 <h1 className="text-4xl md:text-6xl font-black mt-2 leading-tight">
-                  {product.name}
+                  {product?.name || "Cargando..."}
                 </h1>
               </div>
 
               <div className="flex items-center gap-4">
                 <p className="text-5xl font-black text-white">
-                  ${Number(product.price).toLocaleString()}
+                  ${Number(product?.price || 0).toLocaleString()}
                 </p>
                 <span className="px-3 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded-full border border-green-500/30">
                   EN STOCK
@@ -94,7 +115,7 @@ export default function ProductDetail() {
               </div>
 
               <p className="text-slate-400 text-lg leading-relaxed border-l-2 border-white/10 pl-6">
-                Este producto cuenta con los más altos estándares de calidad. Ideal para quienes buscan durabilidad y diseño de vanguardia.
+                {product?.description || "Este producto cuenta con los más altos estándares de calidad. Ideal para quienes buscan durabilidad y diseño de vanguardia."}
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-slate-300">
