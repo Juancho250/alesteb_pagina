@@ -8,7 +8,8 @@ export default function Navbar() {
   const closeMenu = () => setIsOpen(false);
 
   return (
-    <nav className="fixed top-0 w-full z-[100] border-b border-white/5 bg-slate-950/60 backdrop-blur-xl">
+    <nav className="fixed top-0 w-full z-[100] bg-slate-950/90 md:bg-slate-950/60 md:backdrop-blur-xl">
+
       {/* OVERLAY: Fondo difuminado que cubre la web al abrir el menú */}
       <div 
         className={`fixed inset-0 bg-black/40 backdrop-blur-md transition-opacity duration-500 md:hidden ${
