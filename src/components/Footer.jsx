@@ -1,66 +1,70 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router-dom"; // ESTA LÍNEA ES LA QUE FALTABA
 import { Instagram, Twitter, MessageCircle } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="relative z-10 bg-slate-950 border-t border-white/5 pt-20 pb-10">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
-          {/* Brand Info */}
-          <div className="col-span-1 md:col-span-1">
-            <Link to="/" className="text-xl font-black tracking-tighter mb-4 block">
+    <footer className="bg-[#f5f5f7] border-t border-[#d2d2d7] pt-16 pb-12">
+      <div className="max-w-5xl mx-auto px-6">
+        
+        {/* Grid Responsive */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 mb-16">
+          
+          {/* Brand */}
+          <div className="sm:col-span-2 md:col-span-1">
+            <Link to="/" className="text-lg font-semibold tracking-tight mb-4 block text-[#1d1d1f]">
               ALESTEB
             </Link>
-            <p className="text-slate-400 text-sm leading-relaxed">
-              Elevando el estándar de la tecnología premium con una selección curada para los más exigentes.
+            <p className="text-[#6e6e73] text-[13px] leading-relaxed max-w-xs">
+              Tecnología de vanguardia con un diseño minimalista. Curamos lo mejor para tu estilo de vida digital.
             </p>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h4 className="font-bold mb-6 text-sm uppercase tracking-widest text-cyan-400">Navegación</h4>
-            <ul className="space-y-4 text-sm text-slate-400">
-              <li><Link to="/productos" className="hover:text-white transition">Catálogo Completo</Link></li>
-              <li><a href="#categorias" className="hover:text-white transition">Categorías Destacadas</a></li>
-              <li><a href="#beneficios" className="hover:text-white transition">Cómo Funciona</a></li>
+          {/* Links */}
+          <div className="flex flex-col gap-4">
+            <h4 className="font-semibold text-xs text-[#1d1d1f] uppercase tracking-wider">Tienda</h4>
+            <ul className="space-y-3 text-[13px] text-[#424245]">
+              <li><Link to="/productos" className="hover:text-black hover:underline">Catálogo</Link></li>
+              <li><a href="#" className="hover:text-black hover:underline">Novedades</a></li>
+              <li><a href="#" className="hover:text-black hover:underline">Ofertas</a></li>
             </ul>
           </div>
 
-          {/* Support */}
-          <div>
-            <h4 className="font-bold mb-6 text-sm uppercase tracking-widest text-purple-400">Ayuda</h4>
-            <ul className="space-y-4 text-sm text-slate-400">
-              <li><a href="#" className="hover:text-white transition">Términos y Condiciones</a></li>
-              <li><a href="#" className="hover:text-white transition">Políticas de Envío</a></li>
-              <li><a href="#" className="hover:text-white transition">Preguntas Frecuentes</a></li>
+          {/* Soporte */}
+          <div className="flex flex-col gap-4">
+            <h4 className="font-semibold text-xs text-[#1d1d1f] uppercase tracking-wider">Soporte</h4>
+            <ul className="space-y-3 text-[13px] text-[#424245]">
+              <li><a href="#" className="hover:text-black hover:underline">Envíos</a></li>
+              <li><a href="#" className="hover:text-black hover:underline">Garantía</a></li>
+              <li><a href="#" className="hover:text-black hover:underline">Contacto</a></li>
             </ul>
           </div>
 
           {/* Social */}
-          <div>
-            <h4 className="font-bold mb-6 text-sm uppercase tracking-widest text-white">Redes</h4>
-            <div className="flex gap-4">
-              <a href="#" className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition text-slate-300 hover:text-white">
-                <Instagram size={20} />
-              </a>
-              <a href="#" className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition text-slate-300 hover:text-white">
-                <Twitter size={20} />
-              </a>
-              <a href="#" className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition text-slate-300 hover:text-white">
-                <MessageCircle size={20} />
-              </a>
+          <div className="flex flex-col gap-4">
+            <h4 className="font-semibold text-xs text-[#1d1d1f] uppercase tracking-wider">Social</h4>
+            <div className="flex gap-5 text-[#424245]">
+              <a href="#" className="hover:text-black transition-transform hover:scale-110"><Instagram size={20} /></a>
+              <a href="#" className="hover:text-black transition-transform hover:scale-110"><Twitter size={20} /></a>
+              <a href="#" className="hover:text-black transition-transform hover:scale-110"><MessageCircle size={20} /></a>
             </div>
           </div>
         </div>
 
-        {/* Copyright */}
-        <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-slate-500 text-xs">
-            © 2026 ALESTEB STORE. Todos los derechos reservados.
-          </p>
-          <p className="text-slate-600 text-[10px] tracking-[0.2em] uppercase">
-            Designed for the future
-          </p>
+        {/* Copyright & Legal */}
+        <div className="border-t border-[#d2d2d7] pt-8">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 text-[11px] text-[#86868b]">
+              <p>© 2026 ALESTEB STORE.</p>
+              <span className="hidden sm:block text-[#d2d2d7]">|</span>
+              <div className="flex gap-4">
+                <a href="#" className="hover:underline">Privacidad</a>
+                <a href="#" className="hover:underline">Legal</a>
+                <a href="#" className="hover:underline">Mapa del sitio</a>
+              </div>
+            </div>
+            
+            <p className="text-[#86868b] text-[10px] font-bold tracking-widest uppercase">COLOMBIA</p>
+          </div>
         </div>
       </div>
     </footer>

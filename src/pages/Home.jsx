@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
-
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
 import BannerCarousel from "../components/BannerCarousel";
 
 export default function Home() {
@@ -12,142 +9,105 @@ export default function Home() {
 
   useEffect(() => {
     const controller = new AbortController();
-
     api
       .get("/banners", { signal: controller.signal })
       .then((res) => {
-        const activeBanners = res.data.filter(
-          (b) => b.is_active === true || b.is_active === 1
-        );
+        const activeBanners = res.data.filter((b) => b.is_active === true || b.is_active === 1);
         setBanners(activeBanners);
       })
-      .catch((err) => {
-        if (err.name !== "CanceledError") {
-          console.error("Error cargando banners", err);
-        }
-      })
+      .catch((err) => { if (err.name !== "CanceledError") console.error(err); })
       .finally(() => setLoading(false));
 
     return () => controller.abort();
   }, []);
 
-  /* ===== LOADING SCREEN ===== */
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden font-sans">
-      <Navbar />
+    <div className="min-h-screen bg-white text-black font-sans antialiased">
 
-      {/* ===== LUCES AMBIENTALES ===== */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-purple-600/10 blur-[150px] rounded-full" />
-        <div className="absolute bottom-[10%] right-[-5%] w-[500px] h-[500px] bg-blue-600/10 blur-[150px] rounded-full" />
-      </div>
-
-      <main className="relative z-10 pt-16 md:pt-20">
-        {/* ===== BANNER ===== */}
+      <main className="pt-16 md:pt-20">
+        {/* BANNER - Ahora con bordes redondeados opcionales y margen lateral para un look más "Apple Store" */}
         {banners.length > 0 && (
-          <section className="w-full h-[calc(100vh-64px)] md:h-[90vh] overflow-hidden relative border-b border-white/5">
+          <section
+            className="
+              max-w-[1520px]
+              mx-auto
+              h-[70vh] sm:h-[80vh] md:h-[85vh]
+              bg-[#f5f5f7]
+              overflow-hidden
+              relative
+              md:rounded-3xl
+              shadow-sm
+              -mt-0 md:-mt-16
+            "
+          >
             <BannerCarousel banners={banners} />
           </section>
         )}
 
-        <div className="max-w-7xl mx-auto px-6">
-          {/* ===== HERO ===== */}
-          <section className="text-center py-32 md:py-44">
-            <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 text-[10px] uppercase tracking-[0.4em] bg-white/[0.03] border border-white/10 rounded-full text-slate-300 backdrop-blur-xl">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
-              Ingeniería & Estética
-            </div>
 
-            <h2 className="text-6xl md:text-8xl font-bold tracking-tighter mb-8 leading-[0.9]">
+
+        <div className="max-w-5xl mx-auto px-6">
+          {/* HERO */}
+          <section className="text-center py-24 md:py-40">
+            <h2 className="text-5xl md:text-7xl font-semibold tracking-tight mb-8">
               Redefiniendo <br />
-              <span className="italic font-light text-slate-500">
-                lo cotidiano.
-              </span>
+              <span className="text-[#86868b]">lo cotidiano.</span>
             </h2>
 
-            <p className="max-w-xl mx-auto text-slate-400 mb-14 text-lg md:text-xl font-light leading-relaxed">
-              Descubre una curaduría de objetos tecnológicos diseñados para
-              quienes no aceptan compromisos entre funcionalidad y estilo.
+            <p className="max-w-lg mx-auto text-[#1d1d1f] mb-10 text-lg md:text-xl font-normal leading-relaxed">
+              Objetos tecnológicos diseñados con un equilibrio perfecto entre funcionalidad y estilo.
             </p>
 
             <Link
               to="/productos"
-              className="inline-block px-12 py-4 bg-white text-black font-semibold rounded-full text-sm tracking-widest transition hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+              className="inline-block px-8 py-3 bg-[#0071e3] text-white font-medium rounded-full text-sm transition hover:bg-[#0077ed]"
             >
-              VER PRODUCTOS
+              Comprar ahora
             </Link>
           </section>
 
-          {/* ===== BENEFICIOS ===== */}
-          <section
-            id="beneficios"
-            className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-48"
-          >
-            <Feature
-              title="Global Logistics"
-              desc="Envíos prioritarios con seguimiento en tiempo real."
-            />
-            <Feature
-              title="Verified Hardware"
-              desc="Certificación de calidad en cada componente seleccionado."
-            />
-            <Feature
-              title="Exclusive Access"
-              desc="Lanzamientos limitados para nuestra comunidad."
-            />
+          {/* BENEFICIOS - Minimalist Grid */}
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-32 border-t border-[#f5f5f7] pt-16">
+            <Feature title="Logística Global" desc="Envíos con seguimiento en tiempo real." />
+            <Feature title="Calidad Verificada" desc="Certificación en cada componente." />
+            <Feature title="Acceso Exclusivo" desc="Lanzamientos para nuestra comunidad." />
           </section>
 
-          {/* ===== CATEGORÍAS ===== */}
-          <section id="categorias" className="mb-48">
-            <div className="border-l border-white/10 pl-8 mb-16">
-              <h2 className="text-4xl md:text-6xl font-bold tracking-tight">
-                Nuestras{" "}
-                <span className="text-slate-600 font-light">
-                  Colecciones
-                </span>
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Category title="Audio Pro" />
+          {/* CATEGORÍAS - Subtle interaction */}
+          <section className="mb-32">
+            <h2 className="text-3xl font-semibold tracking-tight mb-12">Colecciones</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Category title="Audio" />
               <Category title="Performance" />
               <Category title="Desktop" />
               <Category title="Limited" />
             </div>
           </section>
 
-          {/* ===== CTA FINAL ===== */}
+          {/* CTA FINAL - Clean card */}
           <section className="mb-32">
-            <div className="relative bg-[#080808] border border-white/5 rounded-[4rem] p-16 md:p-32 text-center overflow-hidden">
-              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 blur-[120px] rounded-full" />
-
-              <div className="relative z-10">
-                <h2 className="text-5xl md:text-7xl font-bold tracking-tighter mb-10">
-                  ¿Listo para el <br /> siguiente nivel?
-                </h2>
-
-                <Link
-                  to="/productos"
-                  className="inline-flex items-center gap-6 text-white font-light tracking-[0.3em] text-xs uppercase group"
-                >
-                  Ir a la tienda oficial
-                  <span className="w-16 h-[1px] bg-white/20 transition-all duration-500 group-hover:w-28 group-hover:bg-cyan-500" />
-                </Link>
-              </div>
+            <div className="bg-[#f5f5f7] rounded-3xl p-12 md:p-24 text-center">
+              <h2 className="text-4xl md:text-5xl font-semibold tracking-tight mb-8">
+                ¿Listo para el cambio?
+              </h2>
+              <Link
+                to="/productos"
+                className="text-[#0071e3] font-medium text-lg hover:underline underline-offset-4"
+              >
+                Explorar la tienda &rarr;
+              </Link>
             </div>
           </section>
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }
@@ -156,20 +116,19 @@ export default function Home() {
 
 function Feature({ title, desc }) {
   return (
-    <div className="group p-12 bg-white/[0.01] border border-white/5 rounded-[2.5rem] hover:bg-white/[0.02] hover:border-white/20 transition-all duration-700">
-      <h3 className="text-[10px] tracking-[0.3em] uppercase text-slate-500 mb-6 group-hover:text-cyan-400 transition-colors">
+    <div className="text-center md:text-left">
+      <h3 className="text-xs font-semibold uppercase tracking-widest text-[#86868b] mb-3">
         {title}
       </h3>
-      <p className="text-xl text-slate-300 font-medium">{desc}</p>
+      <p className="text-base text-[#1d1d1f] font-normal leading-snug">{desc}</p>
     </div>
   );
 }
 
 function Category({ title }) {
   return (
-    <div className="relative h-72 flex items-center justify-center bg-white/[0.01] border border-white/5 rounded-[2rem] hover:border-white/30 transition-all cursor-pointer group overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-      <p className="relative z-10 font-light text-sm tracking-[0.4em] uppercase text-slate-400 group-hover:text-white group-hover:scale-110 transition-all">
+    <div className="aspect-square flex items-center justify-center bg-[#f5f5f7] rounded-2xl transition-all hover:scale-[1.02] cursor-pointer group">
+      <p className="font-medium text-sm tracking-tight text-[#1d1d1f] group-hover:text-black">
         {title}
       </p>
     </div>
