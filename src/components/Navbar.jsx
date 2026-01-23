@@ -7,121 +7,98 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
 
-  // Detectar scroll para cambiar apariencia
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 10);
+    const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Cerrar menú cuando cambie la ruta (navegación)
   useEffect(() => {
     setIsOpen(false);
   }, [location]);
 
-  // Bloquear el scroll del cuerpo cuando el menú está abierto
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
+    document.body.style.overflow = isOpen ? 'hidden' : 'unset';
   }, [isOpen]);
-
-  const toggleMenu = () => setIsOpen(!isOpen);
 
   return (
     <>
-      <nav className={`fixed top-0 w-full z-[100] transition-all duration-500 ${
-        scrolled || isOpen 
-          ? "bg-white border-b border-[#d2d2d7]" 
-          : "bg-white/70 backdrop-blur-md"
-      }`}>
-
-        <div className="max-w-7xl mx-auto px-6 h-12 lg:h-14 flex items-center justify-between relative z-[120]">
+      {/* NAV PRINCIPAL */}
+      <nav className={`fixed top-0 w-full z-[150] transition-colors duration-300 ${
+        scrolled || isOpen ? "bg-white" : "bg-white/70 backdrop-blur-md"
+      } ${scrolled ? "border-b border-slate-200" : "border-b border-transparent"}`}>
+        
+        <div className="max-w-7xl mx-auto px-6 h-12 lg:h-14 flex items-center justify-between relative z-[160]">
           
-          {/* LADO IZQUIERDO: Menu Mobile Toggle */}
+          {/* BOTÓN MENU MÓVIL */}
           <button 
-            onClick={toggleMenu} 
-            className="md:hidden p-1 text-[#1d1d1f] hover:opacity-70 transition-opacity"
+            onClick={() => setIsOpen(!isOpen)} 
+            className="md:hidden p-1 text-slate-900 transition-transform active:scale-90"
           >
-            {isOpen ? <X size={20} strokeWidth={2} /> : <Menu size={20} strokeWidth={2} />}
+            {isOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
-          {/* CENTRO/IZQUIERDA: Logo */}
+          {/* LOGO */}
           <Link to="/" className="flex items-center gap-2 absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0">
-            <div className="w-4 h-4 bg-[#1d1d1f] rounded-[3px]" />
-            <span className="text-[17px] font-semibold tracking-tight text-[#1d1d1f]">ALESTEB</span>
+            <div className="w-4 h-4 bg-black rounded-[3px]" />
+            <span className="text-[17px] font-bold tracking-tight text-black">ALESTEB</span>
           </Link>
 
-          {/* CENTRO: Desktop Menu */}
-          <div className="hidden md:flex items-center gap-8 text-[12px] font-normal text-[#1d1d1f]/80">
+          {/* DESKTOP LINKS */}
+          <div className="hidden md:flex items-center gap-8 text-[12px] font-medium text-slate-600">
             <Link to="/productos" className="hover:text-black transition-colors">Tienda</Link>
             <a href="#categorias" className="hover:text-black transition-colors">Categorías</a>
             <a href="#beneficios" className="hover:text-black transition-colors">Soporte</a>
           </div>
 
-          {/* LADO DERECHO: Carrito e Iconos */}
+          {/* ICONOS DERECHA */}
           <div className="flex items-center gap-4">
-            <Link to="/productos" className="p-1 text-[#1d1d1f]/80 hover:text-black transition-colors">
-              <ShoppingBag size={18} strokeWidth={2} />
+            <Link to="/productos" className="p-1 text-slate-600 hover:text-black transition-colors">
+              <ShoppingBag size={18} />
             </Link>
-            
             <Link 
               to="/productos" 
-              className="hidden md:block px-3 py-1 bg-[#0071e3] text-white text-[11px] font-medium rounded-full hover:bg-[#0077ed] transition-all"
+              className="hidden md:block px-3 py-1 bg-blue-600 text-white text-[11px] font-semibold rounded-full hover:bg-blue-700 transition-colors"
             >
               Comprar
             </Link>
           </div>
         </div>
 
-        {/* MOBILE MENU OVERLAY */}
+        {/* MENU MÓVIL DESPLEGABLE */}
         <div className={`
-          fixed inset-0 bg-white transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden z-[110]
-          ${isOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}
+          fixed inset-0 bg-white z-[140] md:hidden transition-all duration-300 ease-in-out
+          ${isOpen ? "translate-y-0 opacity-100 visible" : "-translate-y-full opacity-0 invisible"}
         `}>
-          <div className="flex flex-col px-10 pt-24 h-full gap-6">
-            <nav className="flex flex-col gap-5">
+          <div className="flex flex-col px-10 pt-24 h-full">
+            <nav className="flex flex-col gap-6">
+              {['Tienda', 'Categorías', 'Soporte', 'Contacto'].map((item, idx) => (
+                <Link 
+                  key={item}
+                  to="/productos" 
+                  className={`text-2xl font-bold tracking-tight border-b border-slate-50 pb-4 transition-all duration-500 ${
+                    isOpen ? "translate-x-0 opacity-100" : "-translate-x-10 opacity-0"
+                  }`}
+                  style={{ transitionDelay: `${idx * 50}ms` }}
+                >
+                  {item}
+                </Link>
+              ))}
+              
               <Link 
                 to="/productos" 
-                className={`text-2xl font-semibold tracking-tight border-b border-slate-100 pb-4 transition-all duration-500 delay-75 ${isOpen ? "translate-x-0" : "-translate-x-4"}`}
-              >
-                Tienda
-              </Link>
-              <a 
-                href="#categorias" 
-                className={`text-2xl font-semibold tracking-tight border-b border-slate-100 pb-4 transition-all duration-500 delay-100 ${isOpen ? "translate-x-0" : "-translate-x-4"}`}
-              >
-                Categorías
-              </a>
-              <a 
-                href="#beneficios" 
-                className={`text-2xl font-semibold tracking-tight border-b border-slate-100 pb-4 transition-all duration-500 delay-150 ${isOpen ? "translate-x-0" : "-translate-x-4"}`}
-              >
-                Soporte
-              </a>
-              <Link 
-                to="/contacto" 
-                className={`text-2xl font-semibold tracking-tight transition-all duration-500 delay-200 ${isOpen ? "translate-x-0" : "-translate-x-4"}`}
-              >
-                Contacto
-              </Link>
-            </nav>
-
-            <div className={`mt-4 transition-all duration-700 delay-300 ${isOpen ? "opacity-100" : "opacity-0"}`}>
-               <Link 
-                to="/productos" 
-                className="inline-flex items-center gap-2 bg-[#0071e3] text-white px-6 py-3 rounded-full text-sm font-medium"
+                className={`mt-6 inline-flex items-center justify-center bg-blue-600 text-white px-8 py-4 rounded-2xl text-base font-bold transition-all duration-700 ${
+                  isOpen ? "scale-100 opacity-100" : "scale-90 opacity-0"
+                }`}
               >
                 Comprar ahora
               </Link>
-            </div>
+            </nav>
           </div>
         </div>
       </nav>
       
-      {/* Spacer para que el contenido no quede debajo del Nav fijo */}
+      {/* ESPACIADOR */}
       <div className="h-12 lg:h-14" />
     </>
   );
