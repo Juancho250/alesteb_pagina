@@ -35,7 +35,7 @@ export default function BannerCarousel({ banners }) {
               <img 
                 src={slide.image_url} 
                 alt={slide.title} 
-                fetchpriority="high" // <-- ESTO ES CLAVE
+                fetchPriority="high" // <-- ESTO ES CLAVE
                 loading="eager"
                 className="w-full h-full object-cover opacity-60 transition-transform duration-700 ease-out"
             />
