@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Home from "./pages/Home";
-import Products from "./pages/Products"; // Componente unificado
+import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import Footer from "./components/Footer";
 import Navbar from "./components/Navbar";
 import CartFloating from "./components/CartFloating";
 import { normalizePrice } from "./utils/price";
-import ScrollToTop from './components/ScrollToTop';
+import ScrollToTop from "./components/ScrollToTop";
 
 export default function App() {
   const [cart, setCart] = useState(() =>
@@ -19,10 +19,12 @@ export default function App() {
   }, [cart]);
 
   const updateQuantity = (productId, newQty) => {
-    if (newQty < 1) return; 
-    setCart(prev => prev.map(item => 
-      item.id === productId ? { ...item, quantity: newQty } : item
-    ));
+    if (newQty < 1) return;
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === productId ? { ...item, quantity: newQty } : item
+      )
+    );
   };
 
   const toggleCart = (product, quantity = 1) => {
@@ -31,7 +33,7 @@ export default function App() {
       if (exists) return prev.filter((item) => item.id !== product.id);
 
       const priceOriginal = normalizePrice(product.price);
-      let priceFinal = normalizePrice(product.final_price) || priceOriginal;
+      const priceFinal = normalizePrice(product.final_price) || priceOriginal;
 
       return [
         ...prev,
@@ -57,17 +59,34 @@ export default function App() {
       <main className="min-h-screen">
         <Routes>
           <Route path="/" element={<Home />} />
-          
-          {/* Ambas rutas usan el componente Products */}
-          <Route path="/productos" element={<Products cart={cart} toggleCart={toggleCart} />} />
-          <Route path="/productos/:slug" element={<Products cart={cart} toggleCart={toggleCart} />} />
-          
-          <Route path="/productos/:id" element={<ProductDetail cart={cart} toggleCart={toggleCart} />} />
+
+          {/* Tienda */}
+          <Route
+            path="/productos"
+            element={<Products cart={cart} toggleCart={toggleCart} />}
+          />
+
+          {/* Categoría (mejor con prefijo para evitar choque) */}
+          <Route
+            path="/productos/:slug"
+            element={<Products cart={cart} toggleCart={toggleCart} />}
+          />
+
+          {/* Detalle */}
+          <Route
+            path="/productos/detalle/:id"
+            element={<ProductDetail cart={cart} toggleCart={toggleCart} />}
+          />
+
           <Route path="*" element={<Home />} />
         </Routes>
       </main>
       <Footer />
-      <CartFloating cart={cart} onRemove={removeFromCart} onUpdateQty={updateQuantity} />
+      <CartFloating
+        cart={cart}
+        onRemove={removeFromCart}
+        onUpdateQty={updateQuantity}
+      />
     </BrowserRouter>
   );
 }

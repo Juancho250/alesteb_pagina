@@ -32,7 +32,7 @@ const ProductCard = memo(({ p, isInCart, onToggle }) => {
         </div>
       )}
 
-      <Link to={`/productos/${p.id}`} className="relative">
+      <Link to={`/productos/detalle/${p.id}`} className="relative">
         <div className="aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#f5f5f7] border border-transparent group-hover:border-slate-200 transition-all duration-500 shadow-sm group-hover:shadow-md">
           <img
             src={p.main_image || (p.images && p.images[0]?.url) || 'https://via.placeholder.com/400x500'}
