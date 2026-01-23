@@ -1,8 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Check, ShoppingBag, Percent, Package, ShieldCheck, Tag, Plus, Minus } from "lucide-react";
+import { ArrowLeft, Check, ShoppingBag, Percent, Package, ShieldCheck, Tag, Plus, Minus, Info } from "lucide-react";
 import api from "../services/api";
-import { normalizePrice } from "../utils/price";
 
 export default function ProductDetail({ cart, toggleCart }) {
   const { id } = useParams();
@@ -38,24 +37,19 @@ export default function ProductDetail({ cart, toggleCart }) {
 
   const isInCart = cart.some((item) => item.id === product.id);
 
-  // --- LÓGICA DE PRECIOS MEJORADA ---
+  // LÓGICA DE PRECIOS
   const priceOriginal = Number(product.price) || 0;
   const priceFinalRaw = Number(product.final_price) || priceOriginal;
-
-  // Solo hay descuento si el precio final es menor que el original
   const hasDiscount = priceFinalRaw > 0 && priceFinalRaw < priceOriginal;
-
   const priceFinal = hasDiscount ? priceFinalRaw : priceOriginal;
   const discountAmount = priceOriginal - priceFinal;
-  const discountPercent = hasDiscount
-    ? Math.round((discountAmount / priceOriginal) * 100)
-    : 0;
+  const discountPercent = hasDiscount ? Math.round((discountAmount / priceOriginal) * 100) : 0;
 
   return (
     <div className="bg-white min-h-screen pb-12 font-sans text-slate-900">
       <div className="max-w-5xl mx-auto px-6 pt-12">
         
-        {/* BOTÓN VOLVER REFINADO */}
+        {/* BOTÓN VOLVER */}
         <Link to="/productos" className="inline-flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-all mb-8 group">
           <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
           <span className="text-[10px] font-black uppercase tracking-[0.2em]">Volver a la colección</span>
@@ -63,7 +57,7 @@ export default function ProductDetail({ cart, toggleCart }) {
 
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
           
-          {/* GALERÍA DE IMÁGENES */}
+          {/* COLUMNA IZQUIERDA: GALERÍA */}
           <div className="space-y-4">
             <div className="relative aspect-square bg-[#f5f5f7] rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-100">
               {hasDiscount && (
@@ -95,11 +89,11 @@ export default function ProductDetail({ cart, toggleCart }) {
             </div>
           </div>
 
-          {/* INFORMACIÓN DEL PRODUCTO */}
-          <div className="flex flex-col justify-center">
+          {/* COLUMNA DERECHA: INFO */}
+          <div className="flex flex-col">
             <div className="mb-4">
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">
-                {product.category || 'New Arrival'}
+                {product.category || 'Premium Collection'}
               </span>
             </div>
 
@@ -107,10 +101,10 @@ export default function ProductDetail({ cart, toggleCart }) {
               {product.name}
             </h1>
 
-            {/* BOX DE PRECIOS REFINADO */}
+            {/* BOX DE PRECIOS */}
             <div className="flex flex-col mb-8 p-6 bg-slate-50 rounded-[2rem] border border-slate-100 relative overflow-hidden">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">
-                {hasDiscount ? "Oferta Exclusiva" : "Precio de Lista"}
+                {hasDiscount ? "Precio Especial" : "Precio Unitario"}
               </span>
               <div className="flex items-center gap-5">
                 <span className="text-5xl font-black text-slate-900 tracking-tighter">
@@ -129,13 +123,33 @@ export default function ProductDetail({ cart, toggleCart }) {
               </div>
             </div>
 
-            <p className="text-slate-500 leading-relaxed mb-8 text-sm italic font-medium border-l-4 border-slate-100 pl-4">
-              "{product.description}"
-            </p>
+            {/* DESCRIPCIÓN DEL PRODUCTO MEJORADA */}
+            <div className="mb-8">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                <Info size={14} /> Descripción
+              </h3>
+              <p className="text-slate-600 leading-relaxed text-base">
+                {product.description || "No hay descripción disponible para este producto."}
+              </p>
+            </div>
+
+            {/* DETALLES RÁPIDOS (STOCK Y MARCA) */}
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <span className="block text-[9px] font-black text-slate-400 uppercase mb-1">Disponibilidad</span>
+                <span className="text-sm font-bold text-slate-700">
+                  {product.stock > 0 ? `${product.stock} Unidades` : "Agotado"}
+                </span>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <span className="block text-[9px] font-black text-slate-400 uppercase mb-1">Marca / Colección</span>
+                <span className="text-sm font-bold text-slate-700">{product.brand || "Exclusivo"}</span>
+              </div>
+            </div>
 
             {/* SELECTOR DE CANTIDAD */}
             <div className="mb-8">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-4">Cantidad</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-4">Seleccionar Cantidad</span>
               <div className="flex items-center bg-slate-100 w-fit rounded-2xl p-1.5 border border-slate-200">
                 <button 
                   onClick={() => setQuantity(q => Math.max(1, q - 1))}
@@ -155,7 +169,7 @@ export default function ProductDetail({ cart, toggleCart }) {
               </div>
             </div>
 
-            {/* BOTÓN DE ACCIÓN PRINCIPAL */}
+            {/* ACCIÓN PRINCIPAL */}
             <button
               onClick={() => toggleCart(product, quantity)}
               disabled={product.stock <= 0}
@@ -168,13 +182,13 @@ export default function ProductDetail({ cart, toggleCart }) {
               }`}
             >
               {isInCart ? (
-                <><Check size={20} strokeWidth={4} /> PRODUCTO EN TU BOLSA</>
+                <><Check size={20} strokeWidth={4} /> AÑADIDO CON ÉXITO</>
               ) : (
-                <><ShoppingBag size={20} strokeWidth={2.5} /> {product.stock <= 0 ? "AGOTADO" : "AÑADIR A LA BOLSA"}</>
+                <><ShoppingBag size={20} strokeWidth={2.5} /> {product.stock <= 0 ? "SIN STOCK" : "AÑADIR A LA BOLSA"}</>
               )}
             </button>
 
-            {/* INFO EXTRA / CONFIANZA */}
+            {/* BADGES DE CONFIANZA */}
             <div className="mt-10 grid grid-cols-2 gap-4 border-t border-slate-100 pt-8">
               <div className="flex items-center gap-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                 <div className="p-2 bg-slate-50 rounded-lg"><Package size={14} className="text-slate-900" /></div>
@@ -182,7 +196,7 @@ export default function ProductDetail({ cart, toggleCart }) {
               </div>
               <div className="flex items-center gap-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                 <div className="p-2 bg-slate-50 rounded-lg"><ShieldCheck size={14} className="text-slate-900" /></div>
-                Compra asegurada
+                Garantía Original
               </div>
             </div>
           </div>

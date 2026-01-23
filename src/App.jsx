@@ -7,7 +7,7 @@ import Footer from "./components/Footer";
 import Navbar from "./components/Navbar";
 import CartFloating from "./components/CartFloating";
 import { normalizePrice } from "./utils/price";
-
+import ScrollToTop from './components/ScrollToTop'; // Importa el componente
 
 export default function App() {
   const [cart, setCart] = useState(() =>
@@ -72,6 +72,7 @@ const toggleCart = (product, quantity = 1) => {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Navbar />
       <main className="pt-14 min-h-screen">
         <Routes>
