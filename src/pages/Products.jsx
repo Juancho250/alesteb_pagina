@@ -47,16 +47,20 @@ const ProductCard = memo(({ p, isInCart, onToggle }) => {
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-500" />
       </Link>
 
-      {/* Botón Flotante de Carrito */}
+      {/* Botón Flotante de Carrito - Siempre Visible */}
       <button
         onClick={() => onToggle(p, 1)}
-        className={`absolute bottom-32 right-6 z-20 p-4 rounded-full shadow-2xl transition-all duration-500 transform ${
+        className={`absolute bottom-32 right-6 z-20 p-4 rounded-full shadow-2xl transition-all duration-300 transform active:scale-90 ${
           isInCart
-            ? "bg-blue-600 text-white scale-110"
-            : "bg-white text-slate-900 hover:bg-black hover:text-white translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 shadow-xl" 
+            ? "bg-blue-600 text-white scale-110 shadow-blue-500/40"
+            : "bg-white text-slate-900 border border-slate-100 shadow-xl"
         }`}
       >
-        {isInCart ? <ShoppingBag size={20} strokeWidth={2.5} /> : <Plus size={20} strokeWidth={2.5} />}
+        {isInCart ? (
+          <ShoppingBag size={20} strokeWidth={2.5} className="animate-in zoom-in duration-300" />
+        ) : (
+          <Plus size={20} strokeWidth={2.5} className="animate-in zoom-in duration-300" />
+        )}
       </button>
 
       {/* Info del Producto */}
