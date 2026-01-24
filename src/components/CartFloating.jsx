@@ -16,11 +16,18 @@ export default function CartFloating({ cart, onRemove, onUpdateQty }) {
     }).join("\n");
 
     const msg = encodeURIComponent(
-      `¡Hola! 👋 Me gustaría realizar este pedido:\n\n${itemsList}\n\n💰 TOTAL: $${currentTotal.toLocaleString()}`
-    );
-    return { total: currentTotal, message: msg, count: itemsCount };
-  }, [cart]);
-
+        `✨ *SOLICITUD DE PEDIDO - AlestebAdmin* ✨\n\n` +
+        `Estimados, me gustaría formalizar la adquisición de los siguientes artículos:\n` +
+        `────────────────────────\n` +
+        `${itemsList}\n` +
+        `────────────────────────\n\n` +
+        `📊 *RESUMEN DE COMPRA*\n` +
+        `💰 *VALOR TOTAL: $${currentTotal.toLocaleString()}*\n\n` +
+        `¿Podrían confirmarme la disponibilidad y los pasos para concretar la operación? Quedo atento.`
+      );
+      
+      return { total: currentTotal, message: msg, count: itemsCount };
+    }, [cart]);
   if (!cart.length) return null;
 
   return (
