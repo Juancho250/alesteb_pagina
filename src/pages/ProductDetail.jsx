@@ -25,26 +25,15 @@ export default function ProductDetail({ cart = [], toggleCart = () => {} }) {
   useEffect(() => {
     let alive = true;
     setLoading(true);
-
-    api
-      .get(`/products/${id}`)
+    api.get(`/products/${id}`)
       .then(({ data }) => {
         if (!alive) return;
-
-        // soporta: {..producto..} o {product:{..}} o {data:{..}}
         const resolved = data?.product || data?.data || data;
         setProduct(resolved || null);
       })
-      .catch(() => {
-        if (alive) setProduct(null);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-
-    return () => {
-      alive = false;
-    };
+      .catch(() => { if (alive) setProduct(null); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
   }, [id]);
 
   const images = useMemo(() => {
@@ -59,228 +48,175 @@ export default function ProductDetail({ cart = [], toggleCart = () => {} }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="p-20 text-center font-bold italic">
+      <div className="p-20 text-center font-black italic text-slate-400 tracking-tighter">
         PRODUCTO NO ENCONTRADO
       </div>
     );
   }
 
   const isInCart = cart.some((item) => item.id === product.id);
-
-  // precios
   const priceOriginal = Number(product.price) || 0;
   const priceFinalRaw = Number(product.final_price) || priceOriginal;
   const hasDiscount = priceFinalRaw > 0 && priceFinalRaw < priceOriginal;
   const priceFinal = hasDiscount ? priceFinalRaw : priceOriginal;
-  const discountAmount = priceOriginal - priceFinal;
-  const discountPercent = hasDiscount
-    ? Math.round((discountAmount / priceOriginal) * 100)
-    : 0;
-
   const stock = Number(product.stock) || 0;
 
   return (
-    <div className="bg-white min-h-screen pb-12 font-sans text-slate-900">
-      <div className="max-w-5xl mx-auto px-6 pt-12">
-        {/* volver */}
+    <div className="bg-white min-h-screen pb-20 font-sans text-slate-900">
+      <div className="max-w-5xl mx-auto px-6 pt-8">
+        
+        {/* BOTÓN VOLVER (Minimalista) */}
         <Link
           to="/productos"
-          className="inline-flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-all mb-8 group"
+          className="inline-flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-all mb-10 group"
         >
-          <ArrowLeft
-            size={16}
-            className="group-hover:-translate-x-1 transition-transform"
-          />
-          <span className="text-[10px] font-black uppercase tracking-[0.2em]">
-            Volver a la colección
-          </span>
+          <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
+          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Volver a la tienda</span>
         </Link>
 
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
-          {/* galería */}
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+          
+          {/* COLUMNA IZQUIERDA: GALERÍA */}
           <div className="space-y-4">
-            <div className="relative aspect-square bg-[#f5f5f7] rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-100">
+            <div className="relative aspect-[4/5] bg-[#F5F5F7] rounded-[2rem] overflow-hidden border border-slate-50">
               {hasDiscount && (
-                <div className="absolute top-6 left-6 z-10 bg-red-600 text-white px-4 py-1.5 rounded-full text-[11px] font-black tracking-widest flex items-center gap-1.5 shadow-xl animate-pulse">
-                  <Percent size={12} strokeWidth={3} /> {discountPercent}% OFF
+                <div className="absolute top-5 left-5 z-10 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black tracking-tighter shadow-sm flex items-center gap-1">
+                  <Percent size={10} className="text-blue-600" strokeWidth={3} /> OFERTA
                 </div>
               )}
-              {activeImg && (
-                <img
-                  src={activeImg}
-                  alt={product.name}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
-                />
-              )}
+              <img
+                src={activeImg}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
             </div>
 
-            <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+            {/* Miniaturas pequeñas y elegantes */}
+            <div className="flex gap-2 overflow-x-auto pb-2">
               {images.map((img, idx) => (
                 <button
                   key={idx}
                   onClick={() => setActiveImg(img)}
-                  className={`min-w-[80px] h-[80px] rounded-2xl overflow-hidden border-2 transition-all ${
-                    activeImg === img
-                      ? "border-slate-900 scale-95"
-                      : "border-transparent opacity-40 hover:opacity-100"
+                  className={`w-16 h-16 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 ${
+                    activeImg === img ? "border-blue-600 scale-90" : "border-transparent opacity-50 hover:opacity-100"
                   }`}
-                  aria-label={`Ver imagen ${idx + 1}`}
                 >
-                  <img
-                    src={img}
-                    className="w-full h-full object-cover"
-                    alt={`Vista ${idx + 1}`}
-                  />
+                  <img src={img} className="w-full h-full object-cover" alt="Thumb" />
                 </button>
               ))}
             </div>
           </div>
 
-          {/* info */}
-          <div className="flex flex-col">
+          {/* COLUMNA DERECHA: INFO */}
+          <div className="flex flex-col pt-2">
             <div className="mb-4">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">
-                {product.category || product.category_name || "Premium Collection"}
+              <span className="text-[9px] font-black uppercase tracking-[0.25em] text-blue-600 border border-blue-100 px-2.5 py-1 rounded-md">
+                {product.category_name || "Premium Collection"}
               </span>
             </div>
 
-            <h1 className="text-4xl lg:text-5xl font-black text-slate-900 mb-6 leading-tight uppercase italic tracking-tight">
+            <h1 className="text-3xl lg:text-4xl font-black text-slate-900 mb-4 leading-[1.1] uppercase italic tracking-tighter">
               {product.name}
             </h1>
 
-            {/* precios */}
-            <div className="flex flex-col mb-8 p-6 bg-slate-50 rounded-[2rem] border border-slate-100 relative overflow-hidden">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">
-                {hasDiscount ? "Precio Especial" : "Precio Unitario"}
+            {/* PRECIO (Más compacto) */}
+            <div className="flex items-baseline gap-3 mb-8">
+              <span className="text-4xl font-black text-slate-900 tracking-tighter">
+                ${priceFinal.toLocaleString()}
               </span>
-              <div className="flex items-center gap-5">
-                <span className="text-5xl font-black text-slate-900 tracking-tighter">
-                  ${priceFinal.toLocaleString()}
+              {hasDiscount && (
+                <span className="text-lg text-slate-300 line-through font-bold">
+                  ${priceOriginal.toLocaleString()}
                 </span>
-
-                {hasDiscount && (
-                  <div className="flex flex-col">
-                    <span className="text-lg text-slate-400 line-through decoration-red-500/40 font-medium">
-                      ${priceOriginal.toLocaleString()}
-                    </span>
-                    <span className="text-[11px] font-black text-red-600 flex items-center gap-1 mt-1 bg-red-50 px-2 py-0.5 rounded-md w-fit">
-                      <Tag size={10} strokeWidth={3} /> AHORRAS $
-                      {discountAmount.toLocaleString()}
-                    </span>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
-            {/* descripción */}
-            <div className="mb-8">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                <Info size={14} /> Descripción
+            {/* DESCRIPCIÓN */}
+            <div className="mb-8 space-y-3">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] flex items-center gap-2">
+                <Info size={12} /> Detalles del producto
               </h3>
-              <p className="text-slate-600 leading-relaxed text-base">
-                {product.description ||
-                  "No hay descripción disponible para este producto."}
+              <p className="text-slate-500 leading-relaxed text-sm font-medium">
+                {product.description || "Un diseño minimalista pensado para la durabilidad y el estilo contemporáneo."}
               </p>
             </div>
 
-            {/* detalles */}
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <span className="block text-[9px] font-black text-slate-400 uppercase mb-1">
-                  Disponibilidad
-                </span>
-                <span className="text-sm font-bold text-slate-700">
+            {/* CARACTERÍSTICAS TÉCNICAS */}
+            <div className="grid grid-cols-2 gap-3 mb-8">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                <span className="block text-[8px] font-black text-slate-400 uppercase mb-1">Stock</span>
+                <span className="text-xs font-bold text-slate-700">
                   {stock > 0 ? `${stock} Unidades` : "Agotado"}
                 </span>
               </div>
-
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <span className="block text-[9px] font-black text-slate-400 uppercase mb-1">
-                  Marca / Colección
-                </span>
-                <span className="text-sm font-bold text-slate-700">
-                  {product.brand || "Exclusivo"}
-                </span>
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                <span className="block text-[8px] font-black text-slate-400 uppercase mb-1">Referencia</span>
+                <span className="text-xs font-bold text-slate-700">#{product.id}</span>
               </div>
             </div>
 
-            {/* cantidad */}
-            <div className="mb-8">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-4">
-                Seleccionar Cantidad
-              </span>
-              <div className="flex items-center bg-slate-100 w-fit rounded-2xl p-1.5 border border-slate-200">
-                <button
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="p-3 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-900 disabled:opacity-20"
-                  disabled={quantity <= 1}
-                  aria-label="Disminuir cantidad"
-                >
-                  <Minus size={18} strokeWidth={3} />
-                </button>
-
-                <span className="w-14 text-center font-black text-xl">
-                  {quantity}
-                </span>
-
-                <button
-                  onClick={() => setQuantity((q) => Math.min(stock || 99, q + 1))}
-                  className="p-3 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-900 disabled:opacity-20"
-                  disabled={quantity >= (stock || 99)}
-                  aria-label="Aumentar cantidad"
-                >
-                  <Plus size={18} strokeWidth={3} />
-                </button>
-              </div>
-            </div>
-
-            {/* acción */}
-            <button
-              onClick={() => toggleCart(product, quantity)}
-              disabled={stock <= 0}
-              className={`w-full py-6 rounded-[1.5rem] font-black text-xs tracking-[0.2em] flex items-center justify-center gap-4 transition-all active:scale-[0.97] shadow-2xl ${
-                isInCart
-                  ? "bg-emerald-500 text-white shadow-emerald-200"
-                  : stock <= 0
-                  ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
-                  : "bg-slate-900 text-white hover:bg-black hover:-translate-y-1 shadow-slate-200"
-              }`}
-            >
-              {isInCart ? (
-                <>
-                  <Check size={20} strokeWidth={4} /> AÑADIDO CON ÉXITO
-                </>
-              ) : (
-                <>
-                  <ShoppingBag size={20} strokeWidth={2.5} />{" "}
-                  {stock <= 0 ? "SIN STOCK" : "AÑADIR A LA BOLSA"}
-                </>
-              )}
-            </button>
-
-            {/* badges */}
-            <div className="mt-10 grid grid-cols-2 gap-4 border-t border-slate-100 pt-8">
-              <div className="flex items-center gap-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                <div className="p-2 bg-slate-50 rounded-lg">
-                  <Package size={14} className="text-slate-900" />
+            {/* SELECTOR CANTIDAD + BOTÓN */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-2 border border-slate-100">
+                <span className="pl-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cantidad</span>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                    className="p-2 hover:bg-white rounded-xl transition-all disabled:opacity-20"
+                    disabled={quantity <= 1}
+                  >
+                    <Minus size={16} strokeWidth={3} />
+                  </button>
+                  <span className="font-black text-base">{quantity}</span>
+                  <button
+                    onClick={() => setQuantity(q => Math.min(stock, q + 1))}
+                    className="p-2 hover:bg-white rounded-xl transition-all"
+                  >
+                    <Plus size={16} strokeWidth={3} />
+                  </button>
                 </div>
-                Envío prioritario
               </div>
-              <div className="flex items-center gap-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                <div className="p-2 bg-slate-50 rounded-lg">
-                  <ShieldCheck size={14} className="text-slate-900" />
-                </div>
-                Garantía Original
+
+              <button
+                onClick={() => toggleCart(product, quantity)}
+                disabled={stock <= 0}
+                className={`w-full py-5 rounded-[1.25rem] font-black text-[11px] tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
+                  isInCart
+                    ? "bg-emerald-500 text-white shadow-lg shadow-emerald-100"
+                    : stock <= 0
+                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                    : "bg-slate-900 text-white hover:bg-blue-600 shadow-xl shadow-slate-200"
+                }`}
+              >
+                {isInCart ? (
+                  <><Check size={18} strokeWidth={3} /> PRODUCTO EN BOLSA</>
+                ) : (
+                  <><ShoppingBag size={18} strokeWidth={2.5} /> {stock <= 0 ? "AGOTADO" : "AÑADIR A LA BOLSA"}</>
+                )}
+              </button>
+            </div>
+
+            {/* BADGES DE CONFIANZA */}
+            <div className="mt-10 pt-8 border-t border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-tight">
+                <Package size={14} className="text-slate-900" /> Envío Express
+              </div>
+              <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-tight">
+                <ShieldCheck size={14} className="text-slate-900" /> Compra Segura
+              </div>
+              <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-tight">
+                <Tag size={14} className="text-slate-900" /> Original
               </div>
             </div>
+
           </div>
         </div>
       </div>

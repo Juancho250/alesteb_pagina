@@ -1,18 +1,20 @@
 import React, { useEffect, useState, memo, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../services/api";
-import { ShoppingBag, Percent, Search, X, ChevronRight, Loader2, ArrowLeft } from "lucide-react";
+import { ShoppingBag, Percent, Search, X, ChevronRight, Loader2, ArrowLeft, Plus } from "lucide-react";
 
-// Componente de carga (Skeleton) para mejorar el UX
+// 1. SKELETON CON ESTILO APPLE (Soft Pulse)
 const SkeletonCard = () => (
-  <div className="animate-pulse">
-    <div className="aspect-[4/5] bg-gray-200 rounded-3xl mb-4" />
-    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-    <div className="h-4 bg-gray-200 rounded w-1/2" />
+  <div className="space-y-6">
+    <div className="aspect-[4/5] bg-slate-100 rounded-[2.5rem] animate-pulse" />
+    <div className="space-y-3 px-2">
+      <div className="h-4 bg-slate-100 rounded-full w-2/3 animate-pulse" />
+      <div className="h-6 bg-slate-100 rounded-full w-1/3 animate-pulse" />
+    </div>
   </div>
 );
 
-// Componente de Tarjeta de Producto optimizado con memo
+// 2. PRODUCT CARD (Minimalist & Bold)
 const ProductCard = memo(({ p, isInCart, onToggle }) => {
   const priceOriginal = Number(p.price) || 0;
   const priceFinalRaw = Number(p.final_price) || priceOriginal;
@@ -24,48 +26,53 @@ const ProductCard = memo(({ p, isInCart, onToggle }) => {
     : 0;
 
   return (
-    <div className="relative group flex flex-col">
+    <div className="group relative flex flex-col">
+      {/* Badge de Descuento estilo "Pro" */}
       {hasDiscount && (
-        <div className="absolute top-3 left-3 z-10 bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black tracking-widest flex items-center gap-1 shadow-xl">
-          <Percent size={10} strokeWidth={3} />
-          -{discountPercent}% OFF
+        <div className="absolute top-5 left-5 z-20 bg-white/90 backdrop-blur-md text-slate-900 px-3 py-1.5 rounded-2xl text-[10px] font-black tracking-tighter flex items-center gap-1 shadow-sm border border-slate-100">
+          <Percent size={10} className="text-blue-600" strokeWidth={3} />
+          {discountPercent}% OFF
         </div>
       )}
 
-      <Link to={`/productos/detalle/${p.id}`} className="relative">
-        <div className="aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#f5f5f7] border border-transparent group-hover:border-slate-200 transition-all duration-500 shadow-sm group-hover:shadow-md">
-          <img
-            src={p.main_image || (p.images && p.images[0]?.url) || 'https://via.placeholder.com/400x500'}
-            alt={p.name}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-          />
-        </div>
+      {/* Contenedor de Imagen */}
+      <Link to={`/productos/detalle/${p.id}`} className="relative block overflow-hidden rounded-[2.5rem] bg-[#F5F5F7] aspect-[4/5] transition-all duration-500 group-hover:shadow-2xl group-hover:shadow-slate-200">
+        <img
+          src={p.main_image || (p.images && p.images[0]?.url) || 'https://via.placeholder.com/400x500'}
+          alt={p.name}
+          className="w-full h-full object-cover transition-transform duration-1000 cubic-bezier(0.4, 0, 0.2, 1) group-hover:scale-110"
+        />
+        
+        {/* Overlay sutil al hacer hover */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-500" />
       </Link>
 
+      {/* Botón Flotante de Carrito */}
       <button
         onClick={() => onToggle(p, 1)}
-        className={`absolute top-3 right-3 z-10 p-3 rounded-full shadow-lg transition-all duration-300 transform ${
+        className={`absolute bottom-32 right-6 z-20 p-4 rounded-full shadow-2xl transition-all duration-500 transform ${
           isInCart
-            ? "bg-emerald-500 text-white scale-110"
-            : "bg-white text-slate-900 hover:bg-black hover:text-white scale-100" 
+            ? "bg-blue-600 text-white scale-110"
+            : "bg-white text-slate-900 hover:bg-black hover:text-white translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 shadow-xl" 
         }`}
       >
-        <ShoppingBag size={18} strokeWidth={2.5} />
+        {isInCart ? <ShoppingBag size={20} strokeWidth={2.5} /> : <Plus size={20} strokeWidth={2.5} />}
       </button>
 
-      <div className="mt-5 px-1">
-        <h3 className="text-sm font-bold text-slate-800 leading-tight group-hover:text-blue-600 transition-colors">
+      {/* Info del Producto */}
+      <div className="mt-6 px-2 space-y-1">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest leading-tight group-hover:text-blue-600 transition-colors duration-300">
           {p.name}
         </h3>
         
-        <div className="flex items-center gap-3 mt-2">
-          {hasDiscount ? (
-            <>
-              <span className="text-base font-black text-slate-900">${priceFinal.toLocaleString()}</span>
-              <span className="text-xs text-slate-400 line-through">${priceOriginal.toLocaleString()}</span>
-            </>
-          ) : (
-            <span className="text-base font-black text-slate-900">${priceOriginal.toLocaleString()}</span>
+        <div className="flex items-baseline gap-3">
+          <span className="text-2xl font-black text-slate-900 tracking-tighter">
+            ${priceFinal.toLocaleString()}
+          </span>
+          {hasDiscount && (
+            <span className="text-sm text-slate-400 line-through font-medium">
+              ${priceOriginal.toLocaleString()}
+            </span>
           )}
         </div>
       </div>
@@ -74,22 +81,18 @@ const ProductCard = memo(({ p, isInCart, onToggle }) => {
 });
 
 export default function Products({ cart, toggleCart }) {
-  const { slug } = useParams(); // Detecta si estamos en una categoría
+  const { slug } = useParams();
   const [products, setProducts] = useState([]);
   const [categoryName, setCategoryName] = useState("");
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Dentro de Products.js
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        // Importante: Si hay slug, usamos el filtro de categoría, si no, traemos todo.
         const endpoint = slug ? `/products?categoria=${slug}` : "/products";
         const res = await api.get(endpoint);
-        
-        // Ajuste de seguridad para la respuesta de la API
         const data = Array.isArray(res.data) ? res.data : (res.data.products || []);
         setProducts(data);
 
@@ -103,11 +106,9 @@ export default function Products({ cart, toggleCart }) {
         setLoading(false);
       }
     };
-
     loadData();
-  }, [slug]); // <--- Esto fuerza la recarga cuando cambias de categoría en el Navbar
+  }, [slug]);
 
-  // En Products.jsx verifica que el filtrado use 'category_name' (como definimos en el SQL)
   const filteredProducts = useMemo(() => {
     return products.filter(p => 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -115,72 +116,60 @@ export default function Products({ cart, toggleCart }) {
     );
   }, [products, searchTerm]);
 
-  if (loading && slug) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" strokeWidth={1.5} />
-        <p className="text-slate-400 font-medium animate-pulse">Cargando colección...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-white min-h-screen">
-      <div className="max-w-7xl mx-auto px-6 py-12">
+    <div className="bg-white min-h-screen font-sans">
+      <div className="max-w-7xl mx-auto px-6 py-16">
         
-        {/* BREADCRUMBS (Solo se muestran si hay un slug de categoría) */}
+        {/* BREADCRUMBS estilo Navbar */}
         {slug && (
-          <nav className="flex items-center gap-2 text-[13px] font-semibold text-slate-400 mb-8 uppercase tracking-widest">
-            <Link to="/" className="hover:text-black transition-colors">Inicio</Link>
-            <ChevronRight size={14} />
-            <Link to="/productos" className="hover:text-black transition-colors">Tienda</Link>
-            <ChevronRight size={14} />
-            <span className="text-black">{categoryName}</span>
+          <nav className="flex items-center gap-3 text-[10px] font-black text-slate-400 mb-10 uppercase tracking-[0.2em]">
+            <Link to="/" className="hover:text-blue-600 transition-colors">Inicio</Link>
+            <ChevronRight size={12} className="text-slate-300" />
+            <Link to="/productos" className="hover:text-blue-600 transition-colors">Tienda</Link>
+            <ChevronRight size={12} className="text-slate-300" />
+            <span className="text-slate-900">{categoryName}</span>
           </nav>
         )}
 
-        {/* CABECERA DINÁMICA */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
-          <div className="space-y-4 max-w-2xl">
-            <h2 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter uppercase leading-[0.9]">
-              {slug ? categoryName : "NEW DROPS"}
+        {/* HEADER PRINCIPAL (Apple Editorial Style) */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-20">
+          <div className="space-y-6">
+            <h2 className="text-6xl md:text-8xl font-black text-slate-900 tracking-tighter leading-[0.85] italic">
+              {slug ? categoryName : "EXPLORA\nLO NUEVO"}
             </h2>
-            <div className="h-2 w-24 bg-blue-600 rounded-full" />
-            {slug && (
-              <p className="text-slate-500 text-lg font-medium leading-relaxed">
-                Explora nuestra curada selección en {categoryName.toLowerCase()}. Calidad excepcional.
+            <div className="flex items-center gap-4">
+              <div className="h-1.5 w-20 bg-blue-600 rounded-full" />
+              <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">
+                {filteredProducts.length} Productos disponibles
               </p>
-            )}
+            </div>
           </div>
 
-          {/* BARRA DE BÚSQUEDA */}
-          <div className="relative w-full md:w-80 group">
+          {/* BUSCADOR Minimalista */}
+          <div className="relative group w-full lg:w-96">
             <input 
               type="text"
-              placeholder="¿Qué estás buscando?"
-              className="w-full bg-slate-100 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl py-4 pl-12 pr-10 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-400 shadow-sm"
+              placeholder="Buscar en la colección..."
+              className="w-full bg-slate-50 border-none rounded-[1.5rem] py-5 pl-14 pr-10 outline-none ring-0 focus:ring-2 focus:ring-blue-600/20 focus:bg-white transition-all duration-300 font-bold text-slate-800 placeholder:text-slate-400 shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600" size={20} strokeWidth={2.5} />
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={22} strokeWidth={2.5} />
             {searchTerm && (
-              <button 
-                onClick={() => setSearchTerm("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 bg-slate-200 hover:bg-slate-300 p-1 rounded-full transition-colors"
-              >
+              <button onClick={() => setSearchTerm("")} className="absolute right-4 top-1/2 -translate-y-1/2 bg-slate-200 hover:bg-slate-300 p-1 rounded-full transition-all">
                 <X size={14} />
               </button>
             )}
           </div>
         </div>
 
-        {/* CONTENIDO PRINCIPAL */}
+        {/* GRID DE PRODUCTOS */}
         {loading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-16">
             {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-16">
             {filteredProducts.length > 0 ? (
               filteredProducts.map((p) => (
                 <ProductCard
@@ -191,10 +180,15 @@ export default function Products({ cart, toggleCart }) {
                 />
               ))
             ) : (
-              <div className="col-span-full py-24 text-center border-4 border-dashed border-slate-100 rounded-[3rem]">
-                <p className="text-slate-300 text-xl font-black uppercase italic tracking-widest mb-4">No se encontraron resultados</p>
-                <Link to="/productos" onClick={() => setSearchTerm("")} className="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-full font-bold hover:scale-105 transition-transform">
-                   <ArrowLeft size={18} /> Ver todos los productos
+              /* EMPTY STATE */
+              <div className="col-span-full py-32 flex flex-col items-center text-center">
+                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 mb-6">
+                  <Search size={40} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tighter mb-2">SIN RESULTADOS</h3>
+                <p className="text-slate-500 font-medium mb-8">Intenta con otros términos de búsqueda.</p>
+                <Link to="/productos" onClick={() => setSearchTerm("")} className="bg-slate-900 text-white px-8 py-4 rounded-full font-bold hover:bg-blue-600 transition-all active:scale-95 flex items-center gap-2">
+                  <ArrowLeft size={18} /> Ver todo
                 </Link>
               </div>
             )}

@@ -28,25 +28,26 @@ export default function App() {
   };
 
   const toggleCart = (product, quantity = 1) => {
-    setCart((prev) => {
-      const exists = prev.find((item) => item.id === product.id);
-      if (exists) return prev.filter((item) => item.id !== product.id);
+  setCart((prev) => {
+    const exists = prev.find((item) => item.id === product.id);
+    if (exists) return prev.filter((item) => item.id !== product.id);
 
-      const priceOriginal = normalizePrice(product.price);
-      const priceFinal = normalizePrice(product.final_price) || priceOriginal;
+    const priceOriginal = product.price; // Asegúrate de que no haya normalización aquí
+    const priceFinal = product.final_price || priceOriginal;
 
-      return [
-        ...prev,
-        {
-          ...product,
-          quantity,
-          price: priceOriginal,
-          final_price: priceFinal,
-          main_image: product.main_image || product.images?.[0]?.url || "",
-        },
-      ];
-    });
-  };
+    return [
+      ...prev,
+      {
+        ...product,
+        quantity,
+        price: priceOriginal,
+        final_price: priceFinal,
+        main_image: product.main_image || product.images?.[0]?.url || "",
+      },
+    ];
+  });
+};
+
 
   const removeFromCart = (product) => {
     setCart((prev) => prev.filter((item) => item.id !== product.id));
