@@ -16,7 +16,7 @@ export default function CartFloating({ cart, onRemove, onUpdateQty }) {
     }).join("\n");
 
     const msg = encodeURIComponent(
-        `✨ *SOLICITUD DE PEDIDO - AlestebAdmin* ✨\n\n` +
+        `✨ *SOLICITUD DE PEDIDO - Alesteb* ✨\n\n` +
         `Estimados, me gustaría formalizar la adquisición de los siguientes artículos:\n` +
         `────────────────────────\n` +
         `${itemsList}\n` +
