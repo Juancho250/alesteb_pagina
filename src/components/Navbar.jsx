@@ -123,7 +123,7 @@ export default function Navbar() {
                 </div>
               </div>
             </div>
-            <Link to="/soporte" className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors">Soporte</Link>
+            <Link to="/support" className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors">Soporte</Link>
           </div>
 
           {/* Iconos Derecha */}

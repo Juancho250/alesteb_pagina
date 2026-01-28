@@ -8,6 +8,8 @@ import Navbar from "./components/Navbar";
 import CartFloating from "./components/CartFloating";
 import { normalizePrice } from "./utils/price";
 import ScrollToTop from "./components/ScrollToTop";
+import Support from "./pages/Support";
+import Contact from "./pages/Contact";
 
 export default function App() {
   const [cart, setCart] = useState(() =>
@@ -65,6 +67,16 @@ export default function App() {
           <Route
             path="/productos"
             element={<Products cart={cart} toggleCart={toggleCart} />}
+          />
+
+          <Route
+            path="/support"
+            element={<Support />}
+          />
+
+          <Route
+            path="/contact"
+            element={<Contact />}
           />
 
           {/* Categoría (mejor con prefijo para evitar choque) */}
