@@ -10,6 +10,7 @@ import { normalizePrice } from "./utils/price";
 import ScrollToTop from "./components/ScrollToTop";
 import Support from "./pages/Support";
 import Contact from "./pages/Contact";
+import Auth from "./pages/Auth";
 
 export default function App() {
   const [cart, setCart] = useState(() =>
@@ -77,6 +78,11 @@ export default function App() {
           <Route
             path="/contact"
             element={<Contact />}
+          />
+
+          <Route
+            path="/auth"
+            element={<Auth />}
           />
 
           {/* Categoría (mejor con prefijo para evitar choque) */}
