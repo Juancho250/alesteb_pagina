@@ -2,23 +2,32 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   Lock, Mail, User, ArrowRight, 
-  ShieldCheck, Zap, Globe, Loader2, KeyRound 
+  ShieldCheck, Zap, Globe, Loader2, KeyRound, RefreshCw 
 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 export default function Auth() {
-  const { loginWithToken } = useAuth(); // ✅ Cambio: ahora usamos loginWithToken
+  const { loginWithToken } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState("auth"); 
+  const [step, setStep] = useState("auth"); // "auth", "verify", "success"
   const [verificationCode, setVerificationCode] = useState("");
   const [loggedUser, setLoggedUser] = useState(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
-    name: "", email: "", password: "", phone: "" 
+    name: "", email: "", password: "", phone: "", cedula: ""
   });
+
+  // Countdown para reenvío de código
+  useState(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,7 +43,7 @@ export default function Auth() {
         const { data } = await api.post(endpoint, payload);
 
         if (isLogin) {
-          // ✅ Extraer user y token correctamente
+          // ✅ Login exitoso
           const userToLogin = data.user;
           const tokenToLogin = data.token;
 
@@ -42,7 +51,6 @@ export default function Auth() {
             throw new Error("Respuesta del servidor incompleta");
           }
 
-          // ✅ Usar loginWithToken en lugar de login
           loginWithToken(userToLogin, tokenToLogin);
           setLoggedUser(userToLogin);
           setStep("success");
@@ -52,16 +60,19 @@ export default function Auth() {
           }, 3500);
 
         } else {
-          // Registro exitoso, ir a verificación
+          // ✅ Registro exitoso - ir a verificación
+          alert(`¡Registro exitoso! Hemos enviado un código de verificación a ${formData.email}`);
           setStep("verify"); 
         }
 
-      } else {
-        // Verificación de código
+      } else if (step === "verify") {
+        // ✅ Verificación de código
         await api.post("/auth/verify", { 
           email: formData.email, 
           code: verificationCode 
         });
+        
+        alert("✅ Email verificado correctamente. Ya puedes iniciar sesión.");
         setStep("auth");
         setIsLogin(true);
         setVerificationCode("");
@@ -69,21 +80,42 @@ export default function Auth() {
     } catch (error) {
       console.error(error);
       const msg = error.response?.data?.message || error.message || "Error en la autenticación";
-      alert(msg);
+      
+      // Manejo específico de errores
+      if (error.response?.data?.code === "EMAIL_NOT_VERIFIED") {
+        alert("⚠️ Debes verificar tu email antes de iniciar sesión. Revisa tu bandeja de entrada.");
+        setStep("verify");
+      } else if (error.response?.data?.code === "CODE_EXPIRED") {
+        alert("⏱️ El código ha expirado. Solicita uno nuevo.");
+      } else {
+        alert(msg);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // --- RENDERIZADO CONDICIONAL: OVERLAY DE BIENVENIDA TIENDA VIRTUAL ---
+  // ✅ Reenviar código de verificación
+  const handleResendCode = async () => {
+    if (resendCooldown > 0) return;
+    
+    setLoading(true);
+    try {
+      await api.post("/auth/resend-code", { email: formData.email });
+      alert("📧 Nuevo código enviado a tu email");
+      setResendCooldown(60); // 60 segundos de cooldown
+    } catch (error) {
+      alert(error.response?.data?.message || "Error al reenviar código");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- RENDERIZADO: OVERLAY DE BIENVENIDA ---
   if (step === "success") {
     return (
       <div className="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center overflow-hidden font-sans text-slate-900 animate-in fade-in duration-1000">
-        
-        {/* Contenedor Principal */}
         <div className="w-full max-w-4xl px-12">
-          
-          {/* Cabecera de marca */}
           <div className="space-y-4 text-center sm:text-left">
             <p className="text-[10px] font-black tracking-[0.6em] uppercase text-slate-300 animate-in slide-in-from-left-8 duration-1000">
               Secure Entry / Alesteb Boutique
@@ -97,7 +129,6 @@ export default function Auth() {
             </h2>
           </div>
 
-          {/* Línea de Carga y Frase de Marketing */}
           <div className="mt-20 relative">
             <div className="h-[2px] w-full bg-slate-50 relative overflow-hidden">
               <div className="absolute inset-0 bg-slate-900 origin-left animate-[reveal_3.5s_ease-in-out_forwards]"></div>
@@ -105,7 +136,6 @@ export default function Auth() {
             
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-8 gap-4">
               <div className="flex items-center gap-4 animate-in fade-in duration-1000 delay-500">
-                {/* Un pequeño punto parpadeante que simula exclusividad */}
                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
                 <span className="text-[11px] font-black tracking-[0.4em] uppercase text-slate-900 italic">
                   ¿Listo para dejarte tentar?
@@ -119,7 +149,6 @@ export default function Auth() {
           </div>
         </div>
 
-        {/* Marca de agua vertical - Lado izquierdo */}
         <div className="absolute left-12 bottom-12 -rotate-90 origin-left hidden md:block">
           <p className="text-[8px] font-black tracking-[0.5em] uppercase text-slate-100">
             ALESTEB // NEW ERA SHOPPING
@@ -136,11 +165,11 @@ export default function Auth() {
     );
   }
 
-  // --- RENDERIZADO NORMAL: LOGIN / REGISTRO ---
+  // --- RENDERIZADO NORMAL: LOGIN / REGISTRO / VERIFICACIÓN ---
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row font-sans text-slate-900">
       
-      {/* SECCIÓN IZQUIERDA: ESTÉTICA */}
+      {/* SECCIÓN IZQUIERDA */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#f5f5f7] p-16 flex-col justify-between relative overflow-hidden border-r border-slate-100">
         <div className="z-10">
           <h2 className="text-6xl font-black tracking-tighter leading-[0.9] uppercase italic mb-8 whitespace-pre-line">
@@ -168,7 +197,7 @@ export default function Auth() {
         </div>
       </div>
 
-      {/* SECCIÓN DERECHA: FORMULARIO */}
+      {/* SECCIÓN DERECHA */}
       <div className="flex-1 flex items-center justify-center p-8 lg:p-24 bg-white">
         <div className="w-full max-w-sm">
           <div className="mb-10 lg:hidden text-center">
@@ -181,7 +210,7 @@ export default function Auth() {
             </h3>
             <p className="text-slate-400 text-sm font-medium mt-1">
               {step === "verify" 
-                ? `Enviamos un código a ${formData.email}` 
+                ? `Enviamos un código de 6 dígitos a ${formData.email}` 
                 : "Introduce tus datos para acceder al sistema."
               }
             </p>
@@ -191,13 +220,23 @@ export default function Auth() {
             {step === "auth" ? (
               <>
                 {!isLogin && (
-                  <AuthInput 
-                    icon={<User size={16}/>} 
-                    placeholder="NOMBRE COMPLETO" 
-                    value={formData.name}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
-                    required
-                  />
+                  <>
+                    <AuthInput 
+                      icon={<User size={16}/>} 
+                      placeholder="NOMBRE COMPLETO" 
+                      value={formData.name}
+                      onChange={e => setFormData({...formData, name: e.target.value})}
+                      required
+                    />
+                    
+                    <AuthInput 
+                      icon={<User size={16}/>} 
+                      placeholder="CÉDULA" 
+                      value={formData.cedula}
+                      onChange={e => setFormData({...formData, cedula: e.target.value})}
+                      required
+                    />
+                  </>
                 )}
                 
                 <AuthInput 
@@ -217,18 +256,37 @@ export default function Auth() {
                   onChange={e => setFormData({...formData, password: e.target.value})}
                   required
                 />
+
+                {!isLogin && (
+                  <p className="text-[10px] text-slate-400 px-1">
+                    💡 Mínimo 8 caracteres con mayúsculas, minúsculas y números
+                  </p>
+                )}
               </>
             ) : (
               <div className="space-y-4">
-                 <AuthInput 
+                <AuthInput 
                   icon={<KeyRound size={16}/>} 
                   placeholder="CÓDIGO DE 6 DÍGITOS" 
                   value={verificationCode}
-                  onChange={e => setVerificationCode(e.target.value)}
+                  onChange={e => setVerificationCode(e.target.value.replace(/\D/g, ''))}
                   maxLength={6}
                   required
                   autoFocus
                 />
+                
+                <button 
+                  type="button"
+                  onClick={handleResendCode}
+                  disabled={resendCooldown > 0 || loading}
+                  className="w-full text-center text-[10px] font-bold text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <RefreshCw size={12} className={resendCooldown > 0 ? "animate-spin" : ""} />
+                  {resendCooldown > 0 
+                    ? `Reenviar código en ${resendCooldown}s` 
+                    : "Reenviar código"
+                  }
+                </button>
               </div>
             )}
 
@@ -257,13 +315,27 @@ export default function Auth() {
               </button>
             </div>
           )}
+
+          {step === "verify" && (
+            <div className="mt-8 text-center border-t border-slate-100 pt-8">
+              <button 
+                onClick={() => {
+                  setStep("auth");
+                  setVerificationCode("");
+                }}
+                className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors"
+              >
+                Volver al inicio
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// --- SUB-COMPONENTES AUXILIARES ---
+// --- SUB-COMPONENTES ---
 function AuthInput({ icon, ...props }) {
   return (
     <div className="relative group">

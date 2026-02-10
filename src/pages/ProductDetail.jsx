@@ -68,9 +68,11 @@ export default function ProductDetail({ cart = [], toggleCart = () => {} }) {
   if (!product) return <div className="min-h-screen flex items-center justify-center">No encontrado</div>;
 
   const isInCart = cart.some((item) => item.id === product.id);
-  const priceOriginal = Number(product.price) || 0;
+  
+  // ✅ Usar sale_price con fallback a price
+  const priceOriginal = Number(product.sale_price || product.price) || 0;
   const priceFinal = Number(product.final_price) || priceOriginal;
-  const hasDiscount = priceFinal < priceOriginal;
+  const hasDiscount = priceFinal > 0 && priceFinal < priceOriginal;
   const stock = Number(product.stock) || 0;
 
   return (

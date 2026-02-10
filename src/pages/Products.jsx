@@ -29,8 +29,9 @@ const SkeletonCard = () => (
 
 // 2. PRODUCT CARD
 const ProductCard = memo(({ p, isInCart, onToggle }) => {
-  const priceOriginal = Number(p.price) || 0;
-  const priceFinalRaw = Number(p.final_price) || priceOriginal;
+  // ✅ Usar sale_price con fallback a price
+  const priceOriginal = Number(p.sale_price || p.price) || 0;
+  const priceFinalRaw = Number(p.final_price) || 0;
   const hasDiscount = priceFinalRaw > 0 && priceFinalRaw < priceOriginal;
   const priceFinal = hasDiscount ? priceFinalRaw : priceOriginal;
   
@@ -132,8 +133,8 @@ export default function Products({ cart, toggleCart }) {
 
         const res = await api.get(`/products?${params.toString()}`);
         
-        // Manejo robusto de respuesta
-        const data = res.data.products || [];
+        // ✅ Manejo robusto de respuesta del backend
+        const data = res.data.data || res.data.products || [];
         const pag = res.data.pagination || { totalPages: 1, totalItems: 0 };
         
         setProducts(data);
