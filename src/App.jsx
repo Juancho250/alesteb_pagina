@@ -12,8 +12,10 @@ import CartFloating from "./components/CartFloating";
 import ScrollToTop from "./components/ScrollToTop";
 import Support from "./pages/Support";
 import Contact from "./pages/Contact";
+import CheckoutPage from "./pages/Checkoutpage ";
 import Auth from "./pages/Auth";
 import Orders from "./pages/Orders";
+import OrderSuccessPage from "./pages/Ordersuccesspage";
 
 export default function App() {
   const [cart, setCart] = useState(() =>
@@ -77,6 +79,8 @@ export default function App() {
             <Route path="/productos/:slug" element={<Products cart={cart} toggleCart={toggleCart} />} />
             <Route path="/productos/detalle/:id" element={<ProductDetail cart={cart} toggleCart={toggleCart} />} />
             <Route path="/orders" element={<Orders />} />
+            <Route path="/checkout" element={<CheckoutPage cart={cart} />} />
+            <Route path="/order-success" element={<OrderSuccessPage />} />
           </Routes>
         </main>
 
