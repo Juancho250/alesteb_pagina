@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { 
   Package, Calendar, DollarSign, ChevronRight, Loader2, 
   ShoppingBag, AlertCircle, CheckCircle, Clock, XCircle,
-  Receipt, ArrowLeft, Eye
+  Receipt, ArrowLeft, Eye, Ban
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
@@ -11,7 +11,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
 export default function Orders() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, can } = useAuth();
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -49,6 +49,12 @@ export default function Orders() {
   };
 
   const viewOrderDetail = async (order) => {
+    // Verificar permiso antes de ver detalles
+    if (!can('sale.my.read', user.id)) {
+      console.error('No tienes permiso para ver este pedido');
+      return;
+    }
+
     setSelectedOrder(order);
     setLoadingItems(true);
     try {
@@ -58,6 +64,23 @@ export default function Orders() {
       console.error("Error loading order items:", error);
     } finally {
       setLoadingItems(false);
+    }
+  };
+
+  const cancelOrder = async (orderId) => {
+    if (!window.confirm('¿Estás seguro de cancelar este pedido? Se restaurará el stock de los productos.')) {
+      return;
+    }
+
+    try {
+      await api.post(`/sales/${orderId}/cancel`, { user_id: user.id });
+      alert('Pedido cancelado exitosamente');
+      closeModal();
+      loadOrders(); // Recargar lista
+      loadStats(); // Actualizar estadísticas
+    } catch (error) {
+      console.error("Error canceling order:", error);
+      alert(error.response?.data?.message || 'Error al cancelar el pedido');
     }
   };
 
@@ -321,7 +344,7 @@ export default function Orders() {
                   onClick={closeModal}
                   className="p-2 bg-white hover:bg-slate-200 rounded-full text-slate-500 transition-colors shadow-sm"
                 >
-                  <Eye size={20} className="rotate-180" />
+                  <XCircle size={20} />
                 </button>
               </div>
 
@@ -404,12 +427,25 @@ export default function Orders() {
 
             {/* FOOTER */}
             <div className="p-8 bg-slate-50 border-t border-slate-100">
-              <button
-                onClick={closeModal}
-                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-blue-600 transition-all"
-              >
-                Cerrar
-              </button>
+              <div className="flex gap-3">
+                {/* Botón Cancelar (solo si está pending y tiene permiso) */}
+                {selectedOrder.payment_status === 'pending' && can('sale.my.cancel', user.id) && (
+                  <button
+                    onClick={() => cancelOrder(selectedOrder.id)}
+                    className="flex-1 bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Ban size={18} />
+                    Cancelar Pedido
+                  </button>
+                )}
+                
+                <button
+                  onClick={closeModal}
+                  className={`${selectedOrder.payment_status === 'pending' ? 'flex-1' : 'w-full'} bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-blue-600 transition-all`}
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
           </div>
         </div>
