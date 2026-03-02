@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 // ============================================
 // 🛒 CART FLOATING — componente principal
 // ============================================
-export default function CartFloating({ cart, onRemove, onUpdateQty, onClearCart }) {
+export default function CartFloating({ cart, onRemove, onUpdateQty }) {
   const [isOpen, setIsOpen] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();

@@ -7,6 +7,7 @@ import { ArrowRight, Loader2 } from "lucide-react";
 // ANIMACIÓN: Librerías clave
 import { motion } from "framer-motion";
 import { ReactLenis } from "lenis/react";
+const Motion = motion;
 
 // Configuración de animación reutilizable
 const fadeInUp = {
@@ -78,41 +79,41 @@ export default function Home() {
           {/* --- BANNER CAROUSEL --- */}
           {/* Animación: Aparece suavemente con un ligero zoom-out */}
           {banners.length > 0 && (
-            <motion.section 
+            <Motion.section 
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1, ease: "easeOut" }}
               className="max-w-[1540px] mx-auto h-[90vh] sm:h-[80vh] bg-[#f5f5f7] overflow-hidden relative md:rounded-3xl shadow-sm md:-mt-16"
             >
               <BannerCarousel banners={banners} />
-            </motion.section>
+            </Motion.section>
           )}
 
           {/* --- HERO TEXT (Debajo del banner) --- */}
           <section className="text-center py-10 md:py-20 px-6 max-w-5xl mx-auto">
-             <motion.div 
+             <Motion.div 
                initial="hidden"
                whileInView="visible" // Se activa cuando entra en pantalla
                viewport={{ once: true }}
                variants={staggerContainer}
              >
-                <motion.h2 variants={fadeInUp} className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter mb-8 leading-[0.9]">
+                <Motion.h2 variants={fadeInUp} className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter mb-8 leading-[0.9]">
                   Redefiniendo <br />
                   <span className="text-neutral-400 italic">lo cotidiano.</span>
-                </motion.h2>
+                </Motion.h2>
                 
-                <motion.div variants={fadeInUp}>
+                <Motion.div variants={fadeInUp}>
                   <Link to="/productos" className="inline-block px-10 py-4 bg-black text-white font-bold rounded-full text-sm transition-all hover:scale-105 hover:bg-neutral-800 hover:shadow-xl">
                     Ver colección
                   </Link>
-                </motion.div>
-             </motion.div>
+                </Motion.div>
+             </Motion.div>
           </section>
 
           {/* --- PRODUCTOS (GRID) --- */}
           <section className="py-20 px-6 bg-white">
             <div className="max-w-6xl mx-auto">
-                <motion.div 
+                <Motion.div 
                   initial="hidden"
                   whileInView="visible"
                   viewport={{ once: true, margin: "-100px" }}
@@ -126,9 +127,9 @@ export default function Home() {
                   <Link to="/productos" className="group text-black font-bold flex items-center gap-2 text-xs tracking-widest uppercase">
                     Explorar <ArrowRight size={16} className="transition-transform group-hover:translate-x-1"/>
                   </Link>
-                </motion.div>
+                </Motion.div>
 
-                <motion.div 
+                <Motion.div 
                   initial="hidden"
                   whileInView="visible"
                   viewport={{ once: true, margin: "-50px" }}
@@ -139,7 +140,7 @@ export default function Home() {
                     const price = Number(p.final_price || p.price);
                     return (
                       <Link key={p.id} to={`/productos/detalle/${p.id}`} className="group block cursor-pointer">
-                        <motion.div variants={fadeInUp}>
+                        <Motion.div variants={fadeInUp}>
                           <div className="aspect-[4/5] bg-[#f5f5f7] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden mb-5 relative">
                             <img 
                               src={getOptimizedImageUrl(p.main_image)} 
@@ -156,18 +157,18 @@ export default function Home() {
                               ${price.toLocaleString()}
                             </p>
                           </div>
-                        </motion.div>
+                        </Motion.div>
                       </Link>
                     );
                   })}
-                </motion.div>
+                </Motion.div>
             </div>
           </section>
 
           {/* --- COLECCIONES --- */}
           <section className="py-20 px-6 pb-32 border-t border-neutral-100">
              <div className="max-w-6xl mx-auto">
-                 <motion.h3 
+                 <Motion.h3 
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true }}
@@ -175,7 +176,7 @@ export default function Home() {
                     className="text-center text-3xl md:text-4xl font-black mb-16 uppercase tracking-tighter"
                  >
                     Colecciones
-                 </motion.h3>
+                 </Motion.h3>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
                     <PromoCard 
@@ -203,7 +204,7 @@ export default function Home() {
 
 function PromoCard({ title, subtitle, img, dark = false, link }) {
   return (
-    <motion.div 
+    <Motion.div 
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
@@ -211,7 +212,7 @@ function PromoCard({ title, subtitle, img, dark = false, link }) {
       className="w-full"
     >
       <Link to={link} className="relative h-[400px] md:h-[500px] rounded-[2rem] md:rounded-[3rem] overflow-hidden group block shadow-sm hover:shadow-2xl transition-all duration-500">
-        <motion.div 
+        <Motion.div 
           className="absolute inset-0 w-full h-full"
           whileHover={{ scale: 1.05 }} 
           transition={{ duration: 1.2, ease: "easeOut" }}
@@ -222,13 +223,13 @@ function PromoCard({ title, subtitle, img, dark = false, link }) {
             className="w-full h-full object-cover" 
             alt={title} 
           />
-        </motion.div>
+        </Motion.div>
         
         <div className={`absolute inset-0 p-8 md:p-12 flex flex-col justify-end ${dark ? 'bg-gradient-to-t from-black/70 to-transparent text-white' : 'bg-gradient-to-t from-white/70 to-transparent text-black'}`}>
           <h4 className="text-[10px] font-black uppercase tracking-[0.4em] mb-2 opacity-80">{title}</h4>
           <p className="text-4xl md:text-6xl font-black tracking-tighter leading-[0.9]">{subtitle}</p>
         </div>
       </Link>
-    </motion.div>
+    </Motion.div>
   );
 }

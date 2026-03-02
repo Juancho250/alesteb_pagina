@@ -1,16 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useCallback, useContext, useState } from "react";
 
 const AuthContext = createContext();
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within an AuthProvider");
-  return context;
-};
-
-// ============================================
-// 🔐 MAPA DE PERMISOS POR ROL
-// ============================================
 const ROLE_PERMISSIONS = {
   admin: [
     "user.read", "user.create", "user.update", "user.delete",
@@ -36,76 +28,59 @@ const ROLE_PERMISSIONS = {
     "report.read",
   ],
   cliente: [
-    "sale.create",   // Puede crear órdenes online (checkout)
-    "sale.my.read",  // Puede ver SUS propias órdenes
-    "sale.my.cancel", // Puede cancelar sus propios pedidos pending
+    "sale.create",
+    "sale.my.read",
+    "sale.my.cancel",
     "product.read",
     "category.read",
   ],
 };
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
+  return context;
+};
 
-  // Restaurar sesión guardada al cargar la app
-  useEffect(() => {
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem("user");
     const storedToken = localStorage.getItem("token");
-    if (storedUser && storedToken) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-      }
+    if (!storedUser || !storedToken) return null;
+    try {
+      return JSON.parse(storedUser);
+    } catch {
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      return null;
     }
-    setLoading(false);
-  }, []);
+  });
 
-  // ============================================
-  // ✅ LOGIN (guarda en estado y localStorage)
-  // ============================================
   const login = useCallback((userData, token) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
   }, []);
 
-  // Alias para compatibilidad con Auth.jsx
   const loginWithToken = login;
 
-  // ============================================
-  // 🚪 LOGOUT
-  // ============================================
   const logout = useCallback(() => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setUser(null);
   }, []);
 
-  // ============================================
-  // 🔑 VERIFICACIÓN DE PERMISOS MEJORADA
-  // Uso básico: can('sale.read') → true | false
-  // Uso con ownership: can('sale.my.read', userId) → verifica si es dueño
-  // ============================================
   const can = useCallback(
     (permission, resourceOwnerId = null) => {
       if (!user) return false;
       const userRoles = user.roles || [];
 
-      // Caso especial: permisos "my.*" - verificar ownership
-      if (permission.includes('.my.') && resourceOwnerId !== null) {
-        // El usuario puede acceder si:
-        // 1. Es el dueño del recurso
-        // 2. Es admin o gerente (pueden ver todo)
+      if (permission.includes(".my.") && resourceOwnerId !== null) {
         const isOwner = user.id === resourceOwnerId;
-        const isPrivileged = userRoles.includes('admin') || userRoles.includes('gerente');
-        
+        const isPrivileged = userRoles.includes("admin") || userRoles.includes("gerente");
         return isOwner || isPrivileged;
       }
 
-      // Verificación normal de permisos por rol
       return userRoles.some((role) => {
         const perms = ROLE_PERMISSIONS[role] || [];
         return perms.includes(permission);
@@ -114,10 +89,10 @@ export const AuthProvider = ({ children }) => {
     [user]
   );
 
-  // Shortcut para verificar si el usuario es admin
   const isAdmin = user?.roles?.includes("admin") ?? false;
   const isGerente = user?.roles?.includes("gerente") ?? false;
   const isCliente = user?.roles?.includes("cliente") ?? false;
+  const loading = false;
 
   return (
     <AuthContext.Provider
@@ -134,7 +109,7 @@ export const AuthProvider = ({ children }) => {
         can,
       }}
     >
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

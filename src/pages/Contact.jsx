@@ -16,7 +16,7 @@ export default function Contact() {
       await api.post("/contact", formData);
       setSent(true);
       setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
-    } catch (error) {
+    } catch {
       alert("Error al enviar el registro");
     } finally {
       setLoading(false);

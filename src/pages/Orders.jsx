@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { 
   Package, Calendar, DollarSign, ChevronRight, Loader2, 
@@ -19,16 +19,8 @@ export default function Orders() {
   const [orderItems, setOrderItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
 
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      loadOrders();
-      loadStats();
-    } else {
-      setLoading(false);
-    }
-  }, [isAuthenticated, user]);
-
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
+    if (!user?.id) return;
     try {
       const { data } = await api.get(`/sales/user/history?userId=${user.id}`);
       setOrders(data);
@@ -37,16 +29,26 @@ export default function Orders() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
+    if (!user?.id) return;
     try {
       const { data } = await api.get(`/sales/user/stats?userId=${user.id}`);
       setStats(data);
     } catch (error) {
       console.error("Error loading stats:", error);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadOrders();
+      loadStats();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated, user, loadOrders, loadStats]);
 
   const viewOrderDetail = async (order) => {
     // Verificar permiso antes de ver detalles

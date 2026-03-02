@@ -29,9 +29,12 @@ export default function Navbar({ cart = [] }) {
   }, []);
 
   useEffect(() => {
-    setIsOpen(false);
-    setActiveMobileSubs({});
+    const timer = setTimeout(() => {
+      setIsOpen(false);
+      setActiveMobileSubs({});
+    }, 0);
     document.body.style.overflow = "unset";
+    return () => clearTimeout(timer);
   }, [location]);
 
   const toggleMenu = () => {

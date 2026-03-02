@@ -10,7 +10,10 @@ export default function CheckoutPage() {
   const { user } = useAuth();
   
   // Recibir el carrito desde el estado de navegación
-  const cart = location.state?.cart || [];
+  const cart = useMemo(() => {
+    const stateCart = location.state?.cart;
+    return Array.isArray(stateCart) ? stateCart : [];
+  }, [location.state]);
   
   const [step, setStep] = useState(1); // 1 = dirección, 2 = resumen
   const [isProcessing, setIsProcessing] = useState(false);
