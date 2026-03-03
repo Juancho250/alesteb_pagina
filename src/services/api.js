@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://alesteb-back.onrender.com/api",
+  baseURL: "https://alesteb-back-dq14.vercel.app/api",
   timeout: 30000, // 30s — Render puede tardar en cold start
 });
 
