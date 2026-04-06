@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ShoppingBag, ChevronRight, Loader2, ArrowLeft } from "lucide-react";
 import api from "../services/api";
+import { extractProducts } from "../utils/apiResponse";
 
 const CategoryPage = ({ cart, toggleCart }) => {
   const { slug } = useParams();
@@ -15,7 +16,7 @@ const CategoryPage = ({ cart, toggleCart }) => {
       try {
         // 1. Obtener productos de la categoría
         const resProd = await api.get(`/products?categoria=${slug}`);
-        setProducts(Array.isArray(resProd.data) ? resProd.data : resProd.data.products || []);
+        setProducts(extractProducts(resProd.data));
 
         // 2. Obtener info de la categoría para el título (si el slug es legible, lo formateamos)
         try {

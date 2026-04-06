@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import api from "../services/api";
 import BannerCarousel from "../components/BannerCarousel"; // <--- Importado de nuevo
 import { ArrowRight, Loader2 } from "lucide-react";
+import { extractBanners, extractProducts } from "../utils/apiResponse";
 
 // ANIMACIÓN: Librerías clave
 import { motion } from "framer-motion";
@@ -52,10 +53,10 @@ export default function Home() {
           api.get("/products?limit=4")
         ]);
 
-        const bannersData = bannersRes.data?.data || bannersRes.data || [];
+        const bannersData = extractBanners(bannersRes.data);
         setBanners(Array.isArray(bannersData) ? bannersData.filter(b => b.is_active) : []);
 
-        const productsData = productsRes.data?.data || productsRes.data?.products || productsRes.data || [];
+        const productsData = extractProducts(productsRes.data);
         setFeaturedProducts(Array.isArray(productsData) ? productsData : []);
       } catch (err) {
         console.error("Error loading home data", err);

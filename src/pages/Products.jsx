@@ -1,6 +1,7 @@
 import React, { useEffect, useState, memo } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../services/api";
+import { extractPagination, extractProducts } from "../utils/apiResponse";
 import { 
   ShoppingBag, 
   Percent, 
@@ -129,8 +130,8 @@ export default function Products({ cart, toggleCart }) {
         if (slug) params.append("categoria", slug);
 
         const res = await api.get(`/products?${params.toString()}`);
-        const data = res.data.data || res.data.products || [];
-        const pag = res.data.pagination || { totalPages: 1, totalItems: 0 };
+        const data = extractProducts(res.data);
+        const pag = extractPagination(res.data);
         
         setProducts(data);
         setPagination(pag);

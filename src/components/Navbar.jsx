@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { extractCategories } from "../utils/apiResponse";
 
 export default function Navbar({ cart = [] }) {
   const { user, logout, isAuthenticated } = useAuth();
@@ -18,7 +19,7 @@ export default function Navbar({ cart = [] }) {
 
   useEffect(() => {
     api.get("/categories")
-      .then(res => setCategories(Array.isArray(res.data) ? res.data : []))
+      .then(res => setCategories(extractCategories(res.data)))
       .catch(() => setCategories([]));
   }, []);
 
