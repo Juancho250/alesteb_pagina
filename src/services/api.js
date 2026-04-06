@@ -1,8 +1,26 @@
 import axios from "axios";
 
-const defaultBaseURL = 'https://alesteb-back.onrender.com/api';
-const envBaseURL = import.meta.env.VITE_API_BASE_URL;
-const apiBaseURL = envBaseURL && envBaseURL !== '/api' ? envBaseURL : defaultBaseURL;
+const defaultBaseURL = "https://alesteb-back.onrender.com/api";
+const rawEnvBaseURL = import.meta.env.VITE_API_BASE_URL?.trim();
+
+const normalizeBaseURL = (value) => {
+  if (!value) return "";
+
+  const normalized = value.replace(/\/+$/, "");
+
+  // En Vercel esto termina pegandole al mismo dominio y rompe /products con 404.
+  if (
+    normalized === "/api" ||
+    normalized === "api" ||
+    normalized === window.location.origin + "/api"
+  ) {
+    return "";
+  }
+
+  return normalized;
+};
+
+const apiBaseURL = normalizeBaseURL(rawEnvBaseURL) || defaultBaseURL;
 
 const api = axios.create({
   baseURL: apiBaseURL,
