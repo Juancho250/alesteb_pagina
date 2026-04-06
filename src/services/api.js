@@ -1,7 +1,11 @@
 import axios from "axios";
 
+const defaultBaseURL = 'https://alesteb-back.onrender.com/api';
+const envBaseURL = import.meta.env.VITE_API_BASE_URL;
+const apiBaseURL = envBaseURL && envBaseURL !== '/api' ? envBaseURL : defaultBaseURL;
+
 const api = axios.create({
-  baseURL: "https://alesteb-back-dq14.vercel.app/api",
+  baseURL: apiBaseURL,
   timeout: 30000, // 30s — Render puede tardar en cold start
 });
 
