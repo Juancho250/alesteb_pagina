@@ -52,8 +52,10 @@ export default function Home() {
           api.get("/products?limit=4")
         ]);
 
-        setBanners(bannersRes.data.filter(b => b.is_active));
-        const productsData = productsRes.data.products || productsRes.data;
+        const bannersData = bannersRes.data?.data || bannersRes.data || [];
+        setBanners(Array.isArray(bannersData) ? bannersData.filter(b => b.is_active) : []);
+
+        const productsData = productsRes.data?.data || productsRes.data?.products || productsRes.data || [];
         setFeaturedProducts(Array.isArray(productsData) ? productsData : []);
       } catch (err) {
         console.error("Error loading home data", err);
