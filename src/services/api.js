@@ -7,7 +7,7 @@ const normalizeBaseURL = (value) => {
   if (!value) return "";
 
   const normalized = value.replace(/\/+$/, "");
-
+// Si el valor es exactamente "/api" o "api", lo normalizamos a "" para evitar problemas de rutas relativas.
   // En Vercel esto termina pegandole al mismo dominio y rompe /products con 404.
   if (
     normalized === "/api" ||
