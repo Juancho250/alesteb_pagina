@@ -1,39 +1,32 @@
+// src/components/CartFloating.jsx
 import { MessageCircle, X, Plus, Minus, ShoppingBag } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
 
-// ============================================
-// 🛒 CART FLOATING — componente principal
-// ============================================
-export default function CartFloating({ cart, onRemove, onUpdateQty }) {
+export default function CartFloating() {
   const [isOpen, setIsOpen] = useState(false);
-  const { user } = useAuth();
-  const navigate = useNavigate();
+  const { user }                          = useAuth();
+  const { cart, removeFromCart, updateQty } = useCart();
+  const navigate                          = useNavigate();
 
   const { total, count } = useMemo(() => {
-    let currentTotal = 0;
-    let itemsCount   = 0;
-
+    let t = 0, c = 0;
     cart.forEach(i => {
-      const price    = i.final_price || i.price || 0;
-      const subtotal = price * (i.quantity || 1);
-      currentTotal  += subtotal;
-      itemsCount    += i.quantity || 1;
+      t += (i.final_price || i.price || 0) * (i.quantity || 1);
+      c += i.quantity || 1;
     });
-
-    return { total: currentTotal, count: itemsCount };
+    return { total: t, count: c };
   }, [cart]);
 
   const handleGoToCheckout = () => {
     if (!user) {
-      alert("Debes iniciar sesión para finalizar tu pedido");
-      navigate("/login", { state: { from: "/" } });
+      navigate("/auth", { state: { from: "/checkout" } });
       return;
     }
-    
-    // Navegar a la página de checkout pasando el carrito
-    navigate("/checkout", { state: { cart } });
+    setIsOpen(false);
+    navigate("/checkout");
   };
 
   if (!cart.length) return null;
@@ -41,20 +34,20 @@ export default function CartFloating({ cart, onRemove, onUpdateQty }) {
   return (
     <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-3 max-w-[350px] w-full pointer-events-none">
 
-      {/* LISTA DESPLEGABLE */}
+      {/* Lista desplegable */}
       <div
-        className={`
-          flex flex-col-reverse gap-3 w-full overflow-y-auto px-2 py-2 pointer-events-auto no-scrollbar
+        className={`flex flex-col-reverse gap-3 w-full overflow-y-auto px-2 py-2 pointer-events-auto no-scrollbar
           transition-all duration-500 ease-[cubic-bezier(0.19,1,0.22,1)]
           ${isOpen
             ? "max-h-[60vh] opacity-100 translate-y-0"
-            : "max-h-0 opacity-0 translate-y-10"}
-        `}
+            : "max-h-0 opacity-0 translate-y-10"
+          }`}
       >
         {cart.map(item => (
           <div
             key={item.id}
-            className="relative group bg-white/95 backdrop-blur-xl rounded-[1.5rem] p-2 pr-5 flex items-center gap-4 shadow-[0_10px_30px_rgba(0,0,0,0.08)] border border-white/50 transition-all duration-300 hover:shadow-xl hover:bg-white"
+            className="relative group bg-white/95 backdrop-blur-xl rounded-[1.5rem] p-2 pr-5 flex items-center gap-4
+              shadow-[0_10px_30px_rgba(0,0,0,0.08)] border border-white/50 transition-all hover:shadow-xl hover:bg-white"
           >
             <div className="relative shrink-0">
               <img
@@ -77,13 +70,13 @@ export default function CartFloating({ cart, onRemove, onUpdateQty }) {
                 </p>
                 <div className="flex items-center bg-slate-100 rounded-full px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    onClick={() => onUpdateQty(item.id, (item.quantity || 1) - 1)}
+                    onClick={() => updateQty(item.id, (item.quantity || 1) - 1)}
                     className="p-1 hover:text-blue-600"
                   >
                     <Minus size={10} />
                   </button>
                   <button
-                    onClick={() => onUpdateQty(item.id, (item.quantity || 1) + 1)}
+                    onClick={() => updateQty(item.id, (item.quantity || 1) + 1)}
                     className="p-1 hover:text-blue-600"
                   >
                     <Plus size={10} />
@@ -93,7 +86,7 @@ export default function CartFloating({ cart, onRemove, onUpdateQty }) {
             </div>
 
             <button
-              onClick={() => onRemove(item)}
+              onClick={() => removeFromCart(item)}
               className="text-slate-300 hover:text-red-500 transition-colors"
             >
               <X size={16} strokeWidth={2.5} />
@@ -102,35 +95,29 @@ export default function CartFloating({ cart, onRemove, onUpdateQty }) {
         ))}
       </div>
 
-      {/* CONTROLES PRINCIPALES */}
+      {/* Controles principales */}
       <div className="flex items-center gap-3 pointer-events-auto">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className={`relative group flex items-center justify-center w-14 h-14 rounded-full transition-all duration-500 shadow-2xl border border-white/40
-            ${isOpen
-              ? "bg-slate-900 text-white rotate-[360deg]"
-              : "bg-white text-slate-900 hover:scale-110"}
-          `}
+            ${isOpen ? "bg-slate-900 text-white rotate-[360deg]" : "bg-white text-slate-900 hover:scale-110"}`}
         >
           {isOpen ? <X size={22} /> : <ShoppingBag size={22} />}
           {!isOpen && (
-            <span className="absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white animate-in zoom-in duration-300">
+            <span className="absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white">
               {count}
             </span>
           )}
         </button>
 
-        {/* BOTÓN FINALIZAR */}
         <button
           onClick={handleGoToCheckout}
-          disabled={!user}
-          className={`flex items-center gap-4 p-2 pl-8 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] transition-all duration-500 group relative overflow-hidden
-            ${!user ? "bg-slate-400 opacity-60 cursor-not-allowed" : "bg-slate-900 hover:scale-105 active:scale-95"}
-          `}
+          className="flex items-center gap-4 p-2 pl-8 rounded-full bg-slate-900 hover:scale-105 active:scale-95
+            shadow-[0_20px_50px_rgba(0,0,0,0.3)] transition-all duration-500 group relative overflow-hidden"
         >
           <div className="flex flex-col text-white">
             <span className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
-              {!user ? "Inicia sesión" : `Orden de ${user.name.split(" ")[0]}`}
+              {user ? `${user.name.split(" ")[0]}` : "Iniciar sesión"}
             </span>
             <span className="text-xl font-black">${total.toLocaleString()}</span>
           </div>
@@ -144,7 +131,6 @@ export default function CartFloating({ cart, onRemove, onUpdateQty }) {
         </button>
       </div>
 
-      {/* TOOLTIP: No autenticado */}
       {!user && (
         <div className="pointer-events-auto bg-amber-500 text-white text-[10px] font-bold px-4 py-2 rounded-full shadow-lg animate-pulse">
           ⚠️ Inicia sesión para finalizar tu compra

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react"; // ← agregar useEffect
 import { Link, useNavigate } from "react-router-dom";
 import { 
   Lock, Mail, User, ArrowRight, 
@@ -11,7 +11,7 @@ export default function Auth() {
   const { loginWithToken } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState("auth"); // "auth", "verify", "success"
+  const [step, setStep] = useState("auth");
   const [verificationCode, setVerificationCode] = useState("");
   const [loggedUser, setLoggedUser] = useState(null);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -21,12 +21,11 @@ export default function Auth() {
     name: "", email: "", password: "", phone: "", cedula: ""
   });
 
-  // Countdown para reenvío de código
-  useState(() => {
-    if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
+  // ✅ useEffect en lugar de useState para el countdown
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
   }, [resendCooldown]);
 
   const handleSubmit = async (e) => {
@@ -43,7 +42,6 @@ export default function Auth() {
         const { data } = await api.post(endpoint, payload);
 
         if (isLogin) {
-          // ✅ Login exitoso
           const userToLogin = data.user;
           const tokenToLogin = data.token;
 
@@ -55,18 +53,14 @@ export default function Auth() {
           setLoggedUser(userToLogin);
           setStep("success");
           
-          setTimeout(() => {
-            navigate("/");
-          }, 3500);
+          setTimeout(() => navigate("/"), 3500);
 
         } else {
-          // ✅ Registro exitoso - ir a verificación
           alert(`¡Registro exitoso! Hemos enviado un código de verificación a ${formData.email}`);
           setStep("verify"); 
         }
 
       } else if (step === "verify") {
-        // ✅ Verificación de código
         await api.post("/auth/verify", { 
           email: formData.email, 
           code: verificationCode 
@@ -81,7 +75,6 @@ export default function Auth() {
       console.error(error);
       const msg = error.response?.data?.message || error.message || "Error en la autenticación";
       
-      // Manejo específico de errores
       if (error.response?.data?.code === "EMAIL_NOT_VERIFIED") {
         alert("⚠️ Debes verificar tu email antes de iniciar sesión. Revisa tu bandeja de entrada.");
         setStep("verify");
@@ -95,15 +88,13 @@ export default function Auth() {
     }
   };
 
-  // ✅ Reenviar código de verificación
   const handleResendCode = async () => {
     if (resendCooldown > 0) return;
-    
     setLoading(true);
     try {
       await api.post("/auth/resend-code", { email: formData.email });
       alert("📧 Nuevo código enviado a tu email");
-      setResendCooldown(60); // 60 segundos de cooldown
+      setResendCooldown(60);
     } catch (error) {
       alert(error.response?.data?.message || "Error al reenviar código");
     } finally {
@@ -111,7 +102,6 @@ export default function Auth() {
     }
   };
 
-  // --- RENDERIZADO: OVERLAY DE BIENVENIDA ---
   if (step === "success") {
     return (
       <div className="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center overflow-hidden font-sans text-slate-900 animate-in fade-in duration-1000">
@@ -120,7 +110,6 @@ export default function Auth() {
             <p className="text-[10px] font-black tracking-[0.6em] uppercase text-slate-300 animate-in slide-in-from-left-8 duration-1000">
               Secure Entry / Alesteb Boutique
             </p>
-            
             <h2 className="text-5xl md:text-8xl font-light tracking-tighter leading-none uppercase animate-in slide-in-from-bottom-12 duration-1000 delay-200">
               Hola, <br />
               <span className="font-black italic block mt-2 text-slate-900">
@@ -128,12 +117,10 @@ export default function Auth() {
               </span>
             </h2>
           </div>
-
           <div className="mt-20 relative">
             <div className="h-[2px] w-full bg-slate-50 relative overflow-hidden">
               <div className="absolute inset-0 bg-slate-900 origin-left animate-[reveal_3.5s_ease-in-out_forwards]"></div>
             </div>
-            
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-8 gap-4">
               <div className="flex items-center gap-4 animate-in fade-in duration-1000 delay-500">
                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
@@ -141,20 +128,17 @@ export default function Auth() {
                   ¿Listo para dejarte tentar?
                 </span>
               </div>
-              
               <span className="text-[9px] font-bold tracking-[0.3em] uppercase text-slate-300">
                 Cargando colección exclusiva 2026
               </span>
             </div>
           </div>
         </div>
-
         <div className="absolute left-12 bottom-12 -rotate-90 origin-left hidden md:block">
           <p className="text-[8px] font-black tracking-[0.5em] uppercase text-slate-100">
             ALESTEB // NEW ERA SHOPPING
           </p>
         </div>
-
         <style>{`
           @keyframes reveal {
             0% { transform: scaleX(0); }
@@ -165,11 +149,8 @@ export default function Auth() {
     );
   }
 
-  // --- RENDERIZADO NORMAL: LOGIN / REGISTRO / VERIFICACIÓN ---
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row font-sans text-slate-900">
-      
-      {/* SECCIÓN IZQUIERDA */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#f5f5f7] p-16 flex-col justify-between relative overflow-hidden border-r border-slate-100">
         <div className="z-10">
           <h2 className="text-6xl font-black tracking-tighter leading-[0.9] uppercase italic mb-8 whitespace-pre-line">
@@ -178,18 +159,15 @@ export default function Auth() {
               : (isLogin ? "Bienvenido de \n vuelta al futuro." : "Únete a la \n vanguardia digital.")
             }
           </h2>
-          
           <div className="space-y-6 mt-12">
             <AuthBenefit icon={<ShieldCheck />} text="Seguridad encriptada de grado militar" />
             <AuthBenefit icon={<Zap />} text="Acceso prioritario a nuevos lanzamientos" />
             <AuthBenefit icon={<Globe />} text="Comunidad global de diseño y tecnología" />
           </div>
         </div>
-
         <div className="absolute bottom-[-10%] right-[-10%] opacity-[0.03] select-none pointer-events-none">
           <h1 className="text-[20rem] font-black italic">A</h1>
         </div>
-
         <div className="z-10">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
             © 2026 ALESTEB SYSTEM / AUTH_MODULE
@@ -197,13 +175,11 @@ export default function Auth() {
         </div>
       </div>
 
-      {/* SECCIÓN DERECHA */}
       <div className="flex-1 flex items-center justify-center p-8 lg:p-24 bg-white">
         <div className="w-full max-w-sm">
           <div className="mb-10 lg:hidden text-center">
-             <Link to="/" className="text-xl font-black italic tracking-tighter uppercase">ALESTEB</Link>
+            <Link to="/" className="text-xl font-black italic tracking-tighter uppercase">ALESTEB</Link>
           </div>
-
           <div className="mb-10">
             <h3 className="text-2xl font-black tracking-tighter uppercase italic text-slate-900">
               {step === "verify" ? "Confirmar Código" : (isLogin ? "Iniciar Sesión" : "Crear Cuenta")}
@@ -228,7 +204,6 @@ export default function Auth() {
                       onChange={e => setFormData({...formData, name: e.target.value})}
                       required
                     />
-                    
                     <AuthInput 
                       icon={<User size={16}/>} 
                       placeholder="CÉDULA" 
@@ -238,7 +213,6 @@ export default function Auth() {
                     />
                   </>
                 )}
-                
                 <AuthInput 
                   icon={<Mail size={16}/>} 
                   placeholder="EMAIL" 
@@ -247,7 +221,6 @@ export default function Auth() {
                   onChange={e => setFormData({...formData, email: e.target.value})}
                   required
                 />
-                
                 <AuthInput 
                   icon={<Lock size={16}/>} 
                   placeholder="CONTRASEÑA" 
@@ -256,7 +229,6 @@ export default function Auth() {
                   onChange={e => setFormData({...formData, password: e.target.value})}
                   required
                 />
-
                 {!isLogin && (
                   <p className="text-[10px] text-slate-400 px-1">
                     💡 Mínimo 8 caracteres con mayúsculas, minúsculas y números
@@ -274,7 +246,6 @@ export default function Auth() {
                   required
                   autoFocus
                 />
-                
                 <button 
                   type="button"
                   onClick={handleResendCode}
@@ -294,14 +265,10 @@ export default function Auth() {
               disabled={loading}
               className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-[10px] tracking-[0.25em] flex items-center justify-center gap-3 hover:bg-blue-600 transition-all active:scale-[0.98] shadow-xl shadow-slate-200 disabled:opacity-50"
             >
-              {loading ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                <> 
-                  {step === "verify" ? "VERIFICAR AHORA" : (isLogin ? "ENTRAR" : "REGISTRARME")} 
-                  <ArrowRight size={14} /> 
-                </>
-              )}
+              {loading 
+                ? <Loader2 className="animate-spin" size={16} />
+                : <>{step === "verify" ? "VERIFICAR AHORA" : (isLogin ? "ENTRAR" : "REGISTRARME")} <ArrowRight size={14} /></>
+              }
             </button>
           </form>
 
@@ -319,10 +286,7 @@ export default function Auth() {
           {step === "verify" && (
             <div className="mt-8 text-center border-t border-slate-100 pt-8">
               <button 
-                onClick={() => {
-                  setStep("auth");
-                  setVerificationCode("");
-                }}
+                onClick={() => { setStep("auth"); setVerificationCode(""); }}
                 className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors"
               >
                 Volver al inicio
@@ -335,7 +299,6 @@ export default function Auth() {
   );
 }
 
-// --- SUB-COMPONENTES ---
 function AuthInput({ icon, ...props }) {
   return (
     <div className="relative group">

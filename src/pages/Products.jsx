@@ -2,19 +2,12 @@ import React, { useEffect, useState, memo } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../services/api";
 import { extractPagination, extractProducts } from "../utils/apiResponse";
+import { useCart } from "../context/CartContext";
 import { 
-  ShoppingBag, 
-  Percent, 
-  Search, 
-  X, 
-  ChevronRight, 
-  ArrowLeft, 
-  Plus, 
-  ChevronLeft,
-  Loader2 // <-- Añadido
+  ShoppingBag, Percent, Search, X, ChevronRight, 
+  ArrowLeft, Plus, ChevronLeft, Loader2
 } from "lucide-react";
 
-// --- UTILIDADES ---
 const getOptimizedImageUrl = (url) => {
   if (!url) return 'https://via.placeholder.com/400x500';
   if (url.includes('/upload/')) {
@@ -23,24 +16,11 @@ const getOptimizedImageUrl = (url) => {
   return url;
 };
 
-// --- COMPONENTES ---
-
-const SkeletonCard = () => (
-  <div className="space-y-6">
-    <div className="aspect-[4/5] bg-slate-100 rounded-[2.5rem] animate-pulse" />
-    <div className="space-y-3 px-2">
-      <div className="h-4 bg-slate-100 rounded-full w-2/3 animate-pulse" />
-      <div className="h-6 bg-slate-100 rounded-full w-1/3 animate-pulse" />
-    </div>
-  </div>
-);
-
 const ProductCard = memo(({ p, isInCart, onToggle }) => {
   const priceOriginal = Number(p.sale_price || p.price) || 0;
   const priceFinalRaw = Number(p.final_price) || 0;
   const hasDiscount = priceFinalRaw > 0 && priceFinalRaw < priceOriginal;
   const priceFinal = hasDiscount ? priceFinalRaw : priceOriginal;
-  
   const discountPercent = hasDiscount
     ? Math.round(((priceOriginal - priceFinal) / priceOriginal) * 100)
     : 0;
@@ -53,17 +33,15 @@ const ProductCard = memo(({ p, isInCart, onToggle }) => {
           {discountPercent}% OFF
         </div>
       )}
-
       <Link to={`/productos/detalle/${p.id}`} className="relative block overflow-hidden rounded-[2.5rem] bg-[#F5F5F7] aspect-[4/5] transition-all duration-500 group-hover:shadow-2xl group-hover:shadow-slate-200">
         <img
           src={getOptimizedImageUrl(p.main_image || (p.images && p.images[0]?.url))}
           alt={p.name}
           loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-1000 cubic-bezier(0.4, 0, 0.2, 1) group-hover:scale-110"
+          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
         />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-500" />
       </Link>
-
       <button
         onClick={() => onToggle(p, 1)}
         className={`absolute bottom-32 right-6 z-20 p-4 rounded-full shadow-2xl transition-all duration-300 transform active:scale-90 ${
@@ -72,13 +50,11 @@ const ProductCard = memo(({ p, isInCart, onToggle }) => {
             : "bg-white text-slate-900 border border-slate-100 shadow-xl"
         }`}
       >
-        {isInCart ? (
-          <ShoppingBag size={20} strokeWidth={2.5} className="animate-in zoom-in duration-300" />
-        ) : (
-          <Plus size={20} strokeWidth={2.5} className="animate-in zoom-in duration-300" />
-        )}
+        {isInCart
+          ? <ShoppingBag size={20} strokeWidth={2.5} />
+          : <Plus size={20} strokeWidth={2.5} />
+        }
       </button>
-
       <div className="mt-6 px-2 space-y-1">
         <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest leading-tight group-hover:text-blue-600 transition-colors duration-300">
           {p.name}
@@ -98,17 +74,15 @@ const ProductCard = memo(({ p, isInCart, onToggle }) => {
   );
 });
 
-// --- MAIN COMPONENT ---
-export default function Products({ cart, toggleCart }) {
+export default function Products() {
   const { slug } = useParams();
+  const { cart, toggleCart } = useCart(); // ← desde contexto
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ totalPages: 1, totalItems: 0 });
-  
   const [categoryName, setCategoryName] = useState("");
 
   useEffect(() => {
@@ -128,17 +102,14 @@ export default function Products({ cart, toggleCart }) {
         params.append("limit", 12);
         if (debouncedSearch) params.append("search", debouncedSearch);
         if (slug) params.append("categoria", slug);
-
         const res = await api.get(`/products?${params.toString()}`);
         const data = extractProducts(res.data);
         const pag = extractPagination(res.data);
-        
         setProducts(data);
         setPagination(pag);
-
         if (slug) {
-            const catName = data[0]?.category_name || slug.replace(/-/g, ' ');
-            setCategoryName(catName);
+          const catName = data[0]?.category_name || slug.replace(/-/g, ' ');
+          setCategoryName(catName);
         }
       } catch (err) {
         console.error("Error cargando productos", err);
@@ -150,21 +121,18 @@ export default function Products({ cart, toggleCart }) {
     loadData();
   }, [slug, debouncedSearch, page]);
 
-  // INTEGRACIÓN DE LA ANIMACIÓN DE CARGA (Igual que en Home)
   if (loading && products.length === 0) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white transition-opacity duration-500">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
       <Loader2 className="animate-spin text-blue-600 mb-4" size={40} />
-      <p className="text-[10px] font-black tracking-[0.3em] text-slate-400 uppercase">Iniciando</p>
+      <p className="text-[10px] font-black tracking-[0.3em] text-slate-400 uppercase">Cargando</p>
     </div>
   );
 
   return (
     <div className="bg-white min-h-screen font-sans selection:bg-blue-100">
       <main className="pt-20 md:pt-28 max-w-7xl mx-auto px-6 pb-24">
-        
-        {/* Breadcrumbs */}
         {slug && (
-          <nav className="flex items-center gap-3 text-[10px] font-black text-slate-400 mb-10 uppercase tracking-[0.2em] animate-in fade-in duration-700">
+          <nav className="flex items-center gap-3 text-[10px] font-black text-slate-400 mb-10 uppercase tracking-[0.2em]">
             <Link to="/" className="hover:text-blue-600 transition-colors">Inicio</Link>
             <ChevronRight size={12} className="text-slate-300" />
             <Link to="/productos" className="hover:text-blue-600 transition-colors">Tienda</Link>
@@ -173,8 +141,7 @@ export default function Products({ cart, toggleCart }) {
           </nav>
         )}
 
-        {/* Header & Buscador */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-20 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-20">
           <div className="space-y-6">
             <h2 className="text-6xl md:text-8xl font-black text-slate-900 tracking-tighter leading-[0.85] italic whitespace-pre-line">
               {slug ? categoryName : "EXPLORA\nLO NUEVO"}
@@ -186,12 +153,11 @@ export default function Products({ cart, toggleCart }) {
               </p>
             </div>
           </div>
-
           <div className="relative group w-full lg:w-96">
-            <input 
+            <input
               type="text"
               placeholder="Buscar en la colección..."
-              className="w-full bg-slate-50 border-none rounded-[1.5rem] py-5 pl-14 pr-10 outline-none ring-0 focus:ring-2 focus:ring-blue-600/20 focus:bg-white transition-all duration-300 font-bold text-slate-800 placeholder:text-slate-400 shadow-sm"
+              className="w-full bg-slate-50 border-none rounded-[1.5rem] py-5 pl-14 pr-10 outline-none focus:ring-2 focus:ring-blue-600/20 focus:bg-white transition-all duration-300 font-bold text-slate-800 placeholder:text-slate-400 shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -204,7 +170,6 @@ export default function Products({ cart, toggleCart }) {
           </div>
         </div>
 
-        {/* Grid de Productos */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-16 min-h-[50vh]">
           {products.length > 0 ? (
             products.map((p) => (
@@ -212,7 +177,7 @@ export default function Products({ cart, toggleCart }) {
                 key={p.id}
                 p={p}
                 onToggle={toggleCart}
-                isInCart={cart?.some((item) => item.id === p.id)}
+                isInCart={cart.some((item) => item.id === p.id)}
               />
             ))
           ) : !loading && (
@@ -228,10 +193,9 @@ export default function Products({ cart, toggleCart }) {
           )}
         </div>
 
-        {/* Paginación */}
         {products.length > 0 && pagination.totalPages > 1 && (
           <div className="flex justify-center items-center gap-6 mt-24">
-            <button 
+            <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
               className="p-4 rounded-full bg-slate-50 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -241,7 +205,7 @@ export default function Products({ cart, toggleCart }) {
             <span className="font-black text-slate-900 tracking-widest text-sm">
               PÁGINA {page} DE {pagination.totalPages}
             </span>
-            <button 
+            <button
               onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
               disabled={page === pagination.totalPages}
               className="p-4 rounded-full bg-slate-50 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"

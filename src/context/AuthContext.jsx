@@ -70,6 +70,14 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((updatedData) => {
+    setUser(prev => {
+      const merged = { ...prev, ...updatedData };
+      localStorage.setItem("user", JSON.stringify(merged));
+      return merged;
+    });
+  }, []);
+
   const can = useCallback(
     (permission, resourceOwnerId = null) => {
       if (!user) return false;
@@ -89,10 +97,10 @@ export const AuthProvider = ({ children }) => {
     [user]
   );
 
-  const isAdmin = user?.roles?.includes("admin") ?? false;
+  const isAdmin   = user?.roles?.includes("admin")   ?? false;
   const isGerente = user?.roles?.includes("gerente") ?? false;
   const isCliente = user?.roles?.includes("cliente") ?? false;
-  const loading = false;
+  const loading   = false;
 
   return (
     <AuthContext.Provider
@@ -101,6 +109,7 @@ export const AuthProvider = ({ children }) => {
         login,
         loginWithToken,
         logout,
+        updateUser,
         loading,
         isAuthenticated: !!user,
         isAdmin,
