@@ -22,7 +22,7 @@ export default function App() {
       <AuthProvider>
         <CartProvider>
           <ScrollToTop />
-          <Navbar />
+          <Navbar />  
 
           <main className="min-h-screen">
             <Routes>
