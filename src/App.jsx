@@ -11,6 +11,8 @@ import CartFloating from "./components/CartFloating";
 import ScrollToTop from "./components/ScrollToTop";
 import Support from "./pages/Support";
 import Contact from "./pages/Contact";
+import Legal from "./pages/Legal";
+import Privacy from "./pages/Privacy";
 import CheckoutPage from "./pages/Checkoutpage";
 import Auth from "./pages/Auth";
 import Ordersuccesspage from "./pages/Ordersuccesspage";
@@ -32,6 +34,8 @@ export default function App() {
               <Route path="/productos/detalle/:id" element={<ProductDetail />} />
               <Route path="/support" element={<Support />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/legal" element={<Legal />} />
+              <Route path="/privacidad" element={<Privacy />} />  
               <Route path="/auth" element={<Auth />} />
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/order-success" element={<Ordersuccesspage/>} />
