@@ -3,55 +3,81 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 
 const CartContext = createContext(null);
 
-export function CartProvider({ children }) {
-  // ── Inicializar desde localStorage para sobrevivir recargas ──────────────
-  const [cart, setCart] = useState(() => {
-    try {
-      const saved = localStorage.getItem("alesteb_cart");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+// ─── Key única por item ───────────────────────────────────────────────────────
+// Producto simple  → "42"
+// Con variante     → "42-v7"   (armado en ProductDetail antes de llamar toggleCart)
+const resolveKey = (product) =>
+  product.cartKey != null ? String(product.cartKey) : String(product.id);
 
-  // ── Sincronizar con localStorage cada vez que cambia el carrito ──────────
+const STORAGE_KEY = "alesteb_cart";
+
+const loadCart = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    // Migración: ítems viejos sin cartKey → asignamos String(id)
+    return parsed.map(item => ({
+      ...item,
+      cartKey: item.cartKey ?? String(item.id),
+    }));
+  } catch {
+    return [];
+  }
+};
+
+// ─── Provider ────────────────────────────────────────────────────────────────
+export function CartProvider({ children }) {
+  const [cart, setCart] = useState(loadCart);
+
   useEffect(() => {
-    try {
-      localStorage.setItem("alesteb_cart", JSON.stringify(cart));
-    } catch {
-      // localStorage lleno o bloqueado — ignorar silenciosamente
-    }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cart)); } catch {}
   }, [cart]);
 
-  // ── Agregar / quitar del carrito (toggle) ────────────────────────────────
+  /**
+   * toggleCart(product, quantity = 1)
+   * Si el ítem ya existe (por cartKey) → lo elimina.
+   * Si no existe → lo agrega con la quantity indicada.
+   */
   const toggleCart = useCallback((product, quantity = 1) => {
+    const key = resolveKey(product);
     setCart(prev => {
-      const exists = prev.find(i => i.id === product.id);
-      if (exists) return prev.filter(i => i.id !== product.id);
-      return [...prev, { ...product, quantity }];
+      const exists = prev.some(i => i.cartKey === key);
+      if (exists) return prev.filter(i => i.cartKey !== key);
+      return [...prev, { ...product, cartKey: key, quantity: Math.max(1, quantity) }];
     });
   }, []);
 
-  // ── Actualizar cantidad ──────────────────────────────────────────────────
-  const updateQty = useCallback((productId, qty) => {
-    if (qty <= 0) {
-      setCart(prev => prev.filter(i => i.id !== productId));
-      return;
-    }
+  /**
+   * updateQty(cartKey, qty)
+   * Establece cantidad exacta. Si qty ≤ 0 elimina el ítem.
+   */
+  const updateQty = useCallback((cartKey, qty) => {
+    const key = String(cartKey);
     setCart(prev =>
-      prev.map(i => i.id === productId ? { ...i, quantity: qty } : i)
+      qty <= 0
+        ? prev.filter(i => i.cartKey !== key)
+        : prev.map(i => i.cartKey === key ? { ...i, quantity: qty } : i)
     );
   }, []);
 
-  // ── Quitar un producto ───────────────────────────────────────────────────
-  const removeFromCart = useCallback((product) => {
-    setCart(prev => prev.filter(i => i.id !== product.id));
+  /**
+   * removeFromCart(cartKey | product)
+   * Acepta un cartKey string/number o un objeto con .cartKey / .id.
+   */
+  const removeFromCart = useCallback((cartKeyOrProduct) => {
+    const key = typeof cartKeyOrProduct === "object"
+      ? resolveKey(cartKeyOrProduct)
+      : String(cartKeyOrProduct);
+    setCart(prev => prev.filter(i => i.cartKey !== key));
   }, []);
 
-  // ── Vaciar el carrito (llamar DESPUÉS de confirmar un pedido) ────────────
+  /**
+   * clearCart()  — llamar DESPUÉS de confirmar un pedido.
+   */
   const clearCart = useCallback(() => {
     setCart([]);
-    try { localStorage.removeItem("alesteb_cart"); } catch {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
   }, []);
 
   return (

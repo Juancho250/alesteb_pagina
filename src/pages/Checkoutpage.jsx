@@ -1,7 +1,7 @@
 // src/pages/CheckoutPage.jsx
 import {
-  MessageCircle, ChevronLeft, MapPin, Package,
-  AlertCircle, Loader2, ShoppingBag, Check
+  ChevronLeft, MapPin, Package,
+  AlertCircle, Loader2, ShoppingBag, Check,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -9,34 +9,33 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import api from "../services/api";
 
-// ── Datos bancarios — personaliza aquí ──────────────────────────────────────
 export const BANK_INFO = [
   {
-    bank:    "Bancolombia",
-    type:    "Ahorros",
-    number:  "123-456789-00",
-    name:    "Alesteb S.A.S",
-    nit:     "900.123.456-7",
-    emoji:   "🏦",
+    bank:   "Bancolombia",
+    type:   "Ahorros",
+    number: "123-456789-00",
+    name:   "Alesteb S.A.S",
+    nit:    "900.123.456-7",
+    emoji:  "🏦",
   },
   {
-    bank:    "Nequi",
-    type:    "Nequi",
-    number:  "3145055073",
-    name:    "Alesteb Boutique",
-    nit:     null,
-    emoji:   "💜",
+    bank:   "Nequi",
+    type:   "Nequi",
+    number: "3145055073",
+    name:   "Alesteb Boutique",
+    nit:    null,
+    emoji:  "💜",
   },
 ];
 
 export default function CheckoutPage() {
-  const navigate           = useNavigate();
-  const { user }           = useAuth();
+  const navigate            = useNavigate();
+  const { user }            = useAuth();
   const { cart, clearCart } = useCart();
 
-  const [step, setStep]             = useState(1);
+  const [step, setStep]               = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [errors, setErrors]         = useState({});
+  const [errors, setErrors]           = useState({});
 
   const [form, setForm] = useState({
     shipping_address: user?.address || "",
@@ -45,7 +44,7 @@ export default function CheckoutPage() {
     payment_method:   "transfer",
   });
 
-  // ── Calcular total ───────────────────────────────────────────────────────
+  // ── Totales ───────────────────────────────────────────────────────────────
   const { total, count } = useMemo(() => {
     let t = 0, c = 0;
     cart.forEach(i => {
@@ -75,7 +74,12 @@ export default function CheckoutPage() {
     try {
       const { data } = await api.post("/sales", {
         customer_id:      user.id,
-        items:            cart.map(i => ({ product_id: i.id, quantity: i.quantity || 1 })),
+        // ← Incluimos variant_id si el ítem proviene de una variante
+        items: cart.map(i => ({
+          product_id: i.id,
+          quantity:   i.quantity || 1,
+          ...(i.variantId && { variant_id: i.variantId }),
+        })),
         payment_method:   form.payment_method,
         shipping_address: form.shipping_address,
         shipping_city:    form.shipping_city,
@@ -83,9 +87,7 @@ export default function CheckoutPage() {
       });
 
       if (data.success) {
-        // ✅ Limpiar el carrito ANTES de navegar
         clearCart();
-
         navigate("/order-success", {
           state: {
             sale_id:          data.data.sale_id,
@@ -106,7 +108,7 @@ export default function CheckoutPage() {
     }
   };
 
-  // ── Guards ───────────────────────────────────────────────────────────────
+  // ── Guards ────────────────────────────────────────────────────────────────
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -145,7 +147,7 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
 
-      {/* ── Header fijo ─────────────────────────────────────────────────── */}
+      {/* Header fijo */}
       <div className="bg-white border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -169,7 +171,6 @@ export default function CheckoutPage() {
             </div>
           </div>
         </div>
-        {/* Barra de progreso */}
         <div className="h-0.5 bg-slate-100">
           <div
             className="h-full bg-slate-900 transition-all duration-500"
@@ -178,17 +179,16 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* ── Contenido ───────────────────────────────────────────────────── */}
+      {/* Contenido */}
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-[1fr_360px] gap-6">
 
           {/* Formulario */}
           <div>
 
-            {/* ── Paso 1: Dirección ── */}
+            {/* Paso 1: Dirección */}
             {step === 1 && (
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-5">
-
                 {user?.address && (
                   <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100">
                     <MapPin size={16} className="text-blue-500 shrink-0 mt-0.5" />
@@ -198,7 +198,6 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {/* Ciudad */}
                 <div>
                   <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
                     Ciudad <span className="text-red-400">*</span>
@@ -222,7 +221,6 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
-                {/* Dirección */}
                 <div>
                   <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
                     Dirección completa <span className="text-red-400">*</span>
@@ -246,7 +244,6 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
-                {/* Notas */}
                 <div>
                   <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
                     Instrucciones <span className="text-slate-300 font-normal normal-case">(opcional)</span>
@@ -263,7 +260,6 @@ export default function CheckoutPage() {
                   />
                 </div>
 
-                {/* Método de pago */}
                 <div>
                   <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-3">
                     Método de pago
@@ -285,9 +281,7 @@ export default function CheckoutPage() {
                       >
                         <span className="text-xl">{opt.icon}</span>
                         <span className="text-xs">{opt.label}</span>
-                        {form.payment_method === opt.value && (
-                          <Check size={14} className="ml-auto" />
-                        )}
+                        {form.payment_method === opt.value && <Check size={14} className="ml-auto" />}
                       </button>
                     ))}
                   </div>
@@ -303,10 +297,9 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {/* ── Paso 2: Confirmar ── */}
+            {/* Paso 2: Confirmar */}
             {step === 2 && (
               <div className="space-y-4">
-                {/* Dirección elegida */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                   <div className="flex items-start gap-3">
                     <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -329,7 +322,6 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* Aviso de email */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                   <div className="flex items-start gap-3">
                     <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -345,7 +337,6 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* Error general */}
                 {errors.submit && (
                   <div className="flex items-center gap-3 p-4 bg-red-50 rounded-2xl border border-red-200">
                     <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
@@ -372,7 +363,7 @@ export default function CheckoutPage() {
             )}
           </div>
 
-          {/* ── Sidebar: Resumen del carrito ─────────────────────────────── */}
+          {/* Sidebar: resumen del carrito */}
           <div className="lg:sticky lg:top-24 h-fit">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">
@@ -384,7 +375,7 @@ export default function CheckoutPage() {
                   const price    = Number(item.final_price) || Number(item.price) || 0;
                   const subtotal = price * (item.quantity || 1);
                   return (
-                    <div key={item.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div key={item.cartKey} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
                       {item.main_image && (
                         <div className="relative flex-shrink-0">
                           <img
@@ -399,6 +390,10 @@ export default function CheckoutPage() {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900 truncate">{item.name}</p>
+                        {/* Etiqueta de variante si existe */}
+                        {item.variantLabel && (
+                          <p className="text-[10px] text-blue-500 font-bold truncate">{item.variantLabel}</p>
+                        )}
                         <p className="text-xs text-slate-400">${price.toLocaleString()} × {item.quantity || 1}</p>
                       </div>
                       <p className="text-sm font-black text-slate-900 flex-shrink-0">
