@@ -1,37 +1,129 @@
 // src/pages/OrderSuccessPage.jsx
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
-  CheckCircle, Copy, Check, MessageCircle,
-  Package, MapPin, Home, ChevronRight, Upload
+  CheckCircle, XCircle, Copy, Check, MessageCircle,
+  Package, MapPin, Home, ChevronRight, Upload, Loader2,
 } from "lucide-react";
 import ProofUploader from "../components/ProofUploader";
 import { BANK_INFO } from "./Checkoutpage";
+import api from "../services/api";
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Wompi redirige con estos query params:
+     ?id=<tx_id>&reference=<order_code>&amount_in_cents=...&currency=COP&status=APPROVED
+   El flujo normal (transfer/cash) sigue usando location.state
+   ───────────────────────────────────────────────────────────────────────── */
 export default function OrderSuccessPage() {
-  const location = useLocation();
-  const navigate  = useNavigate();
-  const state     = location.state || {};
+  const location       = useLocation();
+  const navigate       = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const {
-    sale_id,
-    order_code,
-    total,
-    payment_method,
-    shipping_address,
-    shipping_city,
-  } = state;
+  // ── Detectar si venimos de Wompi (tiene query param "reference") ─────────
+  const wompiReference = searchParams.get("reference");
+  const wompiStatus    = searchParams.get("status"); // APPROVED | DECLINED | ERROR | VOIDED
+  const wompiTxId      = searchParams.get("id");
 
-  const [copiedIdx, setCopiedIdx] = useState(null);
+  // ── Estado normal (transfer/cash) desde location.state ──────────────────
+  const state = location.state || {};
 
-  // ── Si no hay datos de orden, redirigir ─────────────────────────────────
+  const [orderData, setOrderData]   = useState(null);
+  const [loadingWompi, setLoading]  = useState(!!wompiReference);
+  const [wompiApproved, setApproved] = useState(false);
+  const [copiedIdx, setCopiedIdx]   = useState(null);
+
+  // ── Si viene de Wompi: verificar estado en nuestro backend ───────────────
   useEffect(() => {
-    if (!order_code) {
+    if (!wompiReference) return;
+
+    const verify = async () => {
+      try {
+        // Wompi ya llamó el webhook antes de redirigir, pero verificamos por si acaso
+        const { data } = await api.get(`/wompi/verify/${wompiReference}`);
+        if (data.success) {
+          setOrderData(data.data);
+          setApproved(
+            wompiStatus === "APPROVED" || data.data.payment_status === "paid"
+          );
+        }
+      } catch {
+        // Si falla la verificación, nos basamos en el query param de Wompi
+        setApproved(wompiStatus === "APPROVED");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verify();
+  }, [wompiReference, wompiStatus]);
+
+  // ── Si no hay datos en absoluto, redirigir al inicio ────────────────────
+  useEffect(() => {
+    if (!wompiReference && !state.order_code) {
       const t = setTimeout(() => navigate("/"), 2000);
       return () => clearTimeout(t);
     }
-  }, [order_code, navigate]);
+  }, [wompiReference, state.order_code, navigate]);
 
+  // ── Datos unificados para el template ───────────────────────────────────
+  const order_code       = state.order_code  || orderData?.sale_number || wompiReference || "";
+  const sale_id          = state.sale_id     || orderData?.id          || null;
+  const total            = state.total       || orderData?.total       || 0;
+  const payment_method   = state.payment_method || (wompiReference ? "wompi" : "");
+  const shipping_address = state.shipping_address || "";
+  const shipping_city    = state.shipping_city    || "";
+
+  const isWompi    = payment_method === "wompi" || !!wompiReference;
+  const isTransfer = payment_method === "transfer";
+  const isSuccess  = isWompi ? wompiApproved : true; // transfer/cash siempre exitoso
+
+  // ── Loading mientras verificamos Wompi ──────────────────────────────────
+  if (loadingWompi) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 size={40} className="mx-auto text-slate-400 animate-spin mb-4" />
+          <p className="text-slate-500 font-medium">Verificando tu pago…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Pago rechazado con Wompi ─────────────────────────────────────────────
+  if (isWompi && !isSuccess) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 max-w-sm w-full text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+            <XCircle size={32} className="text-red-500" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-2">Pago no aprobado</h2>
+          <p className="text-slate-500 text-sm mb-2">
+            Tu pedido <strong className="text-slate-700">{order_code}</strong> fue creado pero el pago no se completó.
+          </p>
+          <p className="text-slate-400 text-xs mb-6">
+            Puedes intentar de nuevo desde "Mis pedidos" o elegir otro método de pago.
+          </p>
+          <div className="space-y-3">
+            <Link
+              to="/mis-pedidos"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm"
+            >
+              Ver mis pedidos
+            </Link>
+            <Link
+              to="/productos"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm"
+            >
+              <Home size={15} /> Volver al inicio
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Fallback si aún no hay código ────────────────────────────────────────
   if (!order_code) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -46,7 +138,6 @@ export default function OrderSuccessPage() {
       setCopiedIdx(idx);
       setTimeout(() => setCopiedIdx(null), 2000);
     } catch {
-      // fallback para iOS Safari
       const el = document.createElement("textarea");
       el.value = text;
       document.body.appendChild(el);
@@ -58,8 +149,6 @@ export default function OrderSuccessPage() {
     }
   };
 
-  const isTransfer = payment_method === "transfer";
-
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-16">
       <div className="max-w-lg mx-auto px-4 pt-12">
@@ -70,10 +159,13 @@ export default function OrderSuccessPage() {
             <CheckCircle size={40} className="text-white" strokeWidth={2.5} />
           </div>
           <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">
-            ¡Pedido confirmado!
+            {isWompi ? "¡Pago recibido!" : "¡Pedido confirmado!"}
           </h1>
           <p className="text-slate-500 font-medium mb-4">
-            Revisamos y procesamos tu pedido muy pronto
+            {isWompi
+              ? "Tu pago fue aprobado. Procesaremos tu pedido pronto."
+              : "Revisamos y procesamos tu pedido muy pronto"
+            }
           </p>
           <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-full shadow-lg">
             <Package size={15} />
@@ -87,32 +179,47 @@ export default function OrderSuccessPage() {
           <div className="bg-slate-900 text-white px-6 py-5 text-center">
             <p className="text-xs font-bold uppercase tracking-widest opacity-50 mb-1">Total del pedido</p>
             <p className="text-4xl font-black">${Number(total).toLocaleString()}</p>
+            {isWompi && (
+              <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 bg-emerald-500 rounded-full">
+                <CheckCircle size={12} />
+                <span className="text-[11px] font-black">Pago aprobado por Wompi</span>
+              </div>
+            )}
           </div>
 
-          {/* Dirección */}
-          <div className="px-6 py-4 border-b border-slate-100 flex items-start gap-3">
-            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-              <MapPin size={14} className="text-blue-600" />
+          {/* Dirección (si la tenemos) */}
+          {(shipping_city || shipping_address) && (
+            <div className="px-6 py-4 border-b border-slate-100 flex items-start gap-3">
+              <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <MapPin size={14} className="text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-0.5">Dirección de envío</p>
+                {shipping_city    && <p className="font-bold text-slate-900">{shipping_city}</p>}
+                {shipping_address && <p className="text-sm text-slate-500">{shipping_address}</p>}
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-0.5">Dirección de envío</p>
-              <p className="font-bold text-slate-900">{shipping_city}</p>
-              <p className="text-sm text-slate-500">{shipping_address}</p>
-            </div>
-          </div>
+          )}
 
           {/* Próximos pasos */}
           <div className="px-6 py-5">
             <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">¿Qué sigue?</p>
             <ol className="space-y-3">
-              {[
-                "Revisa tu correo con el resumen del pedido",
-                isTransfer
-                  ? "Realiza la transferencia usando los datos de abajo"
-                  : "Coordinaremos el pago en efectivo al entregar",
-                "Sube tu comprobante para agilizar el proceso",
-                "Recibe tu pedido en la dirección indicada",
-              ].map((step, i) => (
+              {(isWompi
+                ? [
+                    "Revisa tu correo con el resumen del pedido",
+                    "Prepararemos tu pedido para el envío",
+                    "Recibe tu pedido en la dirección indicada",
+                  ]
+                : [
+                    "Revisa tu correo con el resumen del pedido",
+                    isTransfer
+                      ? "Realiza la transferencia usando los datos de abajo"
+                      : "Coordinaremos el pago en efectivo al entregar",
+                    "Sube tu comprobante para agilizar el proceso",
+                    "Recibe tu pedido en la dirección indicada",
+                  ]
+              ).map((step, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-900 text-white text-[11px] font-black flex items-center justify-center mt-0.5">
                     {i + 1}
@@ -124,7 +231,7 @@ export default function OrderSuccessPage() {
           </div>
         </div>
 
-        {/* ── Datos bancarios (solo si eligió transferencia) ─────────── */}
+        {/* ── Datos bancarios (solo transferencia) ────────────────────── */}
         {isTransfer && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
             <div className="px-6 py-4 border-b border-slate-100">
@@ -147,7 +254,7 @@ export default function OrderSuccessPage() {
                   <div className="space-y-2">
                     {[
                       { label: "Número de cuenta / celular", value: bank.number },
-                      { label: "Titular", value: bank.name },
+                      { label: "Titular",                    value: bank.name   },
                       ...(bank.nit ? [{ label: "NIT", value: bank.nit }] : []),
                     ].map((row, rowIdx) => {
                       const copyKey = `${idx}-${rowIdx}`;
@@ -169,7 +276,6 @@ export default function OrderSuccessPage() {
                                 ? "bg-emerald-100 text-emerald-600"
                                 : "bg-slate-200 text-slate-500 hover:bg-slate-300"
                               }`}
-                            title="Copiar"
                           >
                             {copiedIdx === copyKey ? <Check size={13} /> : <Copy size={13} />}
                           </button>
@@ -183,37 +289,36 @@ export default function OrderSuccessPage() {
 
             <div className="px-6 py-3 bg-amber-50 border-t border-amber-100">
               <p className="text-xs text-amber-700 font-medium text-center">
-                ⚠️ Incluye el código <strong>{order_code}</strong> en la descripción de la transferencia
+                ⚠️ Incluye el código <strong>{order_code}</strong> en la descripción
               </p>
             </div>
           </div>
         )}
 
-        {/* ── Subir comprobante aquí mismo ───────────────────────────── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Upload size={14} className="text-blue-600" />
+        {/* ── Subir comprobante (no aplica para Wompi aprobado) ────────── */}
+        {!isWompi && sale_id && (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+              <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Upload size={14} className="text-blue-600" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-900 text-sm">Sube tu comprobante</p>
+                <p className="text-xs text-slate-400">
+                  {isTransfer
+                    ? "Después de transferir, sube la captura aquí"
+                    : "Si ya tienes un comprobante, súbelo aquí"
+                  }
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-bold text-slate-900 text-sm">Sube tu comprobante</p>
-              <p className="text-xs text-slate-400">
-                {isTransfer
-                  ? "Después de transferir, sube la captura aquí"
-                  : "Si ya tienes un comprobante, súbelo aquí"
-                }
-              </p>
+            <div className="p-5">
+              <ProofUploader order={{ id: sale_id, payment_proof_url: null }} />
             </div>
           </div>
-          <div className="p-5">
-            {/* Pasamos un objeto minimal con id y sin proof_url para que muestre el uploader */}
-            <ProofUploader
-              order={{ id: sale_id, payment_proof_url: null }}
-            />
-          </div>
-        </div>
+        )}
 
-        {/* ── WhatsApp (alternativa, no forzado) ─────────────────────── */}
+        {/* ── WhatsApp ───────────────────────────────────────────────── */}
         <a
           href={`https://wa.me/573145055073?text=${encodeURIComponent(
             `Hola! Confirmo mi pedido ${order_code} por $${Number(total).toLocaleString()}`

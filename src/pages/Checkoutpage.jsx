@@ -1,7 +1,7 @@
 // src/pages/CheckoutPage.jsx
 import {
   ChevronLeft, MapPin, Package,
-  AlertCircle, Loader2, ShoppingBag, Check,
+  AlertCircle, Loader2, ShoppingBag, Check, CreditCard,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -28,6 +28,12 @@ export const BANK_INFO = [
   },
 ];
 
+const PAYMENT_OPTIONS = [
+  { value: "wompi",    label: "Tarjeta / PSE",  icon: "💳", badge: "Recomendado" },
+  { value: "transfer", label: "Transferencia",  icon: "🏦", badge: null },
+  { value: "cash",     label: "Efectivo",        icon: "💵", badge: null },
+];
+
 export default function CheckoutPage() {
   const navigate            = useNavigate();
   const { user }            = useAuth();
@@ -41,7 +47,7 @@ export default function CheckoutPage() {
     shipping_address: user?.address || "",
     shipping_city:    user?.city    || "",
     shipping_notes:   "",
-    payment_method:   "transfer",
+    payment_method:   "wompi",
   });
 
   // ── Totales ───────────────────────────────────────────────────────────────
@@ -72,6 +78,7 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     setErrors({});
     try {
+      // 1. Crear la venta primero (siempre)
       const { data } = await api.post("/sales", {
         customer_id:      user.id,
         items: cart.map(i => ({
@@ -79,29 +86,51 @@ export default function CheckoutPage() {
           quantity:   i.quantity || 1,
           ...(i.variantId && { variant_id: i.variantId }),
         })),
-        payment_method:   form.payment_method,
+        payment_method:   form.payment_method === "wompi" ? "credit" : form.payment_method, // ← fix
         shipping_address: form.shipping_address,
         shipping_city:    form.shipping_city,
         shipping_notes:   form.shipping_notes,
       });
 
-      if (data.success) {
-        clearCart();
-        navigate("/order-success", {
-          state: {
-            sale_id:          data.data.sale_id,
-            order_code:       data.data.order_code,
-            total:            data.data.total,
-            payment_method:   form.payment_method,
-            shipping_address: form.shipping_address,
-            shipping_city:    form.shipping_city,
-            shipping_notes:   form.shipping_notes,
-          },
-          replace: true,
+      if (!data.success) throw new Error(data.message || "Error al crear el pedido");
+
+      clearCart();
+
+      // 2. Si eligió Wompi → pedir sesión y redirigir al hosted checkout
+      if (form.payment_method === "wompi") {
+        const { data: wompi } = await api.get(`/wompi/session/${data.data.sale_id}`);
+
+        if (!wompi.success) throw new Error("No se pudo iniciar el pago con Wompi");
+
+        const params = new URLSearchParams({
+          "public-key":          wompi.data.public_key,
+          currency:              wompi.data.currency,
+          "amount-in-cents":     wompi.data.amount_in_cents,
+          reference:             wompi.data.reference,
+          "signature:integrity": wompi.data.signature,
+          "redirect-url":        wompi.data.redirect_url,
         });
+
+        // Redirigir al hosted checkout de Wompi
+        window.location.href = `https://checkout.wompi.co/p/?${params.toString()}`;
+        return; // no continuar
       }
+
+      // 3. Transferencia / Efectivo → flujo original
+      navigate("/order-success", {
+        state: {
+          sale_id:          data.data.sale_id,
+          order_code:       data.data.order_code,
+          total:            data.data.total,
+          payment_method:   form.payment_method,
+          shipping_address: form.shipping_address,
+          shipping_city:    form.shipping_city,
+          shipping_notes:   form.shipping_notes,
+        },
+        replace: true,
+      });
     } catch (error) {
-      setErrors({ submit: error.response?.data?.message || "Error al procesar tu pedido. Intenta de nuevo." });
+      setErrors({ submit: error.response?.data?.message || error.message || "Error al procesar tu pedido. Intenta de nuevo." });
     } finally {
       setIsProcessing(false);
     }
@@ -259,31 +288,51 @@ export default function CheckoutPage() {
                   />
                 </div>
 
+                {/* ── Métodos de pago ───────────────────────────────────── */}
                 <div>
                   <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-3">
                     Método de pago
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { value: "transfer", label: "Transferencia", icon: "🏦" },
-                      { value: "cash",     label: "Efectivo",      icon: "💵" },
-                    ].map(opt => (
+                  <div className="space-y-2">
+                    {PAYMENT_OPTIONS.map(opt => (
                       <button
                         key={opt.value}
                         type="button"
                         onClick={() => setForm(p => ({ ...p, payment_method: opt.value }))}
-                        className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all font-bold text-sm
+                        className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all font-bold text-sm
                           ${form.payment_method === opt.value
                             ? "border-slate-900 bg-slate-900 text-white"
                             : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
                           }`}
                       >
                         <span className="text-xl">{opt.icon}</span>
-                        <span className="text-xs">{opt.label}</span>
-                        {form.payment_method === opt.value && <Check size={14} className="ml-auto" />}
+                        <span className="text-sm font-bold">{opt.label}</span>
+                        {opt.badge && (
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ml-1
+                            ${form.payment_method === opt.value
+                              ? "bg-white/20 text-white"
+                              : "bg-emerald-100 text-emerald-700"
+                            }`}>
+                            {opt.badge}
+                          </span>
+                        )}
+                        {form.payment_method === opt.value && (
+                          <Check size={16} className="ml-auto flex-shrink-0" />
+                        )}
                       </button>
                     ))}
                   </div>
+
+                  {/* Nota informativa según método elegido */}
+                  {form.payment_method === "wompi" && (
+                    <div className="mt-3 flex items-start gap-2 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                      <CreditCard size={14} className="text-blue-500 shrink-0 mt-0.5" />
+                      <p className="text-xs text-blue-700 font-medium leading-relaxed">
+                        Pagarás de forma segura con tarjeta débito, crédito o PSE a través de Wompi.
+                        Serás redirigido al portal de pago.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -327,10 +376,11 @@ export default function CheckoutPage() {
                       <Package size={16} className="text-blue-600" />
                     </div>
                     <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                      Al confirmar, recibirás un resumen en <strong className="text-slate-900">{user.email}</strong>.
-                      {form.payment_method === "transfer"
-                        ? " Te mostraremos los datos bancarios para realizar la transferencia."
-                        : " Coordinaremos el pago en efectivo al momento de la entrega."
+                      {form.payment_method === "wompi"
+                        ? <>Al confirmar, crearemos tu pedido y te redirigiremos al portal de pago seguro de <strong className="text-slate-900">Wompi</strong> para completar el pago con tarjeta o PSE.</>
+                        : form.payment_method === "transfer"
+                          ? <>Al confirmar, recibirás un resumen en <strong className="text-slate-900">{user.email}</strong>. Te mostraremos los datos bancarios para realizar la transferencia.</>
+                          : <>Al confirmar, coordinaremos el pago en efectivo al momento de la entrega.</>
                       }
                     </p>
                   </div>
@@ -350,14 +400,24 @@ export default function CheckoutPage() {
                     transition-all active:scale-[0.98]
                     ${isProcessing
                       ? "bg-slate-300 text-slate-500 cursor-wait"
-                      : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      : form.payment_method === "wompi"
+                        ? "bg-[#FF3366] hover:bg-[#e02d5a] text-white"
+                        : "bg-emerald-600 hover:bg-emerald-700 text-white"
                     }`}
                 >
                   {isProcessing
-                    ? <><Loader2 size={18} className="animate-spin" /> Procesando…</>
-                    : <><Check size={18} /> Confirmar pedido</>
+                    ? <><Loader2 size={18} className="animate-spin" /> {form.payment_method === "wompi" ? "Iniciando pago…" : "Procesando…"}</>
+                    : form.payment_method === "wompi"
+                      ? <><CreditCard size={18} /> Confirmar y pagar con Wompi</>
+                      : <><Check size={18} /> Confirmar pedido</>
                   }
                 </button>
+
+                {form.payment_method === "wompi" && (
+                  <p className="text-center text-[11px] text-slate-400">
+                    🔒 Pago 100% seguro procesado por Wompi
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -389,7 +449,6 @@ export default function CheckoutPage() {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900 truncate">{item.name}</p>
-                        {/* Etiqueta de variante */}
                         {item.variantLabel && (
                           <p className="text-[10px] text-blue-500 font-bold truncate">{item.variantLabel}</p>
                         )}
@@ -422,7 +481,12 @@ export default function CheckoutPage() {
                   <span className="text-2xl font-black text-slate-900">${total.toLocaleString()}</span>
                 </div>
                 <p className="text-[11px] text-slate-400 text-center pt-1">
-                  {form.payment_method === "transfer" ? "🏦 Transferencia bancaria" : "💵 Efectivo"}
+                  {form.payment_method === "wompi"
+                    ? "💳 Tarjeta / PSE vía Wompi"
+                    : form.payment_method === "transfer"
+                      ? "🏦 Transferencia bancaria"
+                      : "💵 Efectivo"
+                  }
                 </p>
               </div>
             </div>
