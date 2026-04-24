@@ -5,7 +5,7 @@ const CartContext = createContext(null);
 
 // ─── Key única por item ───────────────────────────────────────────────────────
 // Producto simple  → "42"
-// Con variante     → "42-v7"   (armado en ProductDetail antes de llamar toggleCart)
+// Con variante     → "42-v7"
 const resolveKey = (product) =>
   product.cartKey != null ? String(product.cartKey) : String(product.id);
 
@@ -16,7 +16,6 @@ const loadCart = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return [];
     const parsed = JSON.parse(saved);
-    // Migración: ítems viejos sin cartKey → asignamos String(id)
     return parsed.map(item => ({
       ...item,
       cartKey: item.cartKey ?? String(item.id),
@@ -25,6 +24,10 @@ const loadCart = () => {
     return [];
   }
 };
+
+// ─── Precio efectivo de un ítem ──────────────────────────────────────────────
+export const getItemPrice = (item) =>
+  Number(item.variantPrice ?? item.final_price ?? item.sale_price ?? item.price ?? 0);
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 export function CartProvider({ children }) {
@@ -36,14 +39,27 @@ export function CartProvider({ children }) {
 
   /**
    * toggleCart(product, quantity = 1)
-   * Si el ítem ya existe (por cartKey) → lo elimina.
-   * Si no existe → lo agrega con la quantity indicada.
+   * - Si el ítem NO existe → lo agrega con la quantity indicada.
+   * - Si ya existe → actualiza quantity (upsert).
+   *   Para ELIMINAR usa removeFromCart().
+   *
+   * Esto permite que ProductDetail añada qty > 1 y que
+   * al volver a la página la cantidad se respete.
    */
   const toggleCart = useCallback((product, quantity = 1) => {
     const key = resolveKey(product);
     setCart(prev => {
-      const exists = prev.some(i => i.cartKey === key);
-      if (exists) return prev.filter(i => i.cartKey !== key);
+      const existing = prev.find(i => i.cartKey === key);
+      if (existing) {
+        // Si misma cantidad ya en carrito → eliminar (comportamiento toggle)
+        if (existing.quantity === Math.max(1, quantity)) {
+          return prev.filter(i => i.cartKey !== key);
+        }
+        // Distinta cantidad → actualizar
+        return prev.map(i =>
+          i.cartKey === key ? { ...i, quantity: Math.max(1, quantity) } : i
+        );
+      }
       return [...prev, { ...product, cartKey: key, quantity: Math.max(1, quantity) }];
     });
   }, []);
@@ -63,7 +79,7 @@ export function CartProvider({ children }) {
 
   /**
    * removeFromCart(cartKey | product)
-   * Acepta un cartKey string/number o un objeto con .cartKey / .id.
+   * Acepta un cartKey string/number o un objeto con .cartKey / .id
    */
   const removeFromCart = useCallback((cartKeyOrProduct) => {
     const key = typeof cartKeyOrProduct === "object"
@@ -73,7 +89,7 @@ export function CartProvider({ children }) {
   }, []);
 
   /**
-   * clearCart()  — llamar DESPUÉS de confirmar un pedido.
+   * clearCart() — llamar DESPUÉS de confirmar un pedido
    */
   const clearCart = useCallback(() => {
     setCart([]);

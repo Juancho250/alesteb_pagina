@@ -6,7 +6,7 @@ import {
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useCart } from "../context/CartContext";
+import { useCart, getItemPrice } from "../context/CartContext";
 import api from "../services/api";
 
 export const BANK_INFO = [
@@ -33,9 +33,9 @@ export default function CheckoutPage() {
   const { user }            = useAuth();
   const { cart, clearCart } = useCart();
 
-  const [step, setStep]               = useState(1);
+  const [step, setStep]                 = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [errors, setErrors]           = useState({});
+  const [errors, setErrors]             = useState({});
 
   const [form, setForm] = useState({
     shipping_address: user?.address || "",
@@ -48,7 +48,7 @@ export default function CheckoutPage() {
   const { total, count } = useMemo(() => {
     let t = 0, c = 0;
     cart.forEach(i => {
-      t += (Number(i.final_price) || Number(i.price) || 0) * (i.quantity || 1);
+      t += getItemPrice(i) * (i.quantity || 1);
       c += i.quantity || 1;
     });
     return { total: t, count: c };
@@ -74,7 +74,6 @@ export default function CheckoutPage() {
     try {
       const { data } = await api.post("/sales", {
         customer_id:      user.id,
-        // ← Incluimos variant_id si el ítem proviene de una variante
         items: cart.map(i => ({
           product_id: i.id,
           quantity:   i.quantity || 1,
@@ -372,7 +371,7 @@ export default function CheckoutPage() {
 
               <div className="space-y-3 mb-5 max-h-72 overflow-y-auto">
                 {cart.map(item => {
-                  const price    = Number(item.final_price) || Number(item.price) || 0;
+                  const price    = getItemPrice(item);
                   const subtotal = price * (item.quantity || 1);
                   return (
                     <div key={item.cartKey} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -390,9 +389,14 @@ export default function CheckoutPage() {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900 truncate">{item.name}</p>
-                        {/* Etiqueta de variante si existe */}
+                        {/* Etiqueta de variante */}
                         {item.variantLabel && (
                           <p className="text-[10px] text-blue-500 font-bold truncate">{item.variantLabel}</p>
+                        )}
+                        {!item.variantLabel && item.variantAttributes?.length > 0 && (
+                          <p className="text-[10px] text-blue-500 font-bold truncate">
+                            {item.variantAttributes.map(a => a.display_value ?? a.value).join(" / ")}
+                          </p>
                         )}
                         <p className="text-xs text-slate-400">${price.toLocaleString()} × {item.quantity || 1}</p>
                       </div>

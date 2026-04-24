@@ -3,10 +3,42 @@ import { MessageCircle, X, Plus, Minus, ShoppingBag } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useCart } from "../context/CartContext";
+import { useCart, getItemPrice } from "../context/CartContext";
+
+// ─── Chip de variante ─────────────────────────────────────────────────────────
+function VariantLabel({ item }) {
+  // variantLabel viene de ProductDetail: "Rojo / L"
+  // variantAttributes viene de Sales: [{ display_value, hex_color }]
+  if (item.variantLabel) {
+    return (
+      <p className="text-[9px] font-bold text-blue-400 truncate leading-tight">
+        {item.variantLabel}
+      </p>
+    );
+  }
+  if (item.variantAttributes?.length) {
+    return (
+      <div className="flex flex-wrap gap-1 mt-0.5">
+        {item.variantAttributes.map((a, i) => (
+          <span key={i}
+            className="inline-flex items-center gap-0.5 text-[8px] font-bold text-blue-400 leading-none">
+            {a.hex_color && (
+              <span
+                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: a.hex_color }}
+              />
+            )}
+            {a.display_value ?? a.value}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  return null;
+}
 
 export default function CartFloating() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen]               = useState(false);
   const { user }                          = useAuth();
   const { cart, removeFromCart, updateQty } = useCart();
   const navigate                          = useNavigate();
@@ -14,7 +46,7 @@ export default function CartFloating() {
   const { total, count } = useMemo(() => {
     let t = 0, c = 0;
     cart.forEach(i => {
-      t += (i.final_price || i.price || 0) * (i.quantity || 1);
+      t += getItemPrice(i) * (i.quantity || 1);
       c += i.quantity || 1;
     });
     return { total: t, count: c };
@@ -43,56 +75,72 @@ export default function CartFloating() {
             : "max-h-0 opacity-0 translate-y-10"
           }`}
       >
-        {cart.map(item => (
-          <div
-            key={item.id}
-            className="relative group bg-white/95 backdrop-blur-xl rounded-[1.5rem] p-2 pr-5 flex items-center gap-4
-              shadow-[0_10px_30px_rgba(0,0,0,0.08)] border border-white/50 transition-all hover:shadow-xl hover:bg-white"
-          >
-            <div className="relative shrink-0">
-              <img
-                src={item.main_image}
-                alt={item.name}
-                className="w-12 h-12 rounded-full object-cover border-2 border-slate-100 shadow-sm"
-              />
-              <div className="absolute -bottom-1 -right-1 bg-slate-900 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">
-                {item.quantity}
-              </div>
-            </div>
+        {cart.map(item => {
+          const price    = getItemPrice(item);
+          const qty      = item.quantity || 1;
+          const subtotal = price * qty;
 
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-tight text-slate-800 truncate">
-                {item.name}
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <p className="text-[11px] font-bold text-slate-900">
-                  ${((item.final_price || item.price) * (item.quantity || 1)).toLocaleString()}
-                </p>
-                <div className="flex items-center bg-slate-100 rounded-full px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => updateQty(item.id, (item.quantity || 1) - 1)}
-                    className="p-1 hover:text-blue-600"
-                  >
-                    <Minus size={10} />
-                  </button>
-                  <button
-                    onClick={() => updateQty(item.id, (item.quantity || 1) + 1)}
-                    className="p-1 hover:text-blue-600"
-                  >
-                    <Plus size={10} />
-                  </button>
+          return (
+            <div
+              key={item.cartKey}  // ← cartKey, no item.id
+              className="relative group bg-white/95 backdrop-blur-xl rounded-[1.5rem] p-2 pr-5 flex items-center gap-4
+                shadow-[0_10px_30px_rgba(0,0,0,0.08)] border border-white/50 transition-all hover:shadow-xl hover:bg-white"
+            >
+              {/* Imagen */}
+              <div className="relative shrink-0">
+                <img
+                  src={item.main_image || "https://via.placeholder.com/48"}
+                  alt={item.name}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-slate-100 shadow-sm"
+                />
+                <div className="absolute -bottom-1 -right-1 bg-slate-900 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">
+                  {qty}
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={() => removeFromCart(item)}
-              className="text-slate-300 hover:text-red-500 transition-colors"
-            >
-              <X size={16} strokeWidth={2.5} />
-            </button>
-          </div>
-        ))}
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-tight text-slate-800 truncate leading-tight">
+                  {item.name}
+                </p>
+                {/* Variante */}
+                <VariantLabel item={item} />
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-[11px] font-bold text-slate-900">
+                    ${subtotal.toLocaleString()}
+                  </p>
+                  {/* Controles de cantidad — visible en hover */}
+                  <div className="flex items-center bg-slate-100 rounded-full px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => updateQty(item.cartKey, qty - 1)} // ← usa cartKey
+                      className="p-1 hover:text-blue-600 transition-colors"
+                      title="Reducir cantidad"
+                    >
+                      <Minus size={10} />
+                    </button>
+                    <span className="text-[10px] font-black w-3 text-center">{qty}</span>
+                    <button
+                      onClick={() => updateQty(item.cartKey, qty + 1)} // ← usa cartKey
+                      className="p-1 hover:text-blue-600 transition-colors"
+                      title="Aumentar cantidad"
+                    >
+                      <Plus size={10} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Eliminar */}
+              <button
+                onClick={() => removeFromCart(item.cartKey)}
+                className="text-slate-300 hover:text-red-500 transition-colors"
+                title="Eliminar del carrito"
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       {/* Controles principales */}
@@ -117,7 +165,7 @@ export default function CartFloating() {
         >
           <div className="flex flex-col text-white">
             <span className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
-              {user ? `${user.name.split(" ")[0]}` : "Iniciar sesión"}
+              {user ? user.name.split(" ")[0] : "Iniciar sesión"}
             </span>
             <span className="text-xl font-black">${total.toLocaleString()}</span>
           </div>
