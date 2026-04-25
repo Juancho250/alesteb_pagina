@@ -1,33 +1,76 @@
 // src/pages/ProductDetail.jsx
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, Check, ShoppingBag, Package,
   ShieldCheck, Tag, Plus, Minus, Info, Loader2, ChevronRight,
+  ZoomIn,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useCart } from "../context/CartContext";
 
+// ─── Cache de producto (reutiliza el mismo patrón que Products.jsx) ───────────
+const prodCache = new Map();
+const CACHE_TTL = 120_000; // 2 minutos para detalle
+
+function cacheGet(key) {
+  const e = prodCache.get(key);
+  if (!e) return null;
+  if (Date.now() - e.ts > CACHE_TTL) { prodCache.delete(key); return null; }
+  return e.data;
+}
+function cacheSet(key, data) {
+  prodCache.set(key, { data, ts: Date.now() });
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const optimizeUrl = (url, width = 800) => {
-  if (!url) return "https://via.placeholder.com/800x1000";
+  if (!url) return "https://placehold.co/800x1000/F5F5F7/F5F5F7";
   return url.includes("/upload/")
-    ? url.replace("/upload/", `/upload/f_auto,q_auto,w_${width},c_limit/`)
+    ? url.replace("/upload/", `/upload/f_webp,q_auto:good,w_${width},c_limit,dpr_auto/`)
     : url;
 };
 
-// ─── Sub-componentes de atributos ─────────────────────────────────────────────
+function slugify(str = "") {
+  return str.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+}
 
+// ─── Variantes de animación (coherente con Products) ─────────────────────────
+const fadeUp = {
+  hidden:  { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
+};
+
+const stagger = {
+  visible: { transition: { staggerChildren: 0.07 } },
+};
+
+// ─── Sub-componente: Thumbnail del carrusel ────────────────────────────────────
+const Thumb = ({ img, active, onClick, idx }) => (
+  <button
+    onClick={onClick}
+    className={`relative flex-shrink-0 w-16 h-16 rounded-2xl overflow-hidden transition-all duration-300
+      ${active
+        ? "ring-2 ring-slate-900 ring-offset-2 scale-95 opacity-100"
+        : "opacity-30 hover:opacity-70 hover:scale-95 ring-1 ring-slate-100"
+      }`}
+    aria-label={`Ver imagen ${idx + 1}`}
+  >
+    <img src={optimizeUrl(img, 200)} className="w-full h-full object-cover" loading="lazy" alt="" />
+  </button>
+);
+
+// ─── Sub-componentes de atributos ─────────────────────────────────────────────
 function ColorSwatch({ value, isSelected, isDisabled, onClick }) {
   return (
     <button
       onClick={onClick}
       disabled={isDisabled}
       title={value.display_value}
-      className={`
-        relative w-9 h-9 rounded-full border-2 transition-all duration-200 focus:outline-none
+      className={`relative w-9 h-9 rounded-full border-2 transition-all duration-200 focus:outline-none
         ${isSelected ? "border-slate-900 scale-110 shadow-md" : "border-slate-200 hover:border-slate-400"}
-        ${isDisabled ? "opacity-25 cursor-not-allowed" : "cursor-pointer"}
+        ${isDisabled ? "opacity-20 cursor-not-allowed" : "cursor-pointer"}
       `}
       style={{ backgroundColor: value.hex_color || "#ccc" }}
     >
@@ -45,13 +88,12 @@ function AttributePill({ value, isSelected, isDisabled, onClick }) {
     <button
       onClick={onClick}
       disabled={isDisabled}
-      className={`
-        px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider border-2 transition-all duration-200
+      className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider border-2 transition-all duration-200
         ${isSelected
           ? "border-slate-900 bg-slate-900 text-white"
           : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
         }
-        ${isDisabled ? "opacity-25 cursor-not-allowed line-through" : "cursor-pointer"}
+        ${isDisabled ? "opacity-20 cursor-not-allowed line-through" : "cursor-pointer"}
       `}
     >
       {value.display_value}
@@ -59,19 +101,12 @@ function AttributePill({ value, isSelected, isDisabled, onClick }) {
   );
 }
 
-/**
- * Selector de un tipo de atributo completo (Color, Talla, etc.)
- * availableValueIds: Set de IDs que son seleccionables dado el estado actual
- */
 function AttributeSelector({ attrType, values, selected, onSelect, availableValueIds }) {
   const isColor = attrType.toLowerCase().includes("color");
-
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-          {attrType}
-        </span>
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{attrType}</span>
         {selected != null && (
           <span className="text-[10px] font-bold text-slate-600">
             {values.find(v => v.attribute_value_id === selected)?.display_value}
@@ -83,16 +118,14 @@ function AttributeSelector({ attrType, values, selected, onSelect, availableValu
           const isAvailable = availableValueIds.has(v.attribute_value_id);
           return isColor ? (
             <ColorSwatch
-              key={v.attribute_value_id}
-              value={v}
+              key={v.attribute_value_id} value={v}
               isSelected={selected === v.attribute_value_id}
               isDisabled={!isAvailable}
               onClick={() => onSelect(v.attribute_value_id)}
             />
           ) : (
             <AttributePill
-              key={v.attribute_value_id}
-              value={v}
+              key={v.attribute_value_id} value={v}
               isSelected={selected === v.attribute_value_id}
               isDisabled={!isAvailable}
               onClick={() => onSelect(v.attribute_value_id)}
@@ -104,44 +137,53 @@ function AttributeSelector({ attrType, values, selected, onSelect, availableValu
   );
 }
 
+// ─── Badge de info inferior ────────────────────────────────────────────────────
+function Badge({ icon, text }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-slate-50/50 border border-slate-100/80">
+      <div className="text-slate-400">{icon}</div>
+      <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter">{text}</span>
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function ProductDetail() {
   const { id }             = useParams();
   const { cart, toggleCart } = useCart();
 
-  const [product, setProduct]   = useState(null);
-  const [loading, setLoading]   = useState(true);
+  const [product,  setProduct]  = useState(null);
+  const [loading,  setLoading]  = useState(true);
   const [selectedImg, setSelectedImg] = useState("");
   const [quantity, setQuantity] = useState(1);
-  // { [attributeSlug]: attributeValueId }
   const [selections, setSelections] = useState({});
+  const [zoomed, setZoomed] = useState(false);
+  const thumbsRef = useRef(null);
 
-  // ── Fetch ─────────────────────────────────────────────────────────────────
-  // getById ya devuelve variants y images embebidos en data.data
+  // ── Fetch con cache ────────────────────────────────────────────────────────
   useEffect(() => {
     let alive = true;
     window.scrollTo(0, 0);
-    setLoading(true);
     setSelections({});
     setQuantity(1);
+    setSelectedImg("");
 
+    const cached = cacheGet(id);
+    if (cached) {
+      setProduct(cached);
+      autoSelectSingleVariant(cached);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     api.get(`/products/${id}`)
       .then(({ data }) => {
         if (!alive) return;
-        // El controller devuelve { success, data: { ...product, variants, images } }
         const resolved = data?.data || data?.product || data;
+        cacheSet(id, resolved || null);
         setProduct(resolved || null);
-
-        // Si solo hay una variante, preseleccionarla
-        const variants = resolved?.variants || [];
-        if (variants.length === 1) {
-          const auto = {};
-          (variants[0].attributes || []).forEach(a => {
-            // El backend usa 'type' como clave de tipo (ver getById)
-            auto[slugify(a.type)] = a.attribute_value_id;
-          });
-          setSelections(auto);
-        }
+        autoSelectSingleVariant(resolved);
       })
       .catch(() => { if (alive) setProduct(null); })
       .finally(() => { if (alive) setLoading(false); });
@@ -149,23 +191,30 @@ export default function ProductDetail() {
     return () => { alive = false; };
   }, [id]);
 
-  // ── Variantes del producto ────────────────────────────────────────────────
-  const variants = product?.variants || [];
+  function autoSelectSingleVariant(resolved) {
+    const variants = resolved?.variants || [];
+    if (variants.length === 1) {
+      const auto = {};
+      (variants[0].attributes || []).forEach(a => {
+        auto[slugify(a.type)] = a.attribute_value_id;
+      });
+      setSelections(auto);
+    }
+  }
+
+  // ── Variantes ─────────────────────────────────────────────────────────────
+  const variants    = product?.variants || [];
   const hasVariants = variants.length > 0;
 
-  // ── Tipos de atributo únicos extraídos de todas las variantes ─────────────
-  // Usamos 'type' (getById) como slug-friendly key para las selections
   const attributeTypes = useMemo(() => {
     const map = new Map();
     variants.forEach(v => {
       (v.attributes || []).forEach(a => {
         const slug = slugify(a.type);
-        if (!map.has(slug)) {
-          map.set(slug, { slug, name: a.type, values: new Map() });
-        }
-        const attrType = map.get(slug);
-        if (!attrType.values.has(a.attribute_value_id)) {
-          attrType.values.set(a.attribute_value_id, {
+        if (!map.has(slug)) map.set(slug, { slug, name: a.type, values: new Map() });
+        const at = map.get(slug);
+        if (!at.values.has(a.attribute_value_id)) {
+          at.values.set(a.attribute_value_id, {
             attribute_value_id: a.attribute_value_id,
             value:         a.value,
             display_value: a.display_value,
@@ -174,28 +223,19 @@ export default function ProductDetail() {
         }
       });
     });
-    return [...map.values()].map(at => ({
-      ...at,
-      values: [...at.values.values()],
-    }));
+    return [...map.values()].map(at => ({ ...at, values: [...at.values.values()] }));
   }, [variants]);
 
-  // ── Variante que corresponde a la selección actual ─────────────────────────
   const selectedVariant = useMemo(() => {
     if (!hasVariants || attributeTypes.length === 0) return null;
-    const selectionValues = Object.values(selections);
-    if (selectionValues.length < attributeTypes.length) return null;
-
+    const selVals = Object.values(selections);
+    if (selVals.length < attributeTypes.length) return null;
     return variants.find(v => {
       const ids = new Set((v.attributes || []).map(a => a.attribute_value_id));
-      return selectionValues.length === ids.size
-        && selectionValues.every(id => ids.has(id));
+      return selVals.length === ids.size && selVals.every(id => ids.has(id));
     }) || null;
   }, [variants, selections, attributeTypes, hasVariants]);
 
-  // ── IDs disponibles dado el estado de selección actual ────────────────────
-  // Una variante es "compatible" si coincide con TODOS los atributos ya
-  // seleccionados. Todos los IDs de esas variantes son seleccionables.
   const availableValueIds = useMemo(() => {
     const set = new Set();
     variants.forEach(v => {
@@ -215,54 +255,40 @@ export default function ProductDetail() {
     const finalBase = Number(product?.final_price) || basePrice;
 
     if (selectedVariant) {
-      const vPrice  = Number(selectedVariant.sale_price) || basePrice;
+      const vPrice = Number(selectedVariant.sale_price) || basePrice;
       return {
         priceOriginal: basePrice,
         priceFinal:    vPrice,
-        hasDiscount:   finalBase < basePrice && Number(selectedVariant.sale_price) == null
-          ? true
-          : vPrice < basePrice,
+        hasDiscount:   vPrice < basePrice,
         stock:         Number(selectedVariant.stock) || 0,
         priceRange:    null,
       };
     }
-
     if (hasVariants) {
-      const prices = variants
-        .map(v => Number(v.sale_price) || basePrice)
-        .filter(Boolean);
+      const prices = variants.map(v => Number(v.sale_price) || basePrice).filter(Boolean);
       const min = prices.length ? Math.min(...prices) : basePrice;
       const max = prices.length ? Math.max(...prices) : basePrice;
       return {
-        priceOriginal: max,
-        priceFinal:    min,
-        hasDiscount:   false,
-        stock:         0,
-        priceRange:    min !== max
-          ? `$${min.toLocaleString()} – $${max.toLocaleString()}`
-          : null,
+        priceOriginal: max, priceFinal: min, hasDiscount: false, stock: 0,
+        priceRange: min !== max ? `$${min.toLocaleString()} – $${max.toLocaleString()}` : null,
       };
     }
-
     return {
-      priceOriginal: basePrice,
-      priceFinal:    finalBase,
-      hasDiscount:   finalBase > 0 && finalBase < basePrice,
-      stock:         Number(product?.stock) || 0,
-      priceRange:    null,
+      priceOriginal: basePrice, priceFinal: finalBase,
+      hasDiscount: finalBase > 0 && finalBase < basePrice,
+      stock: Number(product?.stock) || 0, priceRange: null,
     };
   }, [selectedVariant, hasVariants, variants, product]);
 
   // ── Imágenes ──────────────────────────────────────────────────────────────
   const images = useMemo(() => {
     if (!product) return [];
-    const productGallery = (product.images || []).map(i => i.url);
-    const variantGallery = selectedVariant?.images?.length
-      ? selectedVariant.images.map(i => i.url)
-      : [];
-    const ordered = variantGallery.length
-      ? [...variantGallery, ...productGallery]
-      : [product.main_image, ...productGallery];
+    const gallery  = (product.images || []).map(i => i.url);
+    const varImgs  = selectedVariant?.images?.length
+      ? selectedVariant.images.map(i => i.url) : [];
+    const ordered  = varImgs.length
+      ? [...varImgs, ...gallery]
+      : [product.main_image, ...gallery];
     return [...new Set(ordered)].filter(Boolean);
   }, [product, selectedVariant]);
 
@@ -271,34 +297,44 @@ export default function ProductDetail() {
   // Reset imagen al cambiar de variante
   useEffect(() => { setSelectedImg(""); }, [selectedVariant?.id]);
 
-  // Preload
+  // Preload imágenes en background
   useEffect(() => {
-    images.forEach(url => { const img = new Image(); img.src = optimizeUrl(url); });
+    images.forEach(url => {
+      const link = document.createElement("link");
+      link.rel  = "preload";
+      link.as   = "image";
+      link.href = optimizeUrl(url, 800);
+      document.head.appendChild(link);
+    });
   }, [images]);
+
+  // Auto-scroll al thumb activo
+  useEffect(() => {
+    if (!thumbsRef.current) return;
+    const active = thumbsRef.current.querySelector('[data-active="true"]');
+    active?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activeImg]);
 
   // ── Cart ──────────────────────────────────────────────────────────────────
   const cartKey = selectedVariant
     ? `${product?.id}-v${selectedVariant.id}`
     : String(product?.id ?? "");
 
-  const isInCart = cart.some(item => item.cartKey === cartKey);
-
+  const isInCart      = cart.some(item => item.cartKey === cartKey);
   const isFullySelected = !hasVariants || Object.keys(selections).length === attributeTypes.length;
-  const canAdd = isFullySelected && stock > 0;
+  const canAdd        = isFullySelected && stock > 0;
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
     const payload = {
       ...product,
       cartKey,
-      // Sobreescribir con datos de la variante si aplica
       ...(selectedVariant && {
         variantId:    selectedVariant.id,
         variantSku:   selectedVariant.sku,
         final_price:  selectedVariant.sale_price || product.final_price || product.sale_price,
         stock:        selectedVariant.stock,
-        variantLabel: (selectedVariant.attributes || [])
-          .map(a => a.display_value).join(" / "),
+        variantLabel: (selectedVariant.attributes || []).map(a => a.display_value).join(" / "),
       }),
     };
     toggleCart(payload, quantity);
@@ -307,9 +343,7 @@ export default function ProductDetail() {
   const handleSelect = useCallback((slug, valueId) => {
     setSelections(prev => {
       if (prev[slug] === valueId) {
-        const next = { ...prev };
-        delete next[slug];
-        return next;
+        const next = { ...prev }; delete next[slug]; return next;
       }
       return { ...prev, [slug]: valueId };
     });
@@ -318,101 +352,179 @@ export default function ProductDetail() {
 
   // ── Guards ────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-3">
-      <Loader2 className="animate-spin text-blue-600" size={32} />
-      <p className="text-[10px] font-black tracking-[0.3em] text-slate-400 uppercase">Cargando</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
+      <div className="relative">
+        <Loader2 className="animate-spin text-blue-600" size={28} />
+      </div>
+      <p className="text-[10px] font-black tracking-[0.3em] text-slate-300 uppercase">Cargando</p>
     </div>
   );
 
   if (!product) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
-      <p className="text-2xl font-black text-slate-900">Producto no encontrado</p>
-      <Link to="/productos" className="text-blue-600 font-bold underline">Volver a la tienda</Link>
+      <p className="text-2xl font-black text-slate-900 italic uppercase tracking-tighter">
+        Producto no encontrado
+      </p>
+      <Link to="/productos"
+        className="flex items-center gap-2 text-xs font-black tracking-widest text-blue-600 uppercase">
+        <ArrowLeft size={14} /> Volver a la tienda
+      </Link>
     </div>
   );
 
+  const discountPercent = hasDiscount && priceOriginal > 0
+    ? Math.round(((priceOriginal - priceFinal) / priceOriginal) * 100)
+    : 0;
+
   return (
     <div className="bg-white min-h-screen pb-20 font-sans text-slate-900 selection:bg-blue-100">
+      {/* Lightbox */}
+      <AnimatePresence>
+        {zoomed && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setZoomed(false)}
+            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-6 cursor-zoom-out"
+          >
+            <motion.img
+              initial={{ scale: 0.92 }} animate={{ scale: 1 }} exit={{ scale: 0.92 }}
+              src={optimizeUrl(activeImg, 1600)}
+              alt={product.name}
+              className="max-w-full max-h-full object-contain rounded-2xl"
+              onClick={e => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-5xl mx-auto px-6 pt-8">
 
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-8">
+        {/* Breadcrumb — mismo estilo que Products */}
+        <motion.nav
+          variants={fadeUp} initial="hidden" animate="visible"
+          className="flex items-center gap-2.5 text-[10px] font-black
+            text-slate-400 mb-10 uppercase tracking-[0.2em]"
+        >
           <Link to="/" className="hover:text-blue-600 transition-colors">Inicio</Link>
-          <ChevronRight size={10} className="text-slate-300" />
-          <Link to="/productos" className="hover:text-blue-600 transition-colors flex items-center gap-1 group">
+          <ChevronRight size={10} className="text-slate-200" />
+          <Link to="/productos"
+            className="hover:text-blue-600 transition-colors flex items-center gap-1 group">
             <ArrowLeft size={10} className="group-hover:-translate-x-0.5 transition-transform" />
             Tienda
           </Link>
           {product.category_name && (
             <>
-              <ChevronRight size={10} className="text-slate-300" />
-              <span className="text-slate-500">{product.category_name}</span>
+              <ChevronRight size={10} className="text-slate-200" />
+              <Link
+                to={`/productos/categoria/${slugify(product.category_name)}`}
+                className="hover:text-blue-600 transition-colors"
+              >
+                {product.category_name}
+              </Link>
             </>
           )}
-        </nav>
+          <ChevronRight size={10} className="text-slate-200" />
+          <span className="text-slate-700 truncate max-w-[140px]">{product.name}</span>
+        </motion.nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-12 lg:gap-16 items-start">
 
           {/* ── Galería ───────────────────────────────────────────────── */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="relative aspect-square bg-[#F5F5F7] rounded-[2rem] overflow-hidden border border-slate-50">
+          <motion.div
+            variants={stagger} initial="hidden" animate="visible"
+            className="lg:col-span-5 space-y-4"
+          >
+            {/* Imagen principal */}
+            <motion.div variants={fadeUp} className="relative">
+              {/* Badges */}
               {hasDiscount && (
-                <div className="absolute top-4 left-4 z-10 bg-blue-600 text-white px-3 py-1 rounded-full text-[9px] font-black tracking-widest shadow-lg">
-                  OFERTA
+                <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-white/90
+                  backdrop-blur-md text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black
+                  shadow-sm border border-slate-100">
+                  <span className="text-blue-600">−{discountPercent}%</span>
                 </div>
               )}
-              {/* Badge de variante activa */}
               {selectedVariant && (
-                <div className="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-md text-slate-700 px-3 py-1 rounded-full text-[9px] font-black tracking-widest shadow-sm border border-slate-100">
+                <div className="absolute top-4 right-14 z-20 bg-slate-900/70 backdrop-blur-md
+                  text-white px-2.5 py-1 rounded-xl text-[9px] font-black tracking-wider max-w-[160px] truncate">
                   {(selectedVariant.attributes || []).map(a => a.display_value).join(" · ")}
                 </div>
               )}
-              <img
-                key={activeImg}
-                src={optimizeUrl(activeImg, 800)}
-                alt={product.name}
-                className="w-full h-full object-cover transition-opacity duration-300"
-              />
-            </div>
 
-            {images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                {images.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedImg(img)}
-                    className={`relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 transition-all duration-200
-                      ${activeImg === img
-                        ? "ring-2 ring-blue-600 scale-90 opacity-100"
-                        : "opacity-30 hover:opacity-100 hover:scale-95"
-                      }`}
-                  >
-                    <img src={optimizeUrl(img, 160)} className="w-full h-full object-cover" alt="" />
-                  </button>
-                ))}
+              {/* Botón zoom */}
+              <button
+                onClick={() => setZoomed(true)}
+                className="absolute top-4 right-4 z-20 p-2.5 rounded-xl bg-white/80 backdrop-blur-md
+                  border border-slate-100 text-slate-500 hover:text-slate-900 transition-all
+                  hover:bg-white hover:scale-105 active:scale-95 shadow-sm"
+              >
+                <ZoomIn size={16} strokeWidth={2} />
+              </button>
+
+              <div
+                className="relative aspect-square bg-[#F5F5F7] rounded-[2.5rem] overflow-hidden
+                  border border-slate-100/80 cursor-zoom-in"
+                onClick={() => setZoomed(true)}
+              >
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={activeImg}
+                    initial={{ opacity: 0, scale: 1.03 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    src={optimizeUrl(activeImg, 800)}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                </AnimatePresence>
               </div>
+            </motion.div>
+
+            {/* Thumbnails */}
+            {images.length > 1 && (
+              <motion.div
+                variants={fadeUp}
+                ref={thumbsRef}
+                className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar"
+              >
+                {images.map((img, idx) => (
+                  <Thumb
+                    key={idx} img={img} idx={idx}
+                    active={activeImg === img}
+                    onClick={() => setSelectedImg(img)}
+                  />
+                ))}
+              </motion.div>
             )}
-          </div>
+          </motion.div>
 
           {/* ── Info + acciones ───────────────────────────────────────── */}
-          <div className="lg:col-span-5 flex flex-col pt-2 space-y-6">
-
-            {/* Badge categoría */}
-            <div>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-600 bg-blue-50/50 px-2 py-1 rounded">
+          <motion.div
+            variants={stagger} initial="hidden" animate="visible"
+            className="lg:col-span-5 flex flex-col pt-2 space-y-6"
+          >
+            {/* Categoría — mismo estilo badge que Products */}
+            <motion.div variants={fadeUp}>
+              <span className="text-[9px] font-black uppercase tracking-[0.25em] text-blue-600
+                bg-blue-50 px-2.5 py-1 rounded-lg">
                 {product.category_name || "Premium"}
               </span>
-            </div>
+            </motion.div>
 
-            {/* Nombre */}
-            <h1 className="text-3xl lg:text-5xl font-black text-slate-900 leading-tight uppercase italic tracking-tighter">
+            {/* Nombre — tipografía idéntica al h1 de Products */}
+            <motion.h1
+              variants={fadeUp}
+              className="text-[clamp(2rem,6vw,3.5rem)] font-black text-slate-900
+                leading-[0.9] uppercase italic tracking-tighter"
+            >
               {product.name}
-            </h1>
+            </motion.h1>
 
             {/* Precio */}
-            <div className="flex items-baseline gap-3">
+            <motion.div variants={fadeUp} className="flex items-baseline gap-3">
               {hasVariants && !isFullySelected ? (
-                <span className="text-2xl font-black text-slate-900 tracking-tighter">
+                <span className="text-3xl font-black text-slate-900 tracking-tighter">
                   {priceRange || `$${priceFinal.toLocaleString()}`}
                 </span>
               ) : (
@@ -427,15 +539,17 @@ export default function ProductDetail() {
                   )}
                 </>
               )}
-            </div>
+            </motion.div>
 
-            {/* ── Selectores de variante ── */}
+            {/* Selectores de variante */}
             {hasVariants && attributeTypes.length > 0 && (
-              <div className="space-y-4 border border-slate-100 rounded-2xl p-4 bg-slate-50/40">
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
+              <motion.div
+                variants={fadeUp}
+                className="space-y-4 border border-slate-100 rounded-2xl p-5 bg-slate-50/40"
+              >
+                <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400">
                   Selecciona una opción
                 </p>
-
                 {attributeTypes.map(at => (
                   <AttributeSelector
                     key={at.slug}
@@ -447,45 +561,58 @@ export default function ProductDetail() {
                   />
                 ))}
 
-                {/* Feedback de disponibilidad */}
-                {isFullySelected && selectedVariant && (
-                  <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
-                    ${stock > 0 ? "text-emerald-600" : "text-red-400"}`}>
-                    <div className={`w-2 h-2 rounded-full ${stock > 0 ? "bg-emerald-500" : "bg-red-400"}`} />
-                    {stock > 0 ? `${stock} disponibles` : "Sin stock"}
-                  </div>
-                )}
-                {isFullySelected && !selectedVariant && (
-                  <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">
-                    Combinación no disponible
-                  </p>
-                )}
-              </div>
+                {/* Feedback disponibilidad */}
+                <AnimatePresence mode="wait">
+                  {isFullySelected && selectedVariant && (
+                    <motion.div
+                      key="stock-ok"
+                      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
+                        ${stock > 0 ? "text-emerald-600" : "text-red-400"}`}
+                    >
+                      <div className={`w-2 h-2 rounded-full ${stock > 0 ? "bg-emerald-500" : "bg-red-400"}`} />
+                      {stock > 0 ? `${stock} disponibles` : "Sin stock"}
+                    </motion.div>
+                  )}
+                  {isFullySelected && !selectedVariant && (
+                    <motion.p
+                      key="no-combo"
+                      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="text-[10px] font-bold text-amber-500 uppercase tracking-wider"
+                    >
+                      Combinación no disponible
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             )}
 
-            {/* Stock — producto simple */}
+            {/* Stock producto simple */}
             {!hasVariants && (
-              <div className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
-                ${stock > 0 ? "text-emerald-600" : "text-red-400"}`}>
+              <motion.div
+                variants={fadeUp}
+                className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
+                  ${stock > 0 ? "text-emerald-600" : "text-red-400"}`}
+              >
                 <div className={`w-2 h-2 rounded-full ${stock > 0 ? "bg-emerald-500" : "bg-red-400"}`} />
                 {stock > 0 ? `${stock} disponibles` : "Sin stock"}
-              </div>
+              </motion.div>
             )}
 
             {/* Descripción */}
             {product.description && (
-              <div className="space-y-2">
+              <motion.div variants={fadeUp} className="space-y-2">
                 <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   <Info size={12} className="text-blue-500" /> Detalles
                 </div>
                 <p className="text-slate-500 leading-relaxed text-sm font-medium">
                   {product.description}
                 </p>
-              </div>
+              </motion.div>
             )}
 
-            {/* Cantidad + Agregar */}
-            <div className="flex flex-col gap-3">
+            {/* Cantidad + CTA */}
+            <motion.div variants={fadeUp} className="flex flex-col gap-3">
               <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-2 border border-slate-100">
                 <span className="pl-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                   Cantidad
@@ -512,21 +639,34 @@ export default function ProductDetail() {
               <button
                 onClick={handleAddToCart}
                 disabled={!canAdd}
-                className={`w-full py-5 rounded-2xl font-black text-[10px] tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-95
+                className={`w-full py-5 rounded-2xl font-black text-[10px] tracking-[0.25em]
+                  flex items-center justify-center gap-3 transition-all duration-300 active:scale-95
                   ${isInCart
-                    ? "bg-emerald-500 text-white"
+                    ? "bg-emerald-500 text-white shadow-xl shadow-emerald-500/20"
                     : !canAdd
-                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                      : "bg-slate-900 text-white hover:bg-blue-600 shadow-xl shadow-blue-500/10"
+                      ? "bg-slate-100 text-slate-300 cursor-not-allowed"
+                      : "bg-slate-900 text-white hover:bg-blue-600 shadow-xl shadow-blue-500/10 hover:shadow-blue-500/25"
                   }`}
               >
-                {isInCart ? (
-                  <><Check size={16} /> EN BOLSA</>
-                ) : !canAdd ? (
-                  <><ShoppingBag size={16} /> {!isFullySelected && hasVariants ? "ELIGE UNA OPCIÓN" : "SIN STOCK"}</>
-                ) : (
-                  <><ShoppingBag size={16} /> AÑADIR</>
-                )}
+                <AnimatePresence mode="wait">
+                  {isInCart ? (
+                    <motion.span key="in" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2.5">
+                      <Check size={16} /> EN BOLSA
+                    </motion.span>
+                  ) : !canAdd ? (
+                    <motion.span key="no" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2.5">
+                      <ShoppingBag size={16} />
+                      {!isFullySelected && hasVariants ? "ELIGE UNA OPCIÓN" : "SIN STOCK"}
+                    </motion.span>
+                  ) : (
+                    <motion.span key="add" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2.5">
+                      <ShoppingBag size={16} /> AÑADIR A LA BOLSA
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </button>
 
               {isInCart && selectedVariant && (
@@ -534,31 +674,20 @@ export default function ProductDetail() {
                   {(selectedVariant.attributes || []).map(a => a.display_value).join(" / ")} · en tu bolsa
                 </p>
               )}
-            </div>
+            </motion.div>
+
+            {/* Divider */}
+            <motion.div variants={fadeUp} className="h-px bg-slate-50" />
 
             {/* Badges */}
-            <div className="grid grid-cols-3 gap-2 border-t border-slate-50 pt-6">
+            <motion.div variants={fadeUp} className="grid grid-cols-3 gap-2">
               <Badge icon={<Package size={14} />} text="Envío" />
               <Badge icon={<ShieldCheck size={14} />} text="Garantía" />
               <Badge icon={<Tag size={14} />} text="Original" />
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─── Helpers internos ─────────────────────────────────────────────────────────
-function slugify(str = "") {
-  return str.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-}
-
-function Badge({ icon, text }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-slate-50/30 border border-slate-50">
-      <div className="text-slate-400">{icon}</div>
-      <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter">{text}</span>
     </div>
   );
 }
