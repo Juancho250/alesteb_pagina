@@ -3,12 +3,13 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, Check, ShoppingBag, Package,
-  ShieldCheck, Tag, Plus, Minus, Info, Loader2, ChevronRight,
+  ShieldCheck, Tag, Plus, Minus, Info, Loader2, ChevronRight, Heart,
   ZoomIn,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useCart } from "../context/CartContext";
+import { useFavorites } from "../context/FavoritesContext";
 
 // ─── Cache de producto (reutiliza el mismo patrón que Products.jsx) ───────────
 const prodCache = new Map();
@@ -151,7 +152,8 @@ function Badge({ icon, text }) {
 export default function ProductDetail() {
   const { id }             = useParams();
   const { cart, toggleCart } = useCart();
-
+  const { toggleFavorite, isFavorite } = useFavorites();
+  const fav = isFavorite(product?.id);
   const [product,  setProduct]  = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [selectedImg, setSelectedImg] = useState("");
@@ -667,6 +669,18 @@ export default function ProductDetail() {
                     </motion.span>
                   )}
                 </AnimatePresence>
+              </button>
+              <button
+                onClick={() => toggleFavorite(product)}
+                className={`w-full py-4 rounded-2xl font-black text-[10px] tracking-[0.25em]
+                  flex items-center justify-center gap-3 border-2 transition-all duration-300 active:scale-95
+                  ${fav
+                    ? "border-red-200 bg-red-50 text-red-500"
+                    : "border-slate-100 bg-white text-slate-400 hover:border-red-200 hover:text-red-400"
+                  }`}
+              >
+                <Heart size={15} fill={fav ? "currentColor" : "none"} />
+                {fav ? "GUARDADO EN FAVORITOS" : "GUARDAR EN FAVORITOS"}
               </button>
 
               {isInCart && selectedVariant && (

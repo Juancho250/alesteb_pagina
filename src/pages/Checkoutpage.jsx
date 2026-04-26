@@ -28,12 +28,6 @@ export const BANK_INFO = [
   },
 ];
 
-const PAYMENT_OPTIONS = [
-  { value: "wompi",    label: "Tarjeta / PSE",  icon: "💳", badge: "Recomendado" },
-  { value: "transfer", label: "Transferencia",  icon: "🏦", badge: null },
-  { value: "cash",     label: "Efectivo",        icon: "💵", badge: null },
-];
-
 export default function CheckoutPage() {
   const navigate            = useNavigate();
   const { user }            = useAuth();
@@ -42,15 +36,14 @@ export default function CheckoutPage() {
   const [step, setStep]                 = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors]             = useState({});
+  const [redirecting, setRedirecting]   = useState(false);
 
   const [form, setForm] = useState({
     shipping_address: user?.address || "",
     shipping_city:    user?.city    || "",
     shipping_notes:   "",
-    payment_method:   "wompi",
   });
 
-  // ── Totales ───────────────────────────────────────────────────────────────
   const { total, count } = useMemo(() => {
     let t = 0, c = 0;
     cart.forEach(i => {
@@ -78,7 +71,7 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     setErrors({});
     try {
-      // 1. Crear la venta primero (siempre)
+      // 1. Crear la venta
       const { data } = await api.post("/sales", {
         customer_id:      user.id,
         items: cart.map(i => ({
@@ -86,7 +79,7 @@ export default function CheckoutPage() {
           quantity:   i.quantity || 1,
           ...(i.variantId && { variant_id: i.variantId }),
         })),
-        payment_method:   form.payment_method === "wompi" ? "credit" : form.payment_method, // ← fix
+        payment_method:   "credit",
         shipping_address: form.shipping_address,
         shipping_city:    form.shipping_city,
         shipping_notes:   form.shipping_notes,
@@ -94,59 +87,72 @@ export default function CheckoutPage() {
 
       if (!data.success) throw new Error(data.message || "Error al crear el pedido");
 
-      clearCart();
+      // 2. Obtener sesión de Wompi
+      const { data: wompi } = await api.get(`/wompi/session/${data.data.sale_id}`);
+      if (!wompi.success) throw new Error("No se pudo iniciar el pago con Wompi");
 
-      // 2. Si eligió Wompi → pedir sesión y redirigir al hosted checkout
-      if (form.payment_method === "wompi") {
-        const { data: wompi } = await api.get(`/wompi/session/${data.data.sale_id}`);
-
-        if (!wompi.success) throw new Error("No se pudo iniciar el pago con Wompi");
-
-        const params = new URLSearchParams({
-          "public-key":          wompi.data.public_key,
-          currency:              wompi.data.currency,
-          "amount-in-cents":     wompi.data.amount_in_cents,
-          reference:             wompi.data.reference,
-          "signature:integrity": wompi.data.signature,
-          "redirect-url":        wompi.data.redirect_url,
-        });
-
-        // Redirigir al hosted checkout de Wompi
-        window.location.href = `https://checkout.wompi.co/p/?${params.toString()}`;
-        return; // no continuar
-      }
-
-      // 3. Transferencia / Efectivo → flujo original
-      navigate("/order-success", {
-        state: {
-          sale_id:          data.data.sale_id,
-          order_code:       data.data.order_code,
-          total:            data.data.total,
-          payment_method:   form.payment_method,
-          shipping_address: form.shipping_address,
-          shipping_city:    form.shipping_city,
-          shipping_notes:   form.shipping_notes,
-        },
-        replace: true,
+      // 3. Construir URL y redirigir ANTES de limpiar el carrito
+      //    para que el guard de carrito vacío nunca se active
+      const params = new URLSearchParams({
+        "public-key":          wompi.data.public_key,
+        currency:              wompi.data.currency,
+        "amount-in-cents":     wompi.data.amount_in_cents,
+        reference:             wompi.data.reference,
+        "signature:integrity": wompi.data.signature,
+        "redirect-url":        wompi.data.redirect_url,
       });
+
+      // Mostrar pantalla de redireccionando
+      setRedirecting(true);
+
+      // Limpiar carrito y redirigir en el mismo tick
+      clearCart();
+      window.location.href = `https://checkout.wompi.co/p/?${params.toString()}`;
+
     } catch (error) {
-      setErrors({ submit: error.response?.data?.message || error.message || "Error al procesar tu pedido. Intenta de nuevo." });
-    } finally {
+      setErrors({
+        submit: error.response?.data?.message || error.message || "Error al procesar tu pedido. Intenta de nuevo.",
+      });
       setIsProcessing(false);
+      setRedirecting(false);
     }
   };
+
+  // ── Pantalla de redireccionando (evita el flicker del guard) ─────────────
+  if (redirecting) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-5">
+        <div className="relative">
+          <div className="w-16 h-16 rounded-full bg-[#FF3366]/10 flex items-center justify-center">
+            <Loader2 size={28} className="animate-spin text-[#FF3366]" />
+          </div>
+        </div>
+        <div className="text-center space-y-1">
+          <p className="font-black text-slate-900 text-lg tracking-tight">Redirigiendo a Wompi</p>
+          <p className="text-sm text-slate-400 font-medium">Preparando tu pago seguro…</p>
+        </div>
+        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-full border border-slate-100">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            🔒 Conexión segura
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   // ── Guards ────────────────────────────────────────────────────────────────
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <AlertCircle size={56} className="mx-auto text-amber-400 mb-4" />
-          <h2 className="text-2xl font-black text-slate-900 mb-2">Inicia sesión primero</h2>
-          <p className="text-slate-500 mb-6">Necesitas una cuenta para completar tu pedido</p>
+        <div className="text-center space-y-4">
+          <AlertCircle size={48} className="mx-auto text-amber-400" />
+          <h2 className="text-2xl font-black text-slate-900">Inicia sesión primero</h2>
+          <p className="text-slate-500 text-sm">Necesitas una cuenta para completar tu pedido</p>
           <button
             onClick={() => navigate("/auth", { state: { from: "/checkout" } })}
-            className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors"
+            className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold
+              hover:bg-slate-800 transition-colors"
           >
             Ir a iniciar sesión
           </button>
@@ -158,12 +164,13 @@ export default function CheckoutPage() {
   if (!cart.length) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <ShoppingBag size={56} className="mx-auto text-slate-300 mb-4" />
-          <h2 className="text-2xl font-black text-slate-900 mb-2">Tu carrito está vacío</h2>
+        <div className="text-center space-y-4">
+          <ShoppingBag size={48} className="mx-auto text-slate-300" />
+          <h2 className="text-2xl font-black text-slate-900">Tu carrito está vacío</h2>
           <button
             onClick={() => navigate("/productos")}
-            className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors mt-4"
+            className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold
+              hover:bg-slate-800 transition-colors"
           >
             Ver productos
           </button>
@@ -175,7 +182,7 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
 
-      {/* Header fijo */}
+      {/* Header sticky */}
       <div className="bg-white border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -274,7 +281,8 @@ export default function CheckoutPage() {
 
                 <div>
                   <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
-                    Instrucciones <span className="text-slate-300 font-normal normal-case">(opcional)</span>
+                    Instrucciones{" "}
+                    <span className="text-slate-300 font-normal normal-case">(opcional)</span>
                   </label>
                   <textarea
                     name="shipping_notes"
@@ -282,65 +290,28 @@ export default function CheckoutPage() {
                     onChange={handleChange}
                     rows={3}
                     placeholder="Ej: Timbre roto, entregar a portería, llamar al llegar…"
-                    className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium
-                      text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2
-                      focus:ring-slate-900/10 focus:border-slate-400 transition-all resize-none"
+                    className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 text-sm
+                      font-medium text-slate-900 placeholder:text-slate-300 focus:outline-none
+                      focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all resize-none"
                   />
                 </div>
 
-                {/* ── Métodos de pago ───────────────────────────────────── */}
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-3">
-                    Método de pago
-                  </label>
-                  <div className="space-y-2">
-                    {PAYMENT_OPTIONS.map(opt => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setForm(p => ({ ...p, payment_method: opt.value }))}
-                        className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all font-bold text-sm
-                          ${form.payment_method === opt.value
-                            ? "border-slate-900 bg-slate-900 text-white"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
-                          }`}
-                      >
-                        <span className="text-xl">{opt.icon}</span>
-                        <span className="text-sm font-bold">{opt.label}</span>
-                        {opt.badge && (
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ml-1
-                            ${form.payment_method === opt.value
-                              ? "bg-white/20 text-white"
-                              : "bg-emerald-100 text-emerald-700"
-                            }`}>
-                            {opt.badge}
-                          </span>
-                        )}
-                        {form.payment_method === opt.value && (
-                          <Check size={16} className="ml-auto flex-shrink-0" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Nota informativa según método elegido */}
-                  {form.payment_method === "wompi" && (
-                    <div className="mt-3 flex items-start gap-2 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                      <CreditCard size={14} className="text-blue-500 shrink-0 mt-0.5" />
-                      <p className="text-xs text-blue-700 font-medium leading-relaxed">
-                        Pagarás de forma segura con tarjeta débito, crédito o PSE a través de Wompi.
-                        Serás redirigido al portal de pago.
-                      </p>
-                    </div>
-                  )}
+                {/* Info de pago */}
+                <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <CreditCard size={16} className="text-slate-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                    Pagarás de forma segura con <strong className="text-slate-700">tarjeta débito, crédito o PSE</strong> a través de Wompi en el siguiente paso.
+                  </p>
                 </div>
 
                 <button
                   onClick={() => { if (validateStep1()) setStep(2); }}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-xl font-black text-sm
-                    flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-xl
+                    font-black text-sm flex items-center justify-center gap-2
+                    transition-all active:scale-[0.98]"
                 >
-                  Continuar al resumen <ChevronLeft size={16} className="rotate-180" />
+                  Continuar al resumen
+                  <ChevronLeft size={16} className="rotate-180" />
                 </button>
               </div>
             )}
@@ -348,13 +319,16 @@ export default function CheckoutPage() {
             {/* Paso 2: Confirmar */}
             {step === 2 && (
               <div className="space-y-4">
+                {/* Resumen envío */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                   <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
                       <MapPin size={16} className="text-emerald-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-1">Envío a</p>
+                      <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-1">
+                        Envío a
+                      </p>
                       <p className="font-bold text-slate-900">{form.shipping_city}</p>
                       <p className="text-sm text-slate-500">{form.shipping_address}</p>
                       {form.shipping_notes && (
@@ -363,32 +337,30 @@ export default function CheckoutPage() {
                     </div>
                     <button
                       onClick={() => setStep(1)}
-                      className="text-blue-600 hover:text-blue-800 text-xs font-bold underline flex-shrink-0"
+                      className="text-blue-600 hover:text-blue-800 text-xs font-bold underline shrink-0"
                     >
                       Editar
                     </button>
                   </div>
                 </div>
 
+                {/* Info pago Wompi */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                   <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Package size={16} className="text-blue-600" />
+                    <div className="w-9 h-9 bg-[#FF3366]/10 rounded-xl flex items-center justify-center shrink-0">
+                      <Package size={16} className="text-[#FF3366]" />
                     </div>
                     <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                      {form.payment_method === "wompi"
-                        ? <>Al confirmar, crearemos tu pedido y te redirigiremos al portal de pago seguro de <strong className="text-slate-900">Wompi</strong> para completar el pago con tarjeta o PSE.</>
-                        : form.payment_method === "transfer"
-                          ? <>Al confirmar, recibirás un resumen en <strong className="text-slate-900">{user.email}</strong>. Te mostraremos los datos bancarios para realizar la transferencia.</>
-                          : <>Al confirmar, coordinaremos el pago en efectivo al momento de la entrega.</>
-                      }
+                      Al confirmar, crearemos tu pedido y serás redirigido al portal de pago seguro de{" "}
+                      <strong className="text-slate-900">Wompi</strong> para completar el pago con
+                      tarjeta débito, crédito o PSE.
                     </p>
                   </div>
                 </div>
 
                 {errors.submit && (
                   <div className="flex items-center gap-3 p-4 bg-red-50 rounded-2xl border border-red-200">
-                    <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
+                    <AlertCircle size={16} className="text-red-500 shrink-0" />
                     <p className="text-sm text-red-600 font-medium">{errors.submit}</p>
                   </div>
                 )}
@@ -396,33 +368,27 @@ export default function CheckoutPage() {
                 <button
                   onClick={handleSubmit}
                   disabled={isProcessing}
-                  className={`w-full py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2
-                    transition-all active:scale-[0.98]
+                  className={`w-full py-4 rounded-xl font-black text-sm flex items-center
+                    justify-center gap-2 transition-all active:scale-[0.98]
                     ${isProcessing
-                      ? "bg-slate-300 text-slate-500 cursor-wait"
-                      : form.payment_method === "wompi"
-                        ? "bg-[#FF3366] hover:bg-[#e02d5a] text-white"
-                        : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      ? "bg-slate-200 text-slate-400 cursor-wait"
+                      : "bg-[#FF3366] hover:bg-[#e02d5a] text-white shadow-xl shadow-[#FF3366]/20"
                     }`}
                 >
                   {isProcessing
-                    ? <><Loader2 size={18} className="animate-spin" /> {form.payment_method === "wompi" ? "Iniciando pago…" : "Procesando…"}</>
-                    : form.payment_method === "wompi"
-                      ? <><CreditCard size={18} /> Confirmar y pagar con Wompi</>
-                      : <><Check size={18} /> Confirmar pedido</>
+                    ? <><Loader2 size={18} className="animate-spin" /> Iniciando pago…</>
+                    : <><CreditCard size={18} /> Confirmar y pagar con Wompi</>
                   }
                 </button>
 
-                {form.payment_method === "wompi" && (
-                  <p className="text-center text-[11px] text-slate-400">
-                    🔒 Pago 100% seguro procesado por Wompi
-                  </p>
-                )}
+                <p className="text-center text-[11px] text-slate-400">
+                  🔒 Pago 100% seguro · Procesado por Wompi
+                </p>
               </div>
             )}
           </div>
 
-          {/* Sidebar: resumen del carrito */}
+          {/* Sidebar resumen */}
           <div className="lg:sticky lg:top-24 h-fit">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">
@@ -434,15 +400,18 @@ export default function CheckoutPage() {
                   const price    = getItemPrice(item);
                   const subtotal = price * (item.quantity || 1);
                   return (
-                    <div key={item.cartKey} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div key={item.cartKey}
+                      className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
                       {item.main_image && (
-                        <div className="relative flex-shrink-0">
+                        <div className="relative shrink-0">
                           <img
                             src={item.main_image}
                             alt={item.name}
                             className="w-12 h-12 rounded-lg object-cover border border-slate-200"
                           />
-                          <div className="absolute -top-1.5 -right-1.5 bg-slate-900 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">
+                          <div className="absolute -top-1.5 -right-1.5 bg-slate-900 text-white
+                            text-[10px] font-black w-5 h-5 rounded-full flex items-center
+                            justify-center border-2 border-white">
                             {item.quantity || 1}
                           </div>
                         </div>
@@ -450,16 +419,20 @@ export default function CheckoutPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900 truncate">{item.name}</p>
                         {item.variantLabel && (
-                          <p className="text-[10px] text-blue-500 font-bold truncate">{item.variantLabel}</p>
+                          <p className="text-[10px] text-blue-500 font-bold truncate">
+                            {item.variantLabel}
+                          </p>
                         )}
                         {!item.variantLabel && item.variantAttributes?.length > 0 && (
                           <p className="text-[10px] text-blue-500 font-bold truncate">
                             {item.variantAttributes.map(a => a.display_value ?? a.value).join(" / ")}
                           </p>
                         )}
-                        <p className="text-xs text-slate-400">${price.toLocaleString()} × {item.quantity || 1}</p>
+                        <p className="text-xs text-slate-400">
+                          ${price.toLocaleString()} × {item.quantity || 1}
+                        </p>
                       </div>
-                      <p className="text-sm font-black text-slate-900 flex-shrink-0">
+                      <p className="text-sm font-black text-slate-900 shrink-0">
                         ${subtotal.toLocaleString()}
                       </p>
                     </div>
@@ -474,19 +447,14 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400 font-medium">Envío</span>
-                  <span className="font-bold text-slate-900">A coordinar</span>
+                  <span className="font-bold text-slate-500">A coordinar</span>
                 </div>
                 <div className="flex justify-between items-center pt-3 border-t border-slate-100">
                   <span className="text-sm font-black uppercase text-slate-600">Total</span>
                   <span className="text-2xl font-black text-slate-900">${total.toLocaleString()}</span>
                 </div>
                 <p className="text-[11px] text-slate-400 text-center pt-1">
-                  {form.payment_method === "wompi"
-                    ? "💳 Tarjeta / PSE vía Wompi"
-                    : form.payment_method === "transfer"
-                      ? "🏦 Transferencia bancaria"
-                      : "💵 Efectivo"
-                  }
+                  💳 Tarjeta / PSE vía Wompi
                 </p>
               </div>
             </div>

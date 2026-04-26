@@ -8,8 +8,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ReactLenis } from "lenis/react";
 import {
   ShoppingBag, Percent, Search, X,
-  ChevronRight, ArrowLeft, Plus, ChevronLeft,
+  ChevronRight, ArrowLeft, Plus, ChevronLeft, Heart,
 } from "lucide-react";
+import { useFavorites } from "../context/FavoritesContext";
 
 // ─── Cache en memoria (vive mientras la SPA esté abierta) ─────────────────────
 const cache = new Map();
@@ -63,7 +64,9 @@ const fadeUp = {
 const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError]   = useState(false);
-
+  // Dentro de ProductCard:
+  const { toggleFavorite, isFavorite } = useFavorites();
+  const fav = isFavorite(p.id);
   const priceOriginal   = Number(p.sale_price || p.price) || 0;
   const priceFinalRaw   = Number(p.final_price) || 0;
   const hasDiscount     = priceFinalRaw > 0 && priceFinalRaw < priceOriginal;
@@ -93,13 +96,25 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
         </div>
       )}
 
-      {/* Badge variantes */}
+      {/* Badge variantes + Favorito */}
       {hasVariants && (
         <div className="absolute top-4 right-4 z-20 bg-slate-900/70 backdrop-blur-md
           text-white px-2.5 py-1 rounded-xl text-[9px] font-black tracking-wider">
           + opciones
         </div>
       )}
+
+      <button
+        onClick={(e) => { e.preventDefault(); toggleFavorite(p); }}
+        className={`absolute z-20 p-2.5 rounded-full bg-white/90 backdrop-blur-md
+          border border-slate-100 shadow-sm transition-all duration-300
+          hover:scale-110 active:scale-95
+          ${hasVariants ? "top-12 right-4 mt-1" : "top-4 right-4"}
+          ${fav ? "text-red-500" : "text-slate-300 hover:text-red-400"}`}
+      >
+        <Heart size={15} fill={fav ? "currentColor" : "none"} strokeWidth={2} />
+      </button>
+      
 
       {/* Imagen */}
       <Link
