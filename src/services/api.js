@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const defaultBaseURL = "https://alesteb-back.onrender.com/api";
+const defaultBaseURL = "https://alesteb-back-qq4j.onrender.com/api";
 const rawEnvBaseURL = import.meta.env.VITE_API_BASE_URL?.trim();
 
 const normalizeBaseURL = (value) => {
