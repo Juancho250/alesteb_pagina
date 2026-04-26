@@ -16,7 +16,6 @@ const normalizeBaseURL = (value) => {
   ) {
     return "";
   }
-
   return normalized;
 };
 
