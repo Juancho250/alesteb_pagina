@@ -477,7 +477,7 @@ export default function Navbar() {
                 {[
                   { to: "/productos", label: "Tienda" },
                   { to: "/carrito",   label: "Carrito" },
-                  { to: "/soporte",   label: "Soporte" },
+                  { to: "/support",   label: "Soporte" },
                   { to: "/perfil",    label: "Mi perfil" },
                 ].map((item) => (
                   <Link
