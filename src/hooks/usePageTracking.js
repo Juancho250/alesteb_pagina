@@ -15,7 +15,7 @@ import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
 // ── Configura aquí la URL de tu backend ──────────────────────────────────────
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "https://alesteb-back-1.onrender.com/api";
 const ENDPOINT = `${API_BASE}/analytics/pageview`;
 
 // Genera o recupera un ID de sesión anónimo por visita
@@ -37,7 +37,7 @@ const PAGE_LABELS = {
   "/favoritos": "Favoritos",
   "/perfil": "Perfil",
   "/contacto": "Contacto",
-  "/soporte": "Soporte",
+  "/support": "Soporte",
   "/legal": "Legal",
   "/privacidad": "Privacidad",
   "/auth": "Login / Registro",

@@ -282,7 +282,7 @@ export default function Navbar() {
             </div>
 
             <Link
-              to="/soporte"
+              to="/support"
               className="px-4 py-2 text-sm font-bold text-neutral-600 hover:text-black rounded-full hover:bg-neutral-50 transition-all"
             >
               Soporte

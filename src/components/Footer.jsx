@@ -52,7 +52,7 @@ export default function Footer() {
               <div className="flex gap-4">
                 <Link to="/privacidad" className="hover:text-blue-600">Privacidad</Link>
                 <Link to="/legal"      className="hover:text-blue-600">Legal</Link>
-                <Link to="/soporte"    className="hover:text-blue-600">Mapa del sitio</Link>
+                <Link to="/support"    className="hover:text-blue-600">Mapa del sitio</Link>
               </div>
             </div>
             <p className="text-[#86868b] text-[9px] font-black tracking-[0.2em] uppercase">COLOMBIA / GLOBAL</p>
