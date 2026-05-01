@@ -150,17 +150,21 @@ function Badge({ icon, text }) {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function ProductDetail() {
-  const { id }             = useParams();
-  const { cart, toggleCart } = useCart();
+  const { id }                         = useParams();
+  const { cart, toggleCart }           = useCart();
   const { toggleFavorite, isFavorite } = useFavorites();
-  const fav = isFavorite(product?.id);
-  const [product,  setProduct]  = useState(null);
-  const [loading,  setLoading]  = useState(true);
+
+  // 👇 Estado primero
+  const [product,    setProduct]    = useState(null);
+  const [loading,    setLoading]    = useState(true);
   const [selectedImg, setSelectedImg] = useState("");
-  const [quantity, setQuantity] = useState(1);
+  const [quantity,   setQuantity]   = useState(1);
   const [selections, setSelections] = useState({});
-  const [zoomed, setZoomed] = useState(false);
+  const [zoomed,     setZoomed]     = useState(false);
   const thumbsRef = useRef(null);
+
+  // 👇 fav DESPUÉS de que product esté declarado
+  const fav = isFavorite(product?.id);
 
   // ── Fetch con cache ────────────────────────────────────────────────────────
   useEffect(() => {
