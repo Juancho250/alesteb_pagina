@@ -39,7 +39,7 @@ function SubMenu({ items }) {
           {items.map((sub) => (
             <li key={sub.id}>
               <Link
-                to={`/productos/${sub.slug}`}
+                to={`/productos/categoria/${sub.slug}`}
                 className="block px-3 py-2 text-[13px] font-semibold text-neutral-500 hover:text-black hover:bg-neutral-50 rounded-xl transition-all"
               >
                 {sub.name}
@@ -59,7 +59,7 @@ function MegaCategory({ cat }) {
   return (
     <div className="space-y-4">
       <Link
-        to={`/productos/${cat.slug}`}
+        to={`/productos/categoria/${cat.slug}`}
         className="block text-[10px] font-black uppercase tracking-[0.22em] text-black border-b border-neutral-100 pb-3 hover:opacity-60 transition-opacity"
       >
         {cat.name}
@@ -73,7 +73,7 @@ function MegaCategory({ cat }) {
             onMouseLeave={() => setHovered(null)}
           >
             <Link
-              to={`/productos/${sub.slug}`}
+              to={`/productos/categoria/${sub.slug}`}
               className="flex items-center justify-between px-3 py-2 text-[13px] font-semibold text-neutral-600 hover:text-black hover:bg-neutral-50 rounded-xl transition-all"
             >
               {sub.name}
@@ -103,7 +103,7 @@ function MobileCategories({ nodes, level = 0, openMap, toggle }) {
         }`}
       >
         <Link
-          to={`/productos/${node.slug}`}
+          to={`/productos/categoria/${node.slug}`}
           className={
             level === 0
               ? "text-[15px] font-black uppercase tracking-wide text-neutral-900"
