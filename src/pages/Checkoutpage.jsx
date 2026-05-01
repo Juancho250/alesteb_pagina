@@ -71,7 +71,6 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     setErrors({});
     try {
-      // 1. Crear la venta
       const { data } = await api.post("/sales", {
         customer_id:      user.id,
         items: cart.map(i => ({
@@ -87,27 +86,23 @@ export default function CheckoutPage() {
 
       if (!data.success) throw new Error(data.message || "Error al crear el pedido");
 
-      // 2. Obtener sesión de Wompi
       const { data: wompi } = await api.get(`/wompi/session/${data.data.sale_id}`);
       if (!wompi.success) throw new Error("No se pudo iniciar el pago con Wompi");
 
-      // 3. Construir URL y redirigir ANTES de limpiar el carrito
-      //    para que el guard de carrito vacío nunca se active
-      const params = new URLSearchParams({
-        "public-key":          wompi.data.public_key,
-        currency:              wompi.data.currency,
-        "amount-in-cents":     wompi.data.amount_in_cents,
-        reference:             wompi.data.reference,
-        "signature:integrity": wompi.data.signature,
-        "redirect-url":        wompi.data.redirect_url,
-      });
+      // ✅ URL construida manualmente — el ":" en signature:integrity NO se codifica
+      const wompiUrl = [
+        `https://checkout.wompi.co/p/`,
+        `?public-key=${encodeURIComponent(wompi.data.public_key)}`,
+        `&currency=${wompi.data.currency}`,
+        `&amount-in-cents=${wompi.data.amount_in_cents}`,
+        `&reference=${encodeURIComponent(wompi.data.reference)}`,
+        `&signature:integrity=${wompi.data.signature}`,
+        `&redirect-url=${encodeURIComponent(wompi.data.redirect_url)}`,
+      ].join("");
 
-      // Mostrar pantalla de redireccionando
       setRedirecting(true);
-
-      // Limpiar carrito y redirigir en el mismo tick
       clearCart();
-      window.location.href = `https://checkout.wompi.co/p/?${params.toString()}`;
+      window.location.href = wompiUrl;
 
     } catch (error) {
       setErrors({
