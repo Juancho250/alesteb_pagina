@@ -1,7 +1,6 @@
 // src/pages/Contact.jsx
 import { motion } from "framer-motion";
 import { ReactLenis } from "lenis/react";
-import { Link } from "react-router-dom";
 import { useState } from "react";
 import {
   Send,
@@ -11,7 +10,9 @@ import {
   MapPin,
   Loader2,
   CheckCircle,
+  AlertCircle,
 } from "lucide-react";
+import api from "../services/api"; // axios instance
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 40 },
@@ -55,8 +56,9 @@ const channels = [
 ];
 
 export default function Contact() {
-  const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
-  const [status, setStatus] = useState("idle"); // idle | sending | sent
+  const [form, setForm]     = useState({ name: "", email: "", subject: "", message: "" });
+  const [status, setStatus] = useState("idle"); // idle | sending | sent | error
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleChange = (e) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -64,9 +66,24 @@ export default function Contact() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus("sending");
-    // Simulación — reemplaza con tu endpoint real si tienes uno
-    await new Promise((r) => setTimeout(r, 1800));
-    setStatus("sent");
+    setErrorMsg("");
+
+    try {
+      await api.post("/contact", form);
+      setStatus("sent");
+    } catch (err) {
+      console.error("[Contact form]", err);
+      setErrorMsg(
+        err.response?.data?.message || "Error al enviar. Intenta de nuevo."
+      );
+      setStatus("error");
+    }
+  };
+
+  const handleReset = () => {
+    setStatus("idle");
+    setErrorMsg("");
+    setForm({ name: "", email: "", subject: "", message: "" });
   };
 
   return (
@@ -184,7 +201,9 @@ export default function Contact() {
                 className="lg:col-span-3"
               >
                 <div className="bg-[#f5f5f7] rounded-3xl p-8 md:p-10">
-                  {status === "sent" ? (
+
+                  {/* ── ENVIADO ── */}
+                  {status === "sent" && (
                     <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
                       <CheckCircle size={48} className="text-green-500" />
                       <h3 className="text-2xl font-black tracking-tighter">
@@ -194,17 +213,29 @@ export default function Contact() {
                         Te respondemos en menos de 24 horas hábiles.
                       </p>
                       <button
-                        onClick={() => { setStatus("idle"); setForm({ name: "", email: "", subject: "", message: "" }); }}
+                        onClick={handleReset}
                         className="mt-4 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors"
                       >
                         Enviar otro mensaje
                       </button>
                     </div>
-                  ) : (
+                  )}
+
+                  {/* ── FORMULARIO ── */}
+                  {status !== "sent" && (
                     <>
                       <h2 className="text-2xl font-black tracking-tighter uppercase italic mb-8">
                         Formulario directo
                       </h2>
+
+                      {/* Error banner */}
+                      {status === "error" && (
+                        <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 mb-6 text-[13px] font-medium">
+                          <AlertCircle size={16} className="shrink-0" />
+                          {errorMsg}
+                        </div>
+                      )}
+
                       <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <ContactInput
@@ -231,7 +262,6 @@ export default function Contact() {
                           placeholder="¿En qué podemos ayudarte?"
                           value={form.subject}
                           onChange={handleChange}
-                          required
                         />
                         <div className="flex flex-col gap-1.5">
                           <label className="text-[9px] font-black uppercase tracking-[0.3em] text-neutral-400">
