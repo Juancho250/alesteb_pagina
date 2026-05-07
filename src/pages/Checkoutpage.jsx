@@ -90,19 +90,26 @@ const handleSubmit = async () => {
     const { data: wompi } = await api.get(`/wompi/session/${data.data.sale_id}`);
     if (!wompi.success) throw new Error("No se pudo iniciar el pago con Wompi");
 
-    // ✅ URLSearchParams codifica correctamente cada valor (public-key, redirect-url, etc.)
-    //    pero NO se usa para signature:integrity porque codificaría el ":" del nombre.
     const params = new URLSearchParams({
       "public-key":      wompi.data.public_key,
       currency:          wompi.data.currency,
-      "amount-in-cents": String(wompi.data.amount_in_cents), // string entero, sin decimales
+      "amount-in-cents": String(wompi.data.amount_in_cents),
       reference:         wompi.data.reference,
       "redirect-url":    wompi.data.redirect_url,
     });
 
-    // ✅ signature:integrity se agrega a mano para que el ":" NO quede codificado
     const wompiUrl =
       `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${wompi.data.signature}`;
+
+    // 🔍 DEBUG TEMPORAL
+    console.log("=== WOMPI DEBUG ===");
+    console.log("public_key:",      wompi.data.public_key);
+    console.log("reference:",       wompi.data.reference);
+    console.log("amount_in_cents:", wompi.data.amount_in_cents);
+    console.log("currency:",        wompi.data.currency);
+    console.log("signature:",       wompi.data.signature);
+    console.log("URL completa:",    wompiUrl);
+    console.log("==================");
 
     setRedirecting(true);
     clearCart();
