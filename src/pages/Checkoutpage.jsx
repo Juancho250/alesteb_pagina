@@ -77,6 +77,7 @@ const handleSubmit = async () => {
       items: cart.map(i => ({
         product_id: i.id,
         quantity:   i.quantity || 1,
+        unit_price: getItemPrice(i),           // ← precio con descuento aplicado
         ...(i.variantId && { variant_id: i.variantId }),
       })),
       payment_method:   "credit",
@@ -100,16 +101,6 @@ const handleSubmit = async () => {
 
     const wompiUrl =
       `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${wompi.data.signature}`;
-
-    // 🔍 DEBUG TEMPORAL
-    console.log("=== WOMPI DEBUG ===");
-    console.log("public_key:",      wompi.data.public_key);
-    console.log("reference:",       wompi.data.reference);
-    console.log("amount_in_cents:", wompi.data.amount_in_cents);
-    console.log("currency:",        wompi.data.currency);
-    console.log("signature:",       wompi.data.signature);
-    console.log("URL completa:",    wompiUrl);
-    console.log("==================");
 
     setRedirecting(true);
     clearCart();
