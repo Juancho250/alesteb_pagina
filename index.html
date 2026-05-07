@@ -27,6 +27,14 @@
     <meta name="twitter:card" content="summary_large_image" />
 
     <link rel="preconnect" href="https://alesteb-back.onrender.com" />
+
+    <!-- ① Preconnect Cloudinary (crítico para LCP) -->
+    <link rel="preconnect" href="https://res.cloudinary.com" crossorigin />
+    <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+    
+    <!-- ② (Opcional) Preconnect tu propio API — evita el cold-start en la primera llamada -->
+    <link rel="preconnect" href="https://alesteb-back-1.onrender.com" />
+    <link rel="dns-prefetch" href="https://alesteb-back-1.onrender.com" />
   </head>
   <body>
     <div id="root"></div>

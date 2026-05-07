@@ -4,9 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-// ─── Cloudinary: optimización agresiva para banners ───────────────────────────
-// Las imágenes ya están como WebP en Cloudinary (subidas con el uploader).
-// Aquí solo ajustamos tamaño, calidad y formato según el viewport.
+// ─── Cloudinary URL helpers ───────────────────────────────────────────────────
 function getBannerUrl(url, { w = 1600, q = "auto:good" } = {}) {
   if (!url) return "";
   if (!url.includes("/upload/")) return url;
@@ -16,13 +14,26 @@ function getBannerUrl(url, { w = 1600, q = "auto:good" } = {}) {
   );
 }
 
-// Genera srcSet para múltiples breakpoints
 function getBannerSrcSet(url) {
   if (!url || !url.includes("/upload/")) return "";
-  const widths = [640, 960, 1280, 1600, 1920];
-  return widths
+  return [640, 960, 1280, 1600, 1920]
     .map(w => `${getBannerUrl(url, { w, q: "auto:good" })} ${w}w`)
     .join(", ");
+}
+
+// ─── Preload de imagen via JS (sin tocar el DOM) ─────────────────────────────
+const preloadedUrls = new Set(); // evita precargar dos veces la misma imagen
+
+function preloadImage(url, w = 960) {
+  const src = getBannerUrl(url, { w });
+  if (!src || preloadedUrls.has(src)) return;
+  preloadedUrls.add(src);
+  const img = new Image();
+  img.fetchPriority = "low";
+  img.src = src;
+  // srcset para que el navegador elija la mejor resolución
+  img.srcset = getBannerSrcSet(url);
+  img.sizes  = "100vw";
 }
 
 // ─── Variantes de animación ───────────────────────────────────────────────────
@@ -31,20 +42,18 @@ const contentVariants = {
   center: { opacity: 1, y: 0,  transition: { duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.2 } },
   exit:   { opacity: 0, y: -16, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
 };
-
 const labelVariants = {
   enter:  { opacity: 0, y: 12 },
   center: { opacity: 1, y: 0,  transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.35 } },
   exit:   { opacity: 0 },
 };
-
 const btnsVariants = {
   enter:  { opacity: 0, y: 16 },
   center: { opacity: 1, y: 0,  transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.55 } },
   exit:   { opacity: 0 },
 };
 
-// ─── Barra de progreso del slide ─────────────────────────────────────────────
+// ─── Barra de progreso ────────────────────────────────────────────────────────
 function ProgressBar({ active, duration, isPaused }) {
   return (
     <div className="h-[2px] w-full bg-white/15 rounded-full overflow-hidden">
@@ -55,8 +64,7 @@ function ProgressBar({ active, duration, isPaused }) {
         animate={active && !isPaused ? { scaleX: 1 } : { scaleX: active ? undefined : 0 }}
         transition={active && !isPaused
           ? { duration: duration / 1000, ease: "linear" }
-          : { duration: 0 }
-        }
+          : { duration: 0 }}
       />
     </div>
   );
@@ -66,11 +74,12 @@ function ProgressBar({ active, duration, isPaused }) {
 const INTERVAL = 7000;
 
 export default function BannerCarousel({ banners }) {
-  const [current,  setCurrent]  = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const [current,    setCurrent]    = useState(0);
+  const [isPaused,   setIsPaused]   = useState(false);
   const [touchStart, setTouchStart] = useState(null);
-  const [direction, setDirection] = useState(1); // 1 = forward, -1 = backward
-  const timerRef = useRef(null);
+  const [direction,  setDirection]  = useState(1);
+  const timerRef   = useRef(null);
+  const allLoaded  = useRef(false); // flag: solo precargamos una vez
 
   const go = useCallback((idx, dir = 1) => {
     setDirection(dir);
@@ -85,6 +94,31 @@ export default function BannerCarousel({ banners }) {
     go(current === 0 ? banners.length - 1 : current - 1, -1);
   }, [current, banners.length, go]);
 
+  // ── Precarga de TODAS las imágenes en background tras montar ─────────────
+  // El slide 0 ya cargó con fetchpriority="high". El resto los cargamos
+  // con baja prioridad para no competir con el LCP.
+  useEffect(() => {
+    if (!banners?.length || allLoaded.current) return;
+    allLoaded.current = true;
+
+    // Retrasamos 1.5 s para dar tiempo al LCP de completarse primero
+    const t = setTimeout(() => {
+      banners.forEach((s, i) => {
+        if (i === 0) return; // slide 0 ya está en el DOM como eager
+        preloadImage(s.image_url);
+      });
+    }, 1500);
+
+    return () => clearTimeout(t);
+  }, [banners]);
+
+  // ── Precarga anticipada del slide siguiente al cambiar ───────────────────
+  useEffect(() => {
+    if (!banners?.length) return;
+    const nextIdx = current === banners.length - 1 ? 0 : current + 1;
+    preloadImage(banners[nextIdx]?.image_url, 1600); // resolución alta para el siguiente
+  }, [current, banners]);
+
   // Auto-play
   useEffect(() => {
     if (banners.length <= 1 || isPaused) return;
@@ -93,11 +127,8 @@ export default function BannerCarousel({ banners }) {
   }, [banners.length, isPaused, next]);
 
   // Swipe táctil
-  const handleTouchStart = useCallback(e => {
-    setTouchStart(e.touches[0].clientX);
-  }, []);
-
-  const handleTouchEnd = useCallback(e => {
+  const handleTouchStart = useCallback(e => setTouchStart(e.touches[0].clientX), []);
+  const handleTouchEnd   = useCallback(e => {
     if (touchStart === null) return;
     const delta = touchStart - e.changedTouches[0].clientX;
     if (delta > 60) next();
@@ -129,7 +160,7 @@ export default function BannerCarousel({ banners }) {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ── Fondo: todas las imágenes, solo la activa visible ─────────────── */}
+      {/* ── Fondos: todos montados, solo el activo visible ─────────────────── */}
       {banners.map((s, i) => {
         const isActive = i === current;
         return (
@@ -139,7 +170,6 @@ export default function BannerCarousel({ banners }) {
             className={`absolute inset-0 transition-opacity duration-[1400ms] ease-in-out
               ${isActive ? "opacity-100 z-10" : "opacity-0 z-0"}`}
           >
-            {/* Ken Burns */}
             <div
               className={`absolute inset-0 transition-transform ease-in-out
                 ${isActive ? "scale-[1.08] duration-[9000ms]" : "scale-100 duration-0"}`}
@@ -149,14 +179,14 @@ export default function BannerCarousel({ banners }) {
                 srcSet={getBannerSrcSet(s.image_url)}
                 sizes="100vw"
                 alt={s.title || ""}
+                // Solo el primero carga inmediatamente y con alta prioridad LCP.
+                // Los demás usan lazy para no competir, pero ya fueron precargados por JS.
                 loading={i === 0 ? "eager" : "lazy"}
-                fetchpriority={i === 0 ? "high" : "auto"}
-                decoding="async"
+                fetchPriority={i === 0 ? "high" : "low"}
+                decoding={i === 0 ? "sync" : "async"}
                 className="w-full h-full object-cover"
               />
             </div>
-
-            {/* Overlay multicapa — más legible en móvil */}
             <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#050505]/80 via-transparent to-transparent" />
             <div className="absolute inset-0 bg-black/20 md:bg-black/10" />
@@ -164,12 +194,10 @@ export default function BannerCarousel({ banners }) {
         );
       })}
 
-      {/* ── Contenido animado ─────────────────────────────────────────────── */}
+      {/* ── Contenido animado ──────────────────────────────────────────────── */}
       <div className="relative z-30 h-full flex flex-col items-center justify-center px-6 text-center">
         <AnimatePresence mode="wait">
           <div key={current} className="max-w-4xl w-full">
-
-            {/* Label — mismo estilo que el breadcrumb de Products */}
             <AnimatePresence>
               {slide.label && (
                 <motion.span
@@ -186,7 +214,6 @@ export default function BannerCarousel({ banners }) {
               )}
             </AnimatePresence>
 
-            {/* Título — tipografía idéntica al h1 de Products */}
             <motion.h2
               variants={contentVariants}
               initial="enter" animate="center" exit="exit"
@@ -196,7 +223,6 @@ export default function BannerCarousel({ banners }) {
               {slide.title}
             </motion.h2>
 
-            {/* Descripción */}
             <motion.p
               variants={contentVariants}
               initial="enter" animate="center" exit="exit"
@@ -206,7 +232,6 @@ export default function BannerCarousel({ banners }) {
               {slide.description}
             </motion.p>
 
-            {/* CTAs */}
             <motion.div
               variants={btnsVariants}
               initial="enter" animate="center" exit="exit"
@@ -235,41 +260,34 @@ export default function BannerCarousel({ banners }) {
         </AnimatePresence>
       </div>
 
-      {/* ── Fade inferior ─────────────────────────────────────────────────── */}
-      <div className="absolute inset-x-0 bottom-0 h-32 md:h-48 bg-gradient-to-t from-[#050505] to-transparent z-20 pointer-events-none" />
+      {/* ── Fade inferior ──────────────────────────────────────────────────── */}
+      <div className="absolute inset-x-0 bottom-0 h-32 md:h-48
+        bg-gradient-to-t from-[#050505] to-transparent z-20 pointer-events-none" />
 
-      {/* ── Controles laterales — solo desktop ────────────────────────────── */}
+      {/* ── Controles laterales ────────────────────────────────────────────── */}
       <div className="hidden md:flex absolute inset-y-0 left-0 items-center z-40 px-6">
-        <button
-          onClick={prev}
-          aria-label="Banner anterior"
+        <button onClick={prev} aria-label="Banner anterior"
           className="group w-12 h-12 flex items-center justify-center rounded-full
             border border-white/10 bg-white/5 backdrop-blur-sm
             text-white/30 hover:text-white hover:bg-white/15 hover:border-white/25
-            transition-all duration-300 hover:scale-105 active:scale-95"
-        >
+            transition-all duration-300 hover:scale-105 active:scale-95">
           <ChevronLeft size={22} strokeWidth={1.5} />
         </button>
       </div>
       <div className="hidden md:flex absolute inset-y-0 right-0 items-center z-40 px-6">
-        <button
-          onClick={next}
-          aria-label="Siguiente banner"
+        <button onClick={next} aria-label="Siguiente banner"
           className="group w-12 h-12 flex items-center justify-center rounded-full
             border border-white/10 bg-white/5 backdrop-blur-sm
             text-white/30 hover:text-white hover:bg-white/15 hover:border-white/25
-            transition-all duration-300 hover:scale-105 active:scale-95"
-        >
+            transition-all duration-300 hover:scale-105 active:scale-95">
           <ChevronRight size={22} strokeWidth={1.5} />
         </button>
       </div>
 
-      {/* ── Indicadores + barra de progreso — panel inferior ─────────────── */}
+      {/* ── Indicadores + barra de progreso ───────────────────────────────── */}
       {banners.length > 1 && (
         <div className="absolute bottom-8 md:bottom-14 left-1/2 -translate-x-1/2 z-50
           flex flex-col items-center gap-3 min-w-[180px]">
-
-          {/* Pills */}
           <div className="flex items-center gap-2">
             {banners.map((_, i) => (
               <button
@@ -279,13 +297,10 @@ export default function BannerCarousel({ banners }) {
                 className={`rounded-full transition-all duration-500 bg-white
                   ${i === current
                     ? "w-8 md:w-12 h-[3px] opacity-100"
-                    : "w-[3px] h-[3px] opacity-25 hover:opacity-50"
-                  }`}
+                    : "w-[3px] h-[3px] opacity-25 hover:opacity-50"}`}
               />
             ))}
           </div>
-
-          {/* Contador estilo Products */}
           <div className="flex items-center gap-2 text-[9px] font-black tracking-[0.3em] text-white/40 uppercase">
             <span className="text-white/80">{String(current + 1).padStart(2, "0")}</span>
             <span className="h-px w-4 bg-white/20" />
@@ -294,10 +309,9 @@ export default function BannerCarousel({ banners }) {
         </div>
       )}
 
-      {/* ── Barra de progreso — esquina superior derecha (desktop) ─────────── */}
       {banners.length > 1 && (
         <div className="hidden md:block absolute top-8 right-8 z-50 w-32">
-          <ProgressBar active={true} duration={INTERVAL} isPaused={isPaused} key={`${current}-${isPaused}`} />
+          <ProgressBar active duration={INTERVAL} isPaused={isPaused} key={`${current}-${isPaused}`} />
         </div>
       )}
     </div>
