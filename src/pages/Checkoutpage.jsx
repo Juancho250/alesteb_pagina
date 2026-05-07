@@ -66,52 +66,56 @@ export default function CheckoutPage() {
     setErrors(e);
     return !Object.keys(e).length;
   };
+// CheckoutPage.jsx — solo cambia el bloque handleSubmit donde se construye wompiUrl
 
-  const handleSubmit = async () => {
-    setIsProcessing(true);
-    setErrors({});
-    try {
-      const { data } = await api.post("/sales", {
-        customer_id:      user.id,
-        items: cart.map(i => ({
-          product_id: i.id,
-          quantity:   i.quantity || 1,
-          ...(i.variantId && { variant_id: i.variantId }),
-        })),
-        payment_method:   "credit",
-        shipping_address: form.shipping_address,
-        shipping_city:    form.shipping_city,
-        shipping_notes:   form.shipping_notes,
-      });
+const handleSubmit = async () => {
+  setIsProcessing(true);
+  setErrors({});
+  try {
+    const { data } = await api.post("/sales", {
+      customer_id:      user.id,
+      items: cart.map(i => ({
+        product_id: i.id,
+        quantity:   i.quantity || 1,
+        ...(i.variantId && { variant_id: i.variantId }),
+      })),
+      payment_method:   "credit",
+      shipping_address: form.shipping_address,
+      shipping_city:    form.shipping_city,
+      shipping_notes:   form.shipping_notes,
+    });
 
-      if (!data.success) throw new Error(data.message || "Error al crear el pedido");
+    if (!data.success) throw new Error(data.message || "Error al crear el pedido");
 
-      const { data: wompi } = await api.get(`/wompi/session/${data.data.sale_id}`);
-      if (!wompi.success) throw new Error("No se pudo iniciar el pago con Wompi");
+    const { data: wompi } = await api.get(`/wompi/session/${data.data.sale_id}`);
+    if (!wompi.success) throw new Error("No se pudo iniciar el pago con Wompi");
 
-      // ✅ URL construida manualmente — el ":" en signature:integrity NO se codifica
-      const wompiUrl = [
-        `https://checkout.wompi.co/p/`,
-        `?public-key=${encodeURIComponent(wompi.data.public_key)}`,
-        `&currency=${wompi.data.currency}`,
-        `&amount-in-cents=${wompi.data.amount_in_cents}`,
-        `&reference=${encodeURIComponent(wompi.data.reference)}`,
-        `&signature:integrity=${wompi.data.signature}`,
-        `&redirect-url=${encodeURIComponent(wompi.data.redirect_url)}`,
-      ].join("");
+    // ✅ URLSearchParams codifica correctamente cada valor (public-key, redirect-url, etc.)
+    //    pero NO se usa para signature:integrity porque codificaría el ":" del nombre.
+    const params = new URLSearchParams({
+      "public-key":      wompi.data.public_key,
+      currency:          wompi.data.currency,
+      "amount-in-cents": String(wompi.data.amount_in_cents), // string entero, sin decimales
+      reference:         wompi.data.reference,
+      "redirect-url":    wompi.data.redirect_url,
+    });
 
-      setRedirecting(true);
-      clearCart();
-      window.location.href = wompiUrl;
+    // ✅ signature:integrity se agrega a mano para que el ":" NO quede codificado
+    const wompiUrl =
+      `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${wompi.data.signature}`;
 
-    } catch (error) {
-      setErrors({
-        submit: error.response?.data?.message || error.message || "Error al procesar tu pedido. Intenta de nuevo.",
-      });
-      setIsProcessing(false);
-      setRedirecting(false);
-    }
-  };
+    setRedirecting(true);
+    clearCart();
+    window.location.href = wompiUrl;
+
+  } catch (error) {
+    setErrors({
+      submit: error.response?.data?.message || error.message || "Error al procesar tu pedido. Intenta de nuevo.",
+    });
+    setIsProcessing(false);
+    setRedirecting(false);
+  }
+};
 
   // ── Pantalla de redireccionando (evita el flicker del guard) ─────────────
   if (redirecting) {
