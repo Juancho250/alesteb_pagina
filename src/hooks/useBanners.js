@@ -1,10 +1,9 @@
 // src/hooks/useBanners.js
-// ─── Stale-While-Revalidate: sirve caché al instante, revalida en segundo plano ───
 import { useState, useEffect, useRef } from "react";
-import api from "../api/axios"; // tu instancia axios
+import api from "../services/api";
 
-const CACHE_KEY   = "_alesteb_banners";
-const CACHE_TTL   = 5 * 60 * 1000; // 5 min — después fuerza revalidación
+const CACHE_KEY = "_alesteb_banners";
+const CACHE_TTL = 5 * 60 * 1000;
 
 function readCache() {
   try {
@@ -24,39 +23,46 @@ function writeCache(data) {
 }
 
 export function useBanners() {
-  const cached          = readCache();
-  const [banners,    setBanners]    = useState(cached?.data ?? []);
-  const [loading,    setLoading]    = useState(!cached);
-  const [error,      setError]      = useState(null);
-  const isMounted = useRef(true);
+  // Lee el caché UNA vez al montar — solo para el estado inicial
+  const initialCache = useRef(readCache());
+  const cached       = initialCache.current;
+
+  const [banners, setBanners] = useState(cached?.data ?? []);
+  // loading=true solo si NO hay caché (ni fresca ni stale)
+  const [loading, setLoading] = useState(!cached);
+  const [error,   setError]   = useState(null);
+  const isMounted             = useRef(true);
 
   useEffect(() => {
     isMounted.current = true;
 
-    // Si hay caché fresca, no pedimos nada
-    if (cached && !cached.stale) return;
+    // Caché fresca → no fetches
+    if (cached && !cached.stale) {
+      return;
+    }
 
     const controller = new AbortController();
 
     async function fetchBanners() {
       try {
-        const { data } = await api.get("/banners", {
+        const response = await api.get("/banners", {
           signal: controller.signal,
-          // No re-enviar token — es ruta pública
-          headers: { Authorization: undefined },
         });
 
-        const active = data.filter(b => b.is_active !== false);
+        // response.data = { success: true, data: [...] }
+        const raw  = response.data?.data ?? response.data;
+        const list = Array.isArray(raw) ? raw : [];
+
         if (isMounted.current) {
-          setBanners(active);
+          setBanners(list);
           setError(null);
         }
-        writeCache(active);
+        writeCache(list);
       } catch (err) {
         if (err.name === "CanceledError" || err.name === "AbortError") return;
-        if (isMounted.current) {
-          // Si hay caché (aunque stale), no mostramos error — silencioso
-          if (!cached) setError(err);
+        // Si hay caché stale, la seguimos mostrando en silencio
+        if (isMounted.current && !cached) {
+          setError(err);
         }
       } finally {
         if (isMounted.current) setLoading(false);
@@ -69,7 +75,8 @@ export function useBanners() {
       isMounted.current = false;
       controller.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Solo se ejecuta al montar — dependencias vacías intencional
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return { banners, loading, error };

@@ -186,7 +186,17 @@ export default function ProductDetail() {
     api.get(`/products/${id}`)
       .then(({ data }) => {
         if (!alive) return;
-        const resolved = data?.data || data?.product || data;
+        const raw = data?.data || data?.product || data;
+
+        // ── Normaliza campos de la public API ──────────────────
+        const resolved = raw ? {
+          ...raw,
+          sale_price:    raw.sale_price    ?? raw.price,
+          final_price:   raw.final_price   ?? raw.sale_price ?? raw.price,
+          category_name: raw.category_name ?? raw.category,
+        } : null;
+        // ───────────────────────────────────────────────────────
+
         cacheSet(id, resolved || null);
         setProduct(resolved || null);
         autoSelectSingleVariant(resolved);
