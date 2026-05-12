@@ -44,6 +44,13 @@ export function extractPagination(payload) {
       };
     }
 
+    if (source.meta && typeof source.meta === "object") {
+      return {
+        totalPages: Number(source.meta.pages || 1),
+        totalItems: Number(source.meta.total || 0),
+      };
+    }
+
     if ("totalPages" in source || "total_pages" in source) {
       return {
         totalPages: Number(source.totalPages || source.total_pages || 1),
