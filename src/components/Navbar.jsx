@@ -1,127 +1,224 @@
 // src/components/Navbar.jsx
+// ─── El Navbar consume GET /public-api/v1/profile (mismo baseURL + API Key)
+// para mostrar el logo, nombre y colores del negocio del admin.
+// No depende del panel de admin ni de autenticación JWT.
+
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   ShoppingBag, Menu, X, ChevronDown, ChevronRight,
-  User, LogOut, Search,
+  User, LogOut, Search, LayoutGrid,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import api from "../services/api";
+import api from "../services/api";            // axios con X-API-Key ya configurado
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { extractCategories } from "../utils/apiResponse";
 
-// ─── Variantes de animación ────────────────────────────────────────
-const mobileMenuVariants = {
+// ─── Variantes ────────────────────────────────────────────────
+const dropDown = {
+  hidden:  { opacity: 0, y: -8, scale: 0.97 },
+  visible: { opacity: 1, y: 0,  scale: 1,    transition: { duration: 0.2,  ease: [0.16, 1, 0.3, 1] } },
+  exit:    { opacity: 0, y: -8, scale: 0.97, transition: { duration: 0.15 } },
+};
+
+const mobileSlide = {
   hidden:  { x: "100%", opacity: 0 },
-  visible: { x: 0,      opacity: 1, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
-  exit:    { x: "100%", opacity: 0, transition: { duration: 0.3, ease: [0.55, 0, 0.45, 1] } },
+  visible: { x: 0, opacity: 1, transition: { duration: 0.36, ease: [0.22, 1, 0.36, 1] } },
+  exit:    { x: "100%", opacity: 0, transition: { duration: 0.26, ease: [0.55, 0, 0.45, 1] } },
 };
 
-const megamenuVariants = {
-  hidden:  { opacity: 0, y: -8 },
-  visible: { opacity: 1, y: 0,  transition: { duration: 0.2, ease: "easeOut" } },
-  exit:    { opacity: 0, y: -8, transition: { duration: 0.15 } },
-};
+// ─── MegaMenu de 3 columnas ───────────────────────────────────
+function MegaMenu({ categories, accentColor, onClose }) {
+  const [activeTop, setActiveTop] = useState(categories[0]?.id ?? null);
+  const [activeSub, setActiveSub] = useState(null);
 
-// ─── Submenu de tercer nivel ───────────────────────────────────────
-function SubMenu({ items }) {
+  const topCat    = categories.find(c => c.id === activeTop);
+  const subCat    = topCat?.children?.find(c => c.id === activeSub);
+  const hasLevel2 = (topCat?.children?.length ?? 0) > 0;
+  const hasLevel3 = (subCat?.children?.length ?? 0) > 0;
+
+  const accent = accentColor || "#000000";
+
   return (
     <motion.div
-      variants={megamenuVariants}
+      variants={dropDown}
       initial="hidden"
       animate="visible"
       exit="exit"
-      className="absolute left-full top-0 ml-3 z-[300] min-w-[200px]"
+      className="absolute top-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-[250]"
+      style={{ width: "min(860px, 92vw)" }}
     >
-      <div className="bg-white border border-neutral-100 rounded-2xl shadow-xl p-4">
-        <ul className="space-y-1">
-          {items.map((sub) => (
-            <li key={sub.id}>
-              <Link
-                to={`/productos/categoria/${sub.slug}`}
-                className="block px-3 py-2 text-[13px] font-semibold text-neutral-500 hover:text-black hover:bg-neutral-50 rounded-xl transition-all"
+      {/* Puntero */}
+      <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-white border-l border-t border-neutral-200 rotate-45" />
+
+      <div
+        className="bg-white border border-neutral-200 rounded-2xl shadow-2xl overflow-hidden flex"
+        style={{ minHeight: 300 }}
+      >
+        {/* ── Columna 1: categorías raíz ── */}
+        <div className="w-[200px] shrink-0 bg-neutral-50/80 border-r border-neutral-100 py-2 flex flex-col">
+          <p className="px-4 pt-3 pb-2 text-[9.5px] font-black uppercase tracking-[0.22em] text-neutral-400 select-none">
+            Categorías
+          </p>
+          {categories.map(cat => {
+            const active = activeTop === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onMouseEnter={() => { setActiveTop(cat.id); setActiveSub(null); }}
+                className={`group flex items-center justify-between w-full px-4 py-2.5 text-[13px] font-semibold text-left transition-all ${
+                  active
+                    ? "bg-white text-black"
+                    : "text-neutral-500 hover:text-black hover:bg-white/60"
+                }`}
+                style={active ? { boxShadow: `inset 2px 0 0 ${accent}` } : {}}
               >
-                {sub.name}
-              </Link>
-            </li>
-          ))}
-        </ul>
+                <Link
+                  to={`/productos/categoria/${cat.slug}`}
+                  onClick={onClose}
+                  className="flex-1 text-left"
+                >
+                  {cat.name}
+                </Link>
+                {cat.children?.length > 0 && (
+                  <ChevronRight
+                    size={12}
+                    className={`shrink-0 transition-colors ${active ? "text-neutral-400" : "text-neutral-300 group-hover:text-neutral-400"}`}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Columna 2: subcategorías ── */}
+        <div className="w-[200px] shrink-0 border-r border-neutral-100 py-2 flex flex-col">
+          <AnimatePresence mode="wait">
+            {hasLevel2 ? (
+              <motion.div
+                key={activeTop}
+                initial={{ opacity: 0, x: 6 }}
+                animate={{ opacity: 1, x: 0, transition: { duration: 0.16 } }}
+                exit={{ opacity: 0 }}
+                className="flex flex-col h-full"
+              >
+                <p className="px-4 pt-3 pb-2 text-[9.5px] font-black uppercase tracking-[0.22em] text-neutral-400 select-none">
+                  {topCat?.name}
+                </p>
+                {topCat.children.map(sub => {
+                  const active = activeSub === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      onMouseEnter={() => setActiveSub(sub.id)}
+                      className={`group flex items-center justify-between w-full px-4 py-2.5 text-[13px] font-semibold text-left transition-all ${
+                        active
+                          ? "bg-neutral-50 text-black"
+                          : "text-neutral-500 hover:text-black hover:bg-neutral-50/80"
+                      }`}
+                    >
+                      <Link
+                        to={`/productos/categoria/${sub.slug}`}
+                        onClick={onClose}
+                        className="flex-1 text-left"
+                      >
+                        {sub.name}
+                      </Link>
+                      {sub.children?.length > 0 && (
+                        <ChevronRight
+                          size={12}
+                          className={`shrink-0 transition-colors ${active ? "text-neutral-400" : "text-neutral-300 group-hover:text-neutral-400"}`}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="empty-l2"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex-1 flex items-center justify-center"
+              >
+                <p className="text-[12px] text-neutral-300 font-medium">Sin subcategorías</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* ── Columna 3: tercer nivel ── */}
+        <div className="flex-1 py-2 flex flex-col">
+          <AnimatePresence mode="wait">
+            {hasLevel3 ? (
+              <motion.div
+                key={activeSub}
+                initial={{ opacity: 0, x: 6 }}
+                animate={{ opacity: 1, x: 0, transition: { duration: 0.16 } }}
+                exit={{ opacity: 0 }}
+              >
+                <p className="px-4 pt-3 pb-2 text-[9.5px] font-black uppercase tracking-[0.22em] text-neutral-400 select-none">
+                  {subCat?.name}
+                </p>
+                <div className="grid grid-cols-2 px-2 gap-x-1">
+                  {subCat.children.map(item => (
+                    <Link
+                      key={item.id}
+                      to={`/productos/categoria/${item.slug}`}
+                      onClick={onClose}
+                      className="px-3 py-2.5 text-[13px] font-medium text-neutral-500 hover:text-black hover:bg-neutral-50 rounded-xl transition-all"
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
+              </motion.div>
+            ) : hasLevel2 ? (
+              <motion.div
+                key="hint"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex-1 flex items-center justify-center"
+              >
+                <p className="text-[12px] text-neutral-300 font-medium">
+                  {activeSub ? "Sin sub-subcategorías" : "← Elige una subcategoría"}
+                </p>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
       </div>
     </motion.div>
   );
 }
 
-// ─── Item de categoría en el megamenu ─────────────────────────────
-function MegaCategory({ cat }) {
-  const [hovered, setHovered] = useState(null);
-
-  return (
-    <div className="space-y-4">
-      <Link
-        to={`/productos/categoria/${cat.slug}`}
-        className="block text-[10px] font-black uppercase tracking-[0.22em] text-black border-b border-neutral-100 pb-3 hover:opacity-60 transition-opacity"
-      >
-        {cat.name}
-      </Link>
-      <ul className="space-y-1">
-        {cat.children?.map((sub) => (
-          <li
-            key={sub.id}
-            className="relative"
-            onMouseEnter={() => setHovered(sub.id)}
-            onMouseLeave={() => setHovered(null)}
-          >
-            <Link
-              to={`/productos/categoria/${sub.slug}`}
-              className="flex items-center justify-between px-3 py-2 text-[13px] font-semibold text-neutral-600 hover:text-black hover:bg-neutral-50 rounded-xl transition-all"
-            >
-              {sub.name}
-              {sub.children?.length > 0 && (
-                <ChevronRight size={13} className="text-neutral-300" />
-              )}
-            </Link>
-            <AnimatePresence>
-              {sub.children?.length > 0 && hovered === sub.id && (
-                <SubMenu items={sub.children} />
-              )}
-            </AnimatePresence>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-// ─── Mobile: categorías recursivas ────────────────────────────────
-function MobileCategories({ nodes, level = 0, openMap, toggle }) {
-  return nodes.map((node) => (
+// ─── Árbol recursivo mobile ────────────────────────────────────
+function MobileTree({ nodes, level = 0, openMap, toggle, onClose }) {
+  return nodes.map(node => (
     <div key={node.id}>
-      <div
-        className={`flex justify-between items-center py-3.5 ${
-          level === 0 ? "border-b border-neutral-100" : ""
-        }`}
-      >
+      <div className={`flex items-center gap-2 ${level === 0 ? "py-3 border-b border-neutral-100" : "py-2.5"}`}>
         <Link
           to={`/productos/categoria/${node.slug}`}
-          className={
+          onClick={onClose}
+          className={`flex-1 ${
             level === 0
-              ? "text-[15px] font-black uppercase tracking-wide text-neutral-900"
-              : "text-[14px] font-semibold text-neutral-600"
-          }
+              ? "text-[14px] font-black uppercase tracking-wide text-neutral-900"
+              : level === 1
+              ? "text-[13px] font-bold text-neutral-700"
+              : "text-[13px] font-medium text-neutral-500"
+          }`}
         >
           {node.name}
         </Link>
         {node.children?.length > 0 && (
           <button
             onClick={() => toggle(node.id)}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-neutral-100 active:bg-neutral-200 transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-neutral-100 active:bg-neutral-200 shrink-0"
           >
             <ChevronRight
-              size={16}
-              className={`text-neutral-500 transition-transform duration-300 ${
-                openMap[node.id] ? "rotate-90" : ""
-              }`}
+              size={13}
+              className={`text-neutral-500 transition-transform duration-200 ${openMap[node.id] ? "rotate-90" : ""}`}
             />
           </button>
         )}
@@ -130,15 +227,16 @@ function MobileCategories({ nodes, level = 0, openMap, toggle }) {
         {node.children?.length > 0 && openMap[node.id] && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1, transition: { duration: 0.25 } }}
-            exit={{ height: 0, opacity: 0, transition: { duration: 0.2 } }}
-            className="overflow-hidden ml-4 pl-4 border-l border-neutral-100"
+            animate={{ height: "auto", opacity: 1, transition: { duration: 0.2 } }}
+            exit={{ height: 0, opacity: 0, transition: { duration: 0.15 } }}
+            className="overflow-hidden ml-3 pl-3 border-l-2 border-neutral-100"
           >
-            <MobileCategories
+            <MobileTree
               nodes={node.children}
               level={level + 1}
               openMap={openMap}
               toggle={toggle}
+              onClose={onClose}
             />
           </motion.div>
         )}
@@ -147,30 +245,73 @@ function MobileCategories({ nodes, level = 0, openMap, toggle }) {
   ));
 }
 
-// ─── Componente principal ──────────────────────────────────────────
+// ─── Brand: logo + nombre desde /profile ──────────────────────
+function BrandLogo({ profile, loading }) {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2.5 animate-pulse">
+        <div className="w-8 h-8 rounded-lg bg-neutral-200 shrink-0" />
+        <div className="h-4 w-24 rounded bg-neutral-200" />
+      </div>
+    );
+  }
+
+  const name   = profile?.business_name || "Mi Tienda";
+  const logo   = profile?.logo_url;
+  const color  = profile?.primary_color || "#000000";
+
+  return (
+    <div className="flex items-center gap-2.5">
+      {logo ? (
+        <img
+          src={logo}
+          alt={name}
+          className="h-8 w-8 object-contain rounded-lg shrink-0 select-none"
+          onError={e => { e.currentTarget.style.display = "none"; }}
+          draggable={false}
+        />
+      ) : (
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[13px] font-black shrink-0 select-none"
+          style={{ backgroundColor: color }}
+        >
+          {name[0]?.toUpperCase() || "T"}
+        </div>
+      )}
+      <span
+        className="text-[17px] sm:text-[19px] font-black tracking-tight select-none leading-none"
+        style={{ color }}
+      >
+        {name}
+      </span>
+    </div>
+  );
+}
+
+// ─── Componente principal ──────────────────────────────────────
 export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
   const { cart } = useCart();
   const location = useLocation();
 
-  const [menuOpen,  setMenuOpen]  = useState(false);
-  const [scrolled,  setScrolled]  = useState(false);
-  const [megaOpen,  setMegaOpen]  = useState(false);
-  const [openMap,   setOpenMap]   = useState({});
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [menuOpen,    setMenuOpen]    = useState(false);
+  const [scrolled,    setScrolled]    = useState(false);
+  const [megaOpen,    setMegaOpen]    = useState(false);
+  const [openMap,     setOpenMap]     = useState({});
+  const [searchOpen,  setSearchOpen]  = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [categories,  setCategories]  = useState([]);
+  const [profile,     setProfile]     = useState(null);
+  const [profileLoad, setProfileLoad] = useState(true);
 
-  const megaRef   = useRef(null);
-  const searchRef = useRef(null);
+  const megaRef = useRef(null);
 
-  // Scroll listener
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const fn = () => setScrolled(window.scrollY > 8);
+    window.addEventListener("scroll", fn, { passive: true });
+    return () => window.removeEventListener("scroll", fn);
   }, []);
 
-  // Cierra todo al cambiar ruta
   useEffect(() => {
     setMenuOpen(false);
     setMegaOpen(false);
@@ -179,193 +320,155 @@ export default function Navbar() {
     document.body.style.overflow = "unset";
   }, [location.pathname]);
 
-  // Lock scroll cuando el menú móvil está abierto
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "unset";
     return () => { document.body.style.overflow = "unset"; };
   }, [menuOpen]);
 
-  // Carga categorías
-  const [categories, setCategories] = useState([]);
   useEffect(() => {
     api.get("/categories")
-      .then((res) => setCategories(extractCategories(res.data)))
+      .then(res => setCategories(extractCategories(res.data)))
       .catch(() => setCategories([]));
   }, []);
 
-  // Cierra megamenu al hacer click fuera
+  // ── GET /public-api/v1/profile ──────────────────────────────
+  // Mismo `api` (axios) que ya lleva X-API-Key en cada request.
+  // El endpoint nuevo en public-api.routes.js resuelve el admin_id
+  // desde req.apiKey.adminId y hace JOIN con admin_profiles.
   useEffect(() => {
-    const handler = (e) => {
-      if (megaRef.current && !megaRef.current.contains(e.target)) {
-        setMegaOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    setProfileLoad(true);
+    api.get("/profile")
+      .then(res => {
+        if (res.data?.success) setProfile(res.data.data ?? null);
+      })
+      .catch(() => setProfile(null))
+      .finally(() => setProfileLoad(false));
   }, []);
 
-  const toggleMobileSub = (id) =>
-    setOpenMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  useEffect(() => {
+    const fn = e => {
+      if (megaRef.current && !megaRef.current.contains(e.target)) setMegaOpen(false);
+    };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, []);
 
+  const toggleMobileSub = id => setOpenMap(prev => ({ ...prev, [id]: !prev[id] }));
   const cartCount = cart.reduce((s, i) => s + (i.quantity || 1), 0);
+  const accent    = profile?.accent_color || profile?.primary_color || "#000";
 
   return (
     <>
-      {/* ── Barra principal ── */}
       <nav
-        className={`fixed top-0 left-0 w-full z-[200] transition-all duration-500 ${
+        className={`fixed top-0 left-0 w-full z-[200] transition-all duration-300 ${
           scrolled
-            ? "bg-white border-b border-neutral-100"
-            : "bg-white/80 backdrop-blur-xl"
+            ? "bg-white border-b border-neutral-150 shadow-sm shadow-black/[0.05]"
+            : "bg-white/90 backdrop-blur-xl"
         }`}
       >
-        <div className="max-w-[1540px] mx-auto px-4 sm:px-6 lg:px-10 h-16 lg:h-[72px] flex items-center justify-between gap-4">
+        <div className="max-w-[1540px] mx-auto px-4 sm:px-6 lg:px-10 h-16 lg:h-[68px] flex items-center gap-3">
 
-          {/* Logo */}
-          <Link to="/" className="relative z-[210] shrink-0">
-            <span className="text-xl sm:text-2xl font-black tracking-tighter italic text-black">
-              ALESTEB
-            </span>
+          <Link to="/" className="shrink-0 mr-1 z-[210]">
+            <BrandLogo profile={profile} loading={profileLoad} />
           </Link>
 
-          {/* ── Nav desktop ── */}
-          <div className="hidden md:flex items-center gap-1 h-full">
-            <Link
-              to="/productos"
-              className="px-4 py-2 text-sm font-bold text-neutral-600 hover:text-black rounded-full hover:bg-neutral-50 transition-all"
-            >
+          <nav className="hidden md:flex items-center gap-0.5 flex-1">
+            <Link to="/productos" className="px-3.5 py-2 text-[13px] font-semibold text-neutral-500 hover:text-black hover:bg-neutral-100 rounded-xl transition-all">
               Tienda
             </Link>
 
-            {/* Megamenu trigger */}
-            <div ref={megaRef} className="relative h-full flex items-center">
+            <div ref={megaRef} className="relative h-[68px] flex items-center">
               <button
-                onClick={() => setMegaOpen((v) => !v)}
-                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-full transition-all ${
-                  megaOpen
-                    ? "text-black bg-neutral-100"
-                    : "text-neutral-600 hover:text-black hover:bg-neutral-50"
+                onClick={() => setMegaOpen(v => !v)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold rounded-xl transition-all ${
+                  megaOpen ? "text-black bg-neutral-100" : "text-neutral-500 hover:text-black hover:bg-neutral-100"
                 }`}
               >
+                <LayoutGrid size={13} className="shrink-0" />
                 Categorías
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform duration-300 ${megaOpen ? "rotate-180" : ""}`}
-                />
+                <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${megaOpen ? "rotate-180" : ""}`} />
               </button>
 
               <AnimatePresence>
                 {megaOpen && categories.length > 0 && (
-                  <motion.div
-                    variants={megamenuVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-[250]"
-                    style={{ width: "min(900px, 90vw)" }}
-                  >
-                    <div className="bg-white border border-neutral-100 rounded-2xl shadow-2xl shadow-black/5 p-8">
-                      <div
-                        className="grid gap-8"
-                        style={{
-                          gridTemplateColumns: `repeat(${Math.min(categories.length, 4)}, 1fr)`,
-                        }}
-                      >
-                        {categories.map((cat) => (
-                          <MegaCategory key={cat.id} cat={cat} />
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
+                  <MegaMenu
+                    categories={categories}
+                    accentColor={accent}
+                    onClose={() => setMegaOpen(false)}
+                  />
                 )}
               </AnimatePresence>
             </div>
 
-            <Link
-              to="/support"
-              className="px-4 py-2 text-sm font-bold text-neutral-600 hover:text-black rounded-full hover:bg-neutral-50 transition-all"
-            >
+            <Link to="/support" className="px-3.5 py-2 text-[13px] font-semibold text-neutral-500 hover:text-black hover:bg-neutral-100 rounded-xl transition-all">
               Soporte
             </Link>
-          </div>
+          </nav>
 
-          {/* ── Iconos derecha ── */}
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 ml-auto">
 
-            {/* Buscador desktop */}
             <div className="hidden sm:flex items-center relative">
               <AnimatePresence>
                 {searchOpen && (
                   <motion.input
-                    ref={searchRef}
                     initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 200, opacity: 1, transition: { duration: 0.25 } }}
-                    exit={{ width: 0, opacity: 0, transition: { duration: 0.2 } }}
+                    animate={{ width: 210, opacity: 1, transition: { duration: 0.2 } }}
+                    exit={{ width: 0, opacity: 0, transition: { duration: 0.16 } }}
                     type="text"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar productos…"
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Buscar…"
                     autoFocus
-                    className="absolute right-10 bg-neutral-50 border border-neutral-200 text-sm rounded-full px-4 py-2 outline-none focus:border-black transition-colors"
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); }
-                    }}
+                    className="absolute right-10 bg-neutral-50 border border-neutral-200 text-[13px] rounded-xl px-3.5 py-2 outline-none focus:border-black transition-colors"
+                    onKeyDown={e => { if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); } }}
                   />
                 )}
               </AnimatePresence>
               <button
-                onClick={() => { setSearchOpen((v) => !v); setSearchQuery(""); }}
-                className="relative z-10 w-9 h-9 flex items-center justify-center text-neutral-700 hover:bg-neutral-100 rounded-full transition-colors"
+                onClick={() => { setSearchOpen(v => !v); setSearchQuery(""); }}
+                className="relative z-10 w-9 h-9 flex items-center justify-center text-neutral-600 hover:text-black hover:bg-neutral-100 rounded-xl transition-all"
               >
-                {searchOpen ? <X size={18} /> : <Search size={18} />}
+                {searchOpen ? <X size={17} /> : <Search size={17} />}
               </button>
             </div>
 
-            {/* Usuario desktop */}
             {isAuthenticated && user ? (
-              <div className="hidden md:flex items-center gap-2 pl-3 border-l border-neutral-200 ml-1">
-                <Link
-                  to="/perfil"
-                  className="flex flex-col items-end hover:opacity-60 transition-opacity"
-                >
-                  <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 leading-none mb-0.5">
-                    Mi perfil
-                  </span>
-                  <span className="text-[13px] font-black text-black capitalize leading-none">
-                    {user?.name?.split(" ")[0] || "Usuario"}
-                  </span>
+              <div className="hidden md:flex items-center gap-1 pl-3 border-l border-neutral-200 ml-1">
+                <Link to="/perfil" className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-neutral-100 transition-all">
+                  <div
+                    className="w-7 h-7 rounded-lg text-white flex items-center justify-center text-[11px] font-black shrink-0"
+                    style={{ backgroundColor: profile?.primary_color || "#000" }}
+                  >
+                    {user?.name?.[0]?.toUpperCase() || "U"}
+                  </div>
+                  <div className="flex flex-col items-start leading-none">
+                    <span className="text-[12px] font-bold text-black">{user?.name?.split(" ")[0]}</span>
+                    <span className="text-[10px] text-neutral-400 mt-0.5 font-medium">Mi cuenta</span>
+                  </div>
                 </Link>
-                <button
-                  onClick={logout}
-                  title="Cerrar sesión"
-                  className="w-9 h-9 flex items-center justify-center text-neutral-400 hover:text-black hover:bg-neutral-100 rounded-full transition-all"
-                >
-                  <LogOut size={16} />
+                <button onClick={logout} title="Cerrar sesión" className="w-8 h-8 flex items-center justify-center text-neutral-400 hover:text-black hover:bg-neutral-100 rounded-xl transition-all">
+                  <LogOut size={14} />
                 </button>
               </div>
             ) : (
-              <Link
-                to="/auth"
-                className="hidden md:flex w-9 h-9 items-center justify-center text-neutral-700 hover:bg-neutral-100 rounded-full transition-colors"
-              >
-                <User size={18} />
+              <Link to="/auth" className="hidden md:flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold text-neutral-600 hover:text-black hover:bg-neutral-100 rounded-xl transition-all">
+                <User size={15} />
+                Ingresar
               </Link>
             )}
 
-            {/* Carrito */}
-            <Link
-              to="/carrito"
-              className="relative w-9 h-9 flex items-center justify-center text-neutral-900 hover:bg-neutral-100 rounded-full transition-colors"
-            >
-              <ShoppingBag size={20} />
+            <Link to="/carrito" className="relative w-9 h-9 flex items-center justify-center text-neutral-800 hover:bg-neutral-100 rounded-xl transition-all">
+              <ShoppingBag size={19} />
               <AnimatePresence>
                 {cartCount > 0 && (
                   <motion.span
                     key={cartCount}
-                    initial={{ scale: 0.5, opacity: 0 }}
+                    initial={{ scale: 0.4, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.5, opacity: 0 }}
-                    className="absolute -top-0.5 -right-0.5 bg-black text-white text-[9px] font-black w-[18px] h-[18px] flex items-center justify-center rounded-full"
+                    exit={{ scale: 0.4, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 26 }}
+                    className="absolute -top-0.5 -right-0.5 text-white text-[9px] font-black w-[17px] h-[17px] flex items-center justify-center rounded-full tabular-nums"
+                    style={{ backgroundColor: accent }}
                   >
                     {cartCount > 9 ? "9+" : cartCount}
                   </motion.span>
@@ -373,150 +476,119 @@ export default function Navbar() {
               </AnimatePresence>
             </Link>
 
-            {/* Hamburger — solo móvil */}
             <button
-              onClick={() => setMenuOpen((v) => !v)}
-              className="md:hidden w-9 h-9 flex items-center justify-center text-black rounded-full hover:bg-neutral-100 transition-colors"
+              onClick={() => setMenuOpen(v => !v)}
+              className="md:hidden w-9 h-9 flex items-center justify-center text-black rounded-xl hover:bg-neutral-100 transition-all"
               aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
             >
               <AnimatePresence mode="wait">
-                {menuOpen ? (
-                  <motion.span
-                    key="x"
-                    initial={{ rotate: -90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: 90, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <X size={22} />
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key="menu"
-                    initial={{ rotate: 90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: -90, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Menu size={22} />
-                  </motion.span>
-                )}
+                {menuOpen
+                  ? <motion.span key="x" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.16 }}><X size={20} /></motion.span>
+                  : <motion.span key="m" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.16 }}><Menu size={20} /></motion.span>
+                }
               </AnimatePresence>
             </button>
           </div>
         </div>
       </nav>
 
-      {/* ── Menú móvil ── */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
-            variants={mobileMenuVariants}
+            variants={mobileSlide}
             initial="hidden"
             animate="visible"
             exit="exit"
             className="fixed inset-0 z-[190] bg-white md:hidden flex flex-col overflow-hidden"
           >
-            {/* Cabecera del menú móvil */}
             <div className="h-16 shrink-0 flex items-center justify-between px-4 border-b border-neutral-100">
-              <span className="text-xl font-black tracking-tighter italic">ALESTEB</span>
-              <button
-                onClick={() => setMenuOpen(false)}
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-neutral-100"
-              >
-                <X size={20} />
+              <BrandLogo profile={profile} loading={profileLoad} />
+              <button onClick={() => setMenuOpen(false)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-neutral-100">
+                <X size={18} />
               </button>
             </div>
 
-            {/* Cuerpo scrollable */}
-            <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
-
-              {/* Búsqueda móvil */}
+            <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
               <div className="relative">
-                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
                 <input
                   type="text"
                   placeholder="Buscar productos…"
-                  className="w-full pl-10 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-full text-sm outline-none focus:border-black transition-colors"
+                  className="w-full pl-9 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-[13px] outline-none focus:border-black transition-colors"
                 />
               </div>
 
-              {/* Usuario */}
               {isAuthenticated && user ? (
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-neutral-50 border border-neutral-100">
-                  <div className="w-11 h-11 bg-black text-white rounded-full flex items-center justify-center font-black text-base shrink-0">
+                <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-neutral-50 border border-neutral-100">
+                  <div
+                    className="w-10 h-10 text-white rounded-xl flex items-center justify-center font-black text-sm shrink-0"
+                    style={{ backgroundColor: profile?.primary_color || "#000" }}
+                  >
                     {user?.name?.[0]?.toUpperCase() || "U"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-black uppercase italic truncate text-black">
-                      {user?.name}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <Link to="/perfil" className="text-[11px] font-bold text-neutral-500 hover:text-black">
-                        Mi perfil
-                      </Link>
+                    <p className="text-[13px] font-black text-black truncate">{user?.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Link to="/perfil" onClick={() => setMenuOpen(false)} className="text-[11px] font-bold text-neutral-500 hover:text-black">Mi perfil</Link>
                       <span className="text-neutral-300">·</span>
-                      <button onClick={logout} className="text-[11px] font-bold text-neutral-500 hover:text-black">
-                        Salir
-                      </button>
+                      <button onClick={logout} className="text-[11px] font-bold text-neutral-500 hover:text-black">Salir</button>
                     </div>
                   </div>
                 </div>
               ) : (
                 <Link
                   to="/auth"
-                  className="flex items-center justify-center gap-3 py-4 rounded-2xl bg-black text-white font-black text-sm uppercase tracking-wider italic"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-black text-[13px] uppercase tracking-widest"
+                  style={{ backgroundColor: profile?.primary_color || "#000" }}
                 >
-                  <User size={18} />
+                  <User size={15} />
                   Iniciar sesión
                 </Link>
               )}
 
-              {/* Navegación rápida */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {[
                   { to: "/productos", label: "Tienda" },
                   { to: "/carrito",   label: "Carrito" },
                   { to: "/support",   label: "Soporte" },
-                  { to: "/perfil",    label: "Mi perfil" },
-                ].map((item) => (
+                ].map(item => (
                   <Link
                     key={item.to}
                     to={item.to}
-                    className="flex items-center justify-center py-3.5 rounded-2xl bg-neutral-50 border border-neutral-100 text-[13px] font-black uppercase tracking-wider text-neutral-700 hover:bg-neutral-100 transition-colors active:scale-95"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center justify-center py-3 rounded-xl bg-neutral-50 border border-neutral-100 text-[12px] font-black uppercase tracking-wide text-neutral-700 hover:bg-neutral-100 active:scale-95 transition-all"
                   >
                     {item.label}
                   </Link>
                 ))}
               </div>
 
-              {/* Categorías */}
               {categories.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-neutral-400 mb-4">
+                  <p className="text-[9.5px] font-black uppercase tracking-[0.22em] text-neutral-400 mb-3 select-none">
                     Categorías
                   </p>
-                  <MobileCategories
+                  <MobileTree
                     nodes={categories}
                     openMap={openMap}
                     toggle={toggleMobileSub}
+                    onClose={() => setMenuOpen(false)}
                   />
                 </div>
               )}
             </div>
 
-            {/* Footer del menú */}
-            <div className="shrink-0 px-5 py-4 border-t border-neutral-100">
+            <div className="shrink-0 px-4 py-3 border-t border-neutral-100">
               <p className="text-[10px] text-neutral-400 text-center font-bold uppercase tracking-widest">
-                © {new Date().getFullYear()} Alesteb · Todos los derechos reservados
+                © {new Date().getFullYear()} {profile?.business_name || "Mi Tienda"} · Todos los derechos reservados
               </p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Spacer para que el contenido no quede bajo la navbar fija */}
-      <div className="h-16 lg:h-[72px]" />
+      <div className="h-16 lg:h-[68px]" />
     </>
   );
 }
