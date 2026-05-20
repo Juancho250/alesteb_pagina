@@ -4,16 +4,16 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, Check, ShoppingBag, Package,
   ShieldCheck, Tag, Plus, Minus, Info, Loader2, ChevronRight, Heart,
-  ZoomIn,
+  ZoomIn, X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useCart } from "../context/CartContext";
 import { useFavorites } from "../context/FavoritesContext";
 
-// ─── Cache de producto (reutiliza el mismo patrón que Products.jsx) ───────────
+// ─── Cache ────────────────────────────────────────────────────────────────────
 const prodCache = new Map();
-const CACHE_TTL = 120_000; // 2 minutos para detalle
+const CACHE_TTL = 120_000;
 
 function cacheGet(key) {
   const e = prodCache.get(key);
@@ -37,20 +37,25 @@ function slugify(str = "") {
   return str.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
 
-// ─── Variantes de animación (coherente con Products) ─────────────────────────
+/** Normaliza el nombre del tipo de atributo sin importar si viene como
+ *  `type`, `attribute_type` o `attribute_slug`. */
+const getAttrTypeName = (a) =>
+  a?.type ?? a?.attribute_type ?? a?.attribute_slug ?? "";
+
+// ─── Variantes de animación ───────────────────────────────────────────────────
 const fadeUp = {
   hidden:  { opacity: 0, y: 16 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
 };
-
 const stagger = {
   visible: { transition: { staggerChildren: 0.07 } },
 };
 
-// ─── Sub-componente: Thumbnail del carrusel ────────────────────────────────────
+// ─── Thumbnail ────────────────────────────────────────────────────────────────
 const Thumb = ({ img, active, onClick, idx }) => (
   <button
     onClick={onClick}
+    data-active={active}
     className={`relative flex-shrink-0 w-16 h-16 rounded-2xl overflow-hidden transition-all duration-300
       ${active
         ? "ring-2 ring-slate-900 ring-offset-2 scale-95 opacity-100"
@@ -62,7 +67,7 @@ const Thumb = ({ img, active, onClick, idx }) => (
   </button>
 );
 
-// ─── Sub-componentes de atributos ─────────────────────────────────────────────
+// ─── Selectores de atributo ───────────────────────────────────────────────────
 function ColorSwatch({ value, isSelected, isDisabled, onClick }) {
   return (
     <button
@@ -138,7 +143,7 @@ function AttributeSelector({ attrType, values, selected, onSelect, availableValu
   );
 }
 
-// ─── Badge de info inferior ────────────────────────────────────────────────────
+// ─── Badge ────────────────────────────────────────────────────────────────────
 function Badge({ icon, text }) {
   return (
     <div className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-slate-50/50 border border-slate-100/80">
@@ -154,19 +159,17 @@ export default function ProductDetail() {
   const { cart, toggleCart }           = useCart();
   const { toggleFavorite, isFavorite } = useFavorites();
 
-  // 👇 Estado primero
-  const [product,    setProduct]    = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [selectedImg, setSelectedImg] = useState("");
-  const [quantity,   setQuantity]   = useState(1);
-  const [selections, setSelections] = useState({});
-  const [zoomed,     setZoomed]     = useState(false);
+  const [product,      setProduct]      = useState(null);
+  const [loading,      setLoading]      = useState(true);
+  const [selectedImg,  setSelectedImg]  = useState("");
+  const [quantity,     setQuantity]     = useState(1);
+  const [selections,   setSelections]   = useState({});
+  const [zoomed,       setZoomed]       = useState(false);
   const thumbsRef = useRef(null);
 
-  // 👇 fav DESPUÉS de que product esté declarado
   const fav = isFavorite(product?.id);
 
-  // ── Fetch con cache ────────────────────────────────────────────────────────
+  // ── Fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     let alive = true;
     window.scrollTo(0, 0);
@@ -187,16 +190,12 @@ export default function ProductDetail() {
       .then(({ data }) => {
         if (!alive) return;
         const raw = data?.data || data?.product || data;
-
-        // ── Normaliza campos de la public API ──────────────────
         const resolved = raw ? {
           ...raw,
           sale_price:    raw.sale_price    ?? raw.price,
           final_price:   raw.final_price   ?? raw.sale_price ?? raw.price,
           category_name: raw.category_name ?? raw.category,
         } : null;
-        // ───────────────────────────────────────────────────────
-
         cacheSet(id, resolved || null);
         setProduct(resolved || null);
         autoSelectSingleVariant(resolved);
@@ -212,13 +211,13 @@ export default function ProductDetail() {
     if (variants.length === 1) {
       const auto = {};
       (variants[0].attributes || []).forEach(a => {
-        auto[slugify(a.type)] = a.attribute_value_id;
+        auto[slugify(getAttrTypeName(a))] = a.attribute_value_id;
       });
       setSelections(auto);
     }
   }
 
-  // ── Variantes ─────────────────────────────────────────────────────────────
+  // ── Variantes ──────────────────────────────────────────────────────────────
   const variants    = product?.variants || [];
   const hasVariants = variants.length > 0;
 
@@ -226,8 +225,9 @@ export default function ProductDetail() {
     const map = new Map();
     variants.forEach(v => {
       (v.attributes || []).forEach(a => {
-        const slug = slugify(a.type);
-        if (!map.has(slug)) map.set(slug, { slug, name: a.type, values: new Map() });
+        const typeName = getAttrTypeName(a);
+        const slug = slugify(typeName);
+        if (!map.has(slug)) map.set(slug, { slug, name: typeName, values: new Map() });
         const at = map.get(slug);
         if (!at.values.has(a.attribute_value_id)) {
           at.values.set(a.attribute_value_id, {
@@ -255,17 +255,90 @@ export default function ProductDetail() {
   const availableValueIds = useMemo(() => {
     const set = new Set();
     variants.forEach(v => {
-      const variantIds = new Set((v.attributes || []).map(a => a.attribute_value_id));
       const compatible = Object.entries(selections).every(([slug, valId]) => {
-        const match = (v.attributes || []).find(a => slugify(a.type) === slug);
+        const match = (v.attributes || []).find(a =>
+          slugify(getAttrTypeName(a)) === slug
+        );
         return match?.attribute_value_id === valId;
       });
-      if (compatible) variantIds.forEach(id => set.add(id));
+      if (compatible) {
+        (v.attributes || []).forEach(a => set.add(a.attribute_value_id));
+      }
     });
     return set;
   }, [variants, selections]);
 
-  // ── Precios ───────────────────────────────────────────────────────────────
+  // ── Imágenes ───────────────────────────────────────────────────────────────
+  const images = useMemo(() => {
+    if (!product) return [];
+    const gallery = (product.images || []).map(i => i.url);
+
+    // 1. Variante completa seleccionada → usa sus imágenes con prioridad
+    if (selectedVariant?.images?.length) {
+      const varImgs = selectedVariant.images.map(i => i.url);
+      return [...new Set([...varImgs, ...gallery])].filter(Boolean);
+    }
+
+    // 2. Selección parcial (ej. solo color) → recopila imágenes de todos los
+    //    variants que coincidan con lo seleccionado hasta ahora.
+    if (hasVariants && Object.keys(selections).length > 0) {
+      const seenUrls = new Set();
+      const partialImgs = [];
+
+      variants
+        .filter(v =>
+          Object.entries(selections).every(([slug, valId]) =>
+            (v.attributes || []).some(a =>
+              slugify(getAttrTypeName(a)) === slug &&
+              a.attribute_value_id === valId
+            )
+          )
+        )
+        .forEach(v =>
+          (v.images || []).forEach(img => {
+            if (!seenUrls.has(img.url)) {
+              seenUrls.add(img.url);
+              partialImgs.push(img.url);
+            }
+          })
+        );
+
+      if (partialImgs.length) {
+        return [...new Set([...partialImgs, ...gallery])].filter(Boolean);
+      }
+    }
+
+    // 3. Sin selección → galería del producto
+    return [...new Set([product.main_image, ...gallery])].filter(Boolean);
+  }, [product, selectedVariant, selections, hasVariants, variants]);
+
+  // Resetear imagen seleccionada cuando cambia cualquier selección de atributo
+  const selectionKey = Object.entries(selections).sort().map(([k, v]) => `${k}:${v}`).join("|");
+  useEffect(() => {
+    setSelectedImg("");
+  }, [selectionKey]);
+
+  // Imagen activa
+  const activeImg = images.includes(selectedImg) ? selectedImg : (images[0] || "");
+
+  // ── CORRECCIÓN: Preload sin memory leak ────────────────────────────────────
+  // Se usa new Image() en lugar de <link rel="preload"> para evitar que se
+  // acumulen tags en el <head> con cada cambio de selección de color.
+  useEffect(() => {
+    images.slice(0, 5).forEach(url => {
+      const img = new Image();
+      img.src = optimizeUrl(url, 800);
+    });
+  }, [images]);
+
+  // Auto-scroll al thumb activo
+  useEffect(() => {
+    if (!thumbsRef.current) return;
+    const active = thumbsRef.current.querySelector('[data-active="true"]');
+    active?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activeImg]);
+
+  // ── Precios ────────────────────────────────────────────────────────────────
   const { priceOriginal, priceFinal, hasDiscount, stock, priceRange } = useMemo(() => {
     const basePrice = Number(product?.sale_price) || 0;
     const finalBase = Number(product?.final_price) || basePrice;
@@ -296,49 +369,14 @@ export default function ProductDetail() {
     };
   }, [selectedVariant, hasVariants, variants, product]);
 
-  // ── Imágenes ──────────────────────────────────────────────────────────────
-  const images = useMemo(() => {
-    if (!product) return [];
-    const gallery  = (product.images || []).map(i => i.url);
-    const varImgs  = selectedVariant?.images?.length
-      ? selectedVariant.images.map(i => i.url) : [];
-    const ordered  = varImgs.length
-      ? [...varImgs, ...gallery]
-      : [product.main_image, ...gallery];
-    return [...new Set(ordered)].filter(Boolean);
-  }, [product, selectedVariant]);
-
-  const activeImg = images.includes(selectedImg) ? selectedImg : (images[0] || "");
-
-  // Reset imagen al cambiar de variante
-  useEffect(() => { setSelectedImg(""); }, [selectedVariant?.id]);
-
-  // Preload imágenes en background
-  useEffect(() => {
-    images.forEach(url => {
-      const link = document.createElement("link");
-      link.rel  = "preload";
-      link.as   = "image";
-      link.href = optimizeUrl(url, 800);
-      document.head.appendChild(link);
-    });
-  }, [images]);
-
-  // Auto-scroll al thumb activo
-  useEffect(() => {
-    if (!thumbsRef.current) return;
-    const active = thumbsRef.current.querySelector('[data-active="true"]');
-    active?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-  }, [activeImg]);
-
-  // ── Cart ──────────────────────────────────────────────────────────────────
+  // ── Cart ───────────────────────────────────────────────────────────────────
   const cartKey = selectedVariant
     ? `${product?.id}-v${selectedVariant.id}`
     : String(product?.id ?? "");
 
-  const isInCart      = cart.some(item => item.cartKey === cartKey);
+  const isInCart        = cart.some(item => item.cartKey === cartKey);
   const isFullySelected = !hasVariants || Object.keys(selections).length === attributeTypes.length;
-  const canAdd        = isFullySelected && stock > 0;
+  const canAdd          = isFullySelected && stock > 0;
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
@@ -366,12 +404,10 @@ export default function ProductDetail() {
     setQuantity(1);
   }, []);
 
-  // ── Guards ────────────────────────────────────────────────────────────────
+  // ── Guards ─────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
-      <div className="relative">
-        <Loader2 className="animate-spin text-blue-600" size={28} />
-      </div>
+      <Loader2 className="animate-spin text-blue-600" size={28} />
       <p className="text-[10px] font-black tracking-[0.3em] text-slate-300 uppercase">Cargando</p>
     </div>
   );
@@ -392,30 +428,67 @@ export default function ProductDetail() {
     ? Math.round(((priceOriginal - priceFinal) / priceOriginal) * 100)
     : 0;
 
+  const partiallySelectedVariants = hasVariants && Object.keys(selections).length > 0
+    ? variants.filter(v =>
+        Object.entries(selections).every(([slug, valId]) =>
+          (v.attributes || []).some(a =>
+            slugify(getAttrTypeName(a)) === slug && a.attribute_value_id === valId
+          )
+        )
+      )
+    : [];
+
+  const partialStock = partiallySelectedVariants.reduce(
+    (sum, v) => sum + (Number(v.stock) || 0), 0
+  );
+
   return (
     <div className="bg-white min-h-screen pb-20 font-sans text-slate-900 selection:bg-blue-100">
-      {/* Lightbox */}
+
+      {/* ── Lightbox ── */}
       <AnimatePresence>
         {zoomed && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={() => setZoomed(false)}
-            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-6 cursor-zoom-out"
+            className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-6 cursor-zoom-out"
           >
+            <button
+              onClick={() => setZoomed(false)}
+              className="absolute top-5 right-5 w-10 h-10 bg-white/10 hover:bg-white/20
+                rounded-full flex items-center justify-center text-white transition-colors"
+            >
+              <X size={18} />
+            </button>
             <motion.img
-              initial={{ scale: 0.92 }} animate={{ scale: 1 }} exit={{ scale: 0.92 }}
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
               src={optimizeUrl(activeImg, 1600)}
               alt={product.name}
               className="max-w-full max-h-full object-contain rounded-2xl"
               onClick={e => e.stopPropagation()}
             />
+            {images.length > 1 && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+                {images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={e => { e.stopPropagation(); setSelectedImg(img); }}
+                    className={`w-2 h-2 rounded-full transition-all duration-200
+                      ${activeImg === img ? "bg-white scale-125" : "bg-white/30 hover:bg-white/60"}`}
+                  />
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
       <div className="max-w-5xl mx-auto px-6 pt-8">
 
-        {/* Breadcrumb — mismo estilo que Products */}
+        {/* ── Breadcrumb ── */}
         <motion.nav
           variants={fadeUp} initial="hidden" animate="visible"
           className="flex items-center gap-2.5 text-[10px] font-black
@@ -445,14 +518,12 @@ export default function ProductDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-12 lg:gap-16 items-start">
 
-          {/* ── Galería ───────────────────────────────────────────────── */}
+          {/* ── Galería ─────────────────────────────────────────────────────── */}
           <motion.div
             variants={stagger} initial="hidden" animate="visible"
             className="lg:col-span-5 space-y-4"
           >
-            {/* Imagen principal */}
             <motion.div variants={fadeUp} className="relative">
-              {/* Badges */}
               {hasDiscount && (
                 <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-white/90
                   backdrop-blur-md text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black
@@ -460,14 +531,20 @@ export default function ProductDetail() {
                   <span className="text-blue-600">−{discountPercent}%</span>
                 </div>
               )}
-              {selectedVariant && (
-                <div className="absolute top-4 right-14 z-20 bg-slate-900/70 backdrop-blur-md
-                  text-white px-2.5 py-1 rounded-xl text-[9px] font-black tracking-wider max-w-[160px] truncate">
-                  {(selectedVariant.attributes || []).map(a => a.display_value).join(" · ")}
-                </div>
-              )}
 
-              {/* Botón zoom */}
+              <AnimatePresence>
+                {isFullySelected && selectedVariant && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    className="absolute top-4 right-14 z-20 bg-slate-900/70 backdrop-blur-md
+                      text-white px-2.5 py-1 rounded-xl text-[9px] font-black tracking-wider
+                      max-w-[160px] truncate"
+                  >
+                    {(selectedVariant.attributes || []).map(a => a.display_value).join(" · ")}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <button
                 onClick={() => setZoomed(true)}
                 className="absolute top-4 right-4 z-20 p-2.5 rounded-xl bg-white/80 backdrop-blur-md
@@ -488,7 +565,7 @@ export default function ProductDetail() {
                     initial={{ opacity: 0, scale: 1.03 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
                     src={optimizeUrl(activeImg, 800)}
                     alt={product.name}
                     className="w-full h-full object-cover"
@@ -497,7 +574,6 @@ export default function ProductDetail() {
               </div>
             </motion.div>
 
-            {/* Thumbnails */}
             {images.length > 1 && (
               <motion.div
                 variants={fadeUp}
@@ -515,12 +591,11 @@ export default function ProductDetail() {
             )}
           </motion.div>
 
-          {/* ── Info + acciones ───────────────────────────────────────── */}
+          {/* ── Info + acciones ──────────────────────────────────────────────── */}
           <motion.div
             variants={stagger} initial="hidden" animate="visible"
             className="lg:col-span-5 flex flex-col pt-2 space-y-6"
           >
-            {/* Categoría — mismo estilo badge que Products */}
             <motion.div variants={fadeUp}>
               <span className="text-[9px] font-black uppercase tracking-[0.25em] text-blue-600
                 bg-blue-50 px-2.5 py-1 rounded-lg">
@@ -528,7 +603,6 @@ export default function ProductDetail() {
               </span>
             </motion.div>
 
-            {/* Nombre — tipografía idéntica al h1 de Products */}
             <motion.h1
               variants={fadeUp}
               className="text-[clamp(2rem,6vw,3.5rem)] font-black text-slate-900
@@ -537,7 +611,6 @@ export default function ProductDetail() {
               {product.name}
             </motion.h1>
 
-            {/* Precio */}
             <motion.div variants={fadeUp} className="flex items-baseline gap-3">
               {hasVariants && !isFullySelected ? (
                 <span className="text-3xl font-black text-slate-900 tracking-tighter">
@@ -557,7 +630,6 @@ export default function ProductDetail() {
               )}
             </motion.div>
 
-            {/* Selectores de variante */}
             {hasVariants && attributeTypes.length > 0 && (
               <motion.div
                 variants={fadeUp}
@@ -566,6 +638,7 @@ export default function ProductDetail() {
                 <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400">
                   Selecciona una opción
                 </p>
+
                 {attributeTypes.map(at => (
                   <AttributeSelector
                     key={at.slug}
@@ -577,45 +650,51 @@ export default function ProductDetail() {
                   />
                 ))}
 
-                {/* Feedback disponibilidad */}
                 <AnimatePresence mode="wait">
-                  {isFullySelected && selectedVariant && (
-                    <motion.div
-                      key="stock-ok"
+                  {isFullySelected && selectedVariant ? (
+                    <motion.div key="stock-ok"
                       initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                       className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
                         ${stock > 0 ? "text-emerald-600" : "text-red-400"}`}
                     >
-                      <div className={`w-2 h-2 rounded-full ${stock > 0 ? "bg-emerald-500" : "bg-red-400"}`} />
+                      <div className={`w-2 h-2 rounded-full ${stock > 0 ? "bg-emerald-500 animate-pulse" : "bg-red-400"}`} />
                       {stock > 0 ? `${stock} disponibles` : "Sin stock"}
                     </motion.div>
-                  )}
-                  {isFullySelected && !selectedVariant && (
-                    <motion.p
-                      key="no-combo"
+                  ) : isFullySelected && !selectedVariant ? (
+                    <motion.p key="no-combo"
                       initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                       className="text-[10px] font-bold text-amber-500 uppercase tracking-wider"
                     >
                       Combinación no disponible
                     </motion.p>
-                  )}
+                  ) : Object.keys(selections).length > 0 && partiallySelectedVariants.length > 0 ? (
+                    <motion.div key="partial-stock"
+                      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider
+                        ${partialStock > 0 ? "text-slate-400" : "text-red-400"}`}
+                    >
+                      <div className={`w-2 h-2 rounded-full ${partialStock > 0 ? "bg-slate-300" : "bg-red-400"}`} />
+                      {partialStock > 0
+                        ? `${partiallySelectedVariants.length} ${partiallySelectedVariants.length === 1 ? "opción disponible" : "opciones disponibles"} · elige la talla`
+                        : "Sin stock en esta opción"
+                      }
+                    </motion.div>
+                  ) : null}
                 </AnimatePresence>
               </motion.div>
             )}
 
-            {/* Stock producto simple */}
             {!hasVariants && (
               <motion.div
                 variants={fadeUp}
                 className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
                   ${stock > 0 ? "text-emerald-600" : "text-red-400"}`}
               >
-                <div className={`w-2 h-2 rounded-full ${stock > 0 ? "bg-emerald-500" : "bg-red-400"}`} />
+                <div className={`w-2 h-2 rounded-full ${stock > 0 ? "bg-emerald-500 animate-pulse" : "bg-red-400"}`} />
                 {stock > 0 ? `${stock} disponibles` : "Sin stock"}
               </motion.div>
             )}
 
-            {/* Descripción */}
             {product.description && (
               <motion.div variants={fadeUp} className="space-y-2">
                 <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -627,7 +706,6 @@ export default function ProductDetail() {
               </motion.div>
             )}
 
-            {/* Cantidad + CTA */}
             <motion.div variants={fadeUp} className="flex flex-col gap-3">
               <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-2 border border-slate-100">
                 <span className="pl-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
@@ -666,24 +744,28 @@ export default function ProductDetail() {
               >
                 <AnimatePresence mode="wait">
                   {isInCart ? (
-                    <motion.span key="in" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                    <motion.span key="in"
+                      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                       className="flex items-center gap-2.5">
                       <Check size={16} /> EN BOLSA
                     </motion.span>
                   ) : !canAdd ? (
-                    <motion.span key="no" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                    <motion.span key="no"
+                      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                       className="flex items-center gap-2.5">
                       <ShoppingBag size={16} />
                       {!isFullySelected && hasVariants ? "ELIGE UNA OPCIÓN" : "SIN STOCK"}
                     </motion.span>
                   ) : (
-                    <motion.span key="add" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                    <motion.span key="add"
+                      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                       className="flex items-center gap-2.5">
                       <ShoppingBag size={16} /> AÑADIR A LA BOLSA
                     </motion.span>
                   )}
                 </AnimatePresence>
               </button>
+
               <button
                 onClick={() => toggleFavorite(product)}
                 className={`w-full py-4 rounded-2xl font-black text-[10px] tracking-[0.25em]
@@ -704,14 +786,12 @@ export default function ProductDetail() {
               )}
             </motion.div>
 
-            {/* Divider */}
             <motion.div variants={fadeUp} className="h-px bg-slate-50" />
 
-            {/* Badges */}
             <motion.div variants={fadeUp} className="grid grid-cols-3 gap-2">
-              <Badge icon={<Package size={14} />} text="Envío" />
+              <Badge icon={<Package   size={14} />} text="Envío"     />
               <Badge icon={<ShieldCheck size={14} />} text="Garantía" />
-              <Badge icon={<Tag size={14} />} text="Original" />
+              <Badge icon={<Tag       size={14} />} text="Original"  />
             </motion.div>
           </motion.div>
         </div>
