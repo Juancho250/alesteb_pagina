@@ -42,6 +42,17 @@ function slugify(str = "") {
 const getAttrTypeName = (a) =>
   a?.type ?? a?.attribute_type ?? a?.attribute_slug ?? "";
 
+/** Extrae las URLs de imagen de un variant, soportando varios formatos de API. */
+const getVariantImageUrls = (v) => {
+  if (v.images?.length)
+    return v.images.map(i => (typeof i === "string" ? i : i.url)).filter(Boolean);
+  if (v.main_image) return [v.main_image];
+  if (v.image_url)  return [v.image_url];
+  if (typeof v.image === "string" && v.image) return [v.image];
+  if (v.image?.url) return [v.image.url];
+  return [];
+};
+
 // ─── Variantes de animación ───────────────────────────────────────────────────
 const fadeUp = {
   hidden:  { opacity: 0, y: 16 },
@@ -271,15 +282,18 @@ export default function ProductDetail() {
   // ── Imágenes ───────────────────────────────────────────────────────────────
   const images = useMemo(() => {
     if (!product) return [];
-    const gallery = (product.images || []).map(i => i.url);
+    const gallery = (product.images || [])
+      .map(i => (typeof i === "string" ? i : i.url))
+      .filter(Boolean);
 
-    // 1. Variante completa seleccionada → usa sus imágenes con prioridad
-    if (selectedVariant?.images?.length) {
-      const varImgs = selectedVariant.images.map(i => i.url);
-      return [...new Set([...varImgs, ...gallery])].filter(Boolean);
+    // 1. Variante completa seleccionada → sus imágenes primero
+    if (selectedVariant) {
+      const varImgs = getVariantImageUrls(selectedVariant);
+      if (varImgs.length)
+        return [...new Set([...varImgs, ...gallery])].filter(Boolean);
     }
 
-    // 2. Selección parcial (ej. solo color) → recopila imágenes de todos los
+    // 2. Selección parcial (ej. solo color) → recopila imágenes de los
     //    variants que coincidan con lo seleccionado hasta ahora.
     if (hasVariants && Object.keys(selections).length > 0) {
       const seenUrls = new Set();
@@ -295,21 +309,24 @@ export default function ProductDetail() {
           )
         )
         .forEach(v =>
-          (v.images || []).forEach(img => {
-            if (!seenUrls.has(img.url)) {
-              seenUrls.add(img.url);
-              partialImgs.push(img.url);
+          getVariantImageUrls(v).forEach(url => {
+            if (!seenUrls.has(url)) {
+              seenUrls.add(url);
+              partialImgs.push(url);
             }
           })
         );
 
-      if (partialImgs.length) {
+      if (partialImgs.length)
         return [...new Set([...partialImgs, ...gallery])].filter(Boolean);
-      }
     }
 
-    // 3. Sin selección → galería del producto
-    return [...new Set([product.main_image, ...gallery])].filter(Boolean);
+    // 3. Sin selección → galería del producto; si está vacía usa las imágenes
+    //    del primer variante como preview (no mezcla todos los colores).
+    const base = [...new Set([product.main_image, ...gallery])].filter(Boolean);
+    if (base.length) return base;
+
+    return getVariantImageUrls(variants[0] ?? {});
   }, [product, selectedVariant, selections, hasVariants, variants]);
 
   // Resetear imagen seleccionada cuando cambia cualquier selección de atributo
@@ -474,7 +491,7 @@ export default function ProductDetail() {
               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
                 {images.map((img, idx) => (
                   <button
-                    key={idx}
+                    key={img || idx}
                     onClick={e => { e.stopPropagation(); setSelectedImg(img); }}
                     className={`w-2 h-2 rounded-full transition-all duration-200
                       ${activeImg === img ? "bg-white scale-125" : "bg-white/30 hover:bg-white/60"}`}
@@ -582,7 +599,7 @@ export default function ProductDetail() {
               >
                 {images.map((img, idx) => (
                   <Thumb
-                    key={idx} img={img} idx={idx}
+                    key={img || idx} img={img} idx={idx}
                     active={activeImg === img}
                     onClick={() => setSelectedImg(img)}
                   />

@@ -75,9 +75,16 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
     ? Math.round(((priceOriginal - priceFinal) / priceOriginal) * 100) : 0;
   const hasVariants     = Boolean(p.has_variants);
 
-  // Thumb pequeño para grid, srcSet para pantallas retina
-  const thumb    = imgUrl(p.main_image || p.images?.[0]?.url, 600);
-  const thumb2x  = imgUrl(p.main_image || p.images?.[0]?.url, 1200);
+  // Thumb pequeño para grid. Si el producto no tiene main_image (productos con
+  // variantes), usa la imagen del primer swatch de color disponible.
+  const rawThumb =
+    p.main_image ||
+    p.images?.[0]?.url ||
+    p.variant_swatches?.find(s => s.attribute_slug === "color")?.main_image ||
+    p.variant_swatches?.[0]?.main_image ||
+    null;
+  const thumb   = imgUrl(rawThumb, 600);
+  const thumb2x = imgUrl(rawThumb, 1200);
 
   return (
     <motion.div
@@ -234,7 +241,7 @@ function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
     const key = `${slug ?? ""}-${debSearch}-${nextPage}`;
     if (cacheGet(key)) return; // ya está en cache
 
-    const params = new URLSearchParams({ page: nextPage, limit: 12 });
+    const params = new URLSearchParams({ page: nextPage, limit: 200 });
     if (debSearch) params.append("search", debSearch);
     if (slug)      params.append("categoria", slug);
 
@@ -285,7 +292,7 @@ export default function Products() {
 
     setLoading(true);
 
-    const params = new URLSearchParams({ page, limit: 12 });
+    const params = new URLSearchParams({ page, limit: 200 });
     if (debSearch) params.append("search", debSearch);
     if (slug)      params.append("categoria", slug);
 
