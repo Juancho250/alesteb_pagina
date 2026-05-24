@@ -505,8 +505,8 @@ function OrdersTab({ userId }) {
     if (!userId) return;
     try {
       const [ordersRes, statsRes] = await Promise.all([
-        api.get(`/sales/user/history?userId=${userId}`),
-        api.get(`/sales/user/stats?userId=${userId}`),
+        api.get(`/sales/user/history?user_id=${userId}`),
+        api.get(`/sales/user/stats?user_id=${userId}`),
       ]);
       setOrders(ordersRes.data);
       setStats(statsRes.data);

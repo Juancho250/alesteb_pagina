@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useCart } from "../context/CartContext";
 import { useFavorites } from "../context/FavoritesContext";
+import ProductReviewsSection from "../components/reviews/ProductReviewsSection";
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 const prodCache = new Map();
@@ -812,6 +813,8 @@ export default function ProductDetail() {
             </motion.div>
           </motion.div>
         </div>
+
+        <ProductReviewsSection productId={id} productName={product.name} />
       </div>
     </div>
   );

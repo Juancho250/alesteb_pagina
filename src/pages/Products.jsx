@@ -11,6 +11,7 @@ import {
   ChevronRight, ArrowLeft, Plus, ChevronLeft, Heart,
 } from "lucide-react";
 import { useFavorites } from "../context/FavoritesContext";
+import ProductReviewSummary from "../components/reviews/ProductReviewSummary";
 
 // ─── Cache en memoria (vive mientras la SPA esté abierta) ─────────────────────
 const cache = new Map();
@@ -196,6 +197,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
             </span>
           )}
         </div>
+        <ProductReviewSummary productId={p.id} compact />
       </div>
     </motion.div>
   );
