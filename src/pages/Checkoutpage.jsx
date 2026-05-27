@@ -1,9 +1,9 @@
 // src/pages/CheckoutPage.jsx
 import {
   ChevronLeft, MapPin, Package,
-  AlertCircle, Loader2, ShoppingBag, Check, CreditCard,
+  AlertCircle, Loader2, ShoppingBag, Check, CreditCard, Landmark,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart, getItemPrice } from "../context/CartContext";
@@ -33,16 +33,53 @@ export default function CheckoutPage() {
   const { user }            = useAuth();
   const { cart, clearCart } = useCart();
 
-  const [step, setStep]                 = useState(1);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [errors, setErrors]             = useState({});
-  const [redirecting, setRedirecting]   = useState(false);
+  const [step, setStep]                     = useState(1);
+  const [isProcessing, setIsProcessing]     = useState(false);
+  const [errors, setErrors]                 = useState({});
+  const [redirecting, setRedirecting]       = useState(false);
+  const [paymentMethod, setPaymentMethod]   = useState("online");
+  const [onlinePayAvailable, setOnlinePayAvailable] = useState(null); // null = checking
 
   const [form, setForm] = useState({
     shipping_address: user?.address || "",
     shipping_city:    user?.city    || "",
     shipping_notes:   "",
   });
+
+  // ── Verificar disponibilidad de pago en línea al montar ──────────────────
+  useEffect(() => {
+    const ctrl = new AbortController();
+
+    // Timeout de 3 s: si el backend no responde, asumimos disponible y dejamos
+    // que el error de submit maneje la degradación.
+    const timer = setTimeout(() => {
+      ctrl.abort();
+      setOnlinePayAvailable(true);
+    }, 3_000);
+
+    api.get("/payments/config", { signal: ctrl.signal })
+      .then(({ data }) => {
+        clearTimeout(timer);
+        // El campo exacto puede variar; cualquier respuesta 2xx se toma como disponible
+        // salvo que el backend devuelva explícitamente enabled: false.
+        setOnlinePayAvailable(data?.data?.enabled !== false);
+      })
+      .catch(err => {
+        clearTimeout(timer);
+        if (err.code === "ERR_CANCELED") return; // abortado por el timeout
+        // 402 = la tienda no tiene cuenta de pago conectada
+        setOnlinePayAvailable(err.response?.status === 402 ? false : true);
+      });
+
+    return () => { ctrl.abort(); clearTimeout(timer); };
+  }, []);
+
+  // ── Si se determina que no hay pago en línea, cambiar a transferencia ────
+  useEffect(() => {
+    if (onlinePayAvailable === false && paymentMethod === "online") {
+      setPaymentMethod("transfer");
+    }
+  }, [onlinePayAvailable, paymentMethod]);
 
   const { total, count } = useMemo(() => {
     let t = 0, c = 0;
@@ -66,63 +103,99 @@ export default function CheckoutPage() {
     setErrors(e);
     return !Object.keys(e).length;
   };
-// CheckoutPage.jsx — solo cambia el bloque handleSubmit donde se construye wompiUrl
 
-const handleSubmit = async () => {
-  setIsProcessing(true);
-  setErrors({});
-  try {
-    const { data } = await api.post("/sales", {
-      customer_id:      user.id,
-      items: cart.map(i => ({
-        product_id: i.id,
-        quantity:   i.quantity || 1,
-        unit_price: getItemPrice(i),           // ← precio con descuento aplicado
-        ...(i.variantId && { variant_id: i.variantId }),
-      })),
-      payment_method:   "credit",
-      shipping_address: form.shipping_address,
-      shipping_city:    form.shipping_city,
-      shipping_notes:   form.shipping_notes,
-    });
+  const handleSubmit = async () => {
+    setIsProcessing(true);
+    setErrors({});
+    try {
+      // 1. Crear la venta
+      const { data: saleResp } = await api.post("/sales", {
+        customer_id:      user.id,
+        items: cart.map(i => ({
+          product_id: i.id,
+          quantity:   i.quantity || 1,
+          unit_price: getItemPrice(i),
+          ...(i.variantId && { variant_id: i.variantId }),
+        })),
+        payment_method:   paymentMethod === "online" ? "credit" : "transfer",
+        shipping_address: form.shipping_address,
+        shipping_city:    form.shipping_city,
+        shipping_notes:   form.shipping_notes,
+      });
 
-    if (!data.success) throw new Error(data.message || "Error al crear el pedido");
+      if (!saleResp.success) throw new Error(saleResp.message || "Error al crear el pedido");
 
-    const { data: wompi } = await api.get(`/wompi/session/${data.data.sale_id}`);
-    if (!wompi.success) throw new Error("No se pudo iniciar el pago con Wompi");
+      const saleId     = saleResp.data?.sale_id ?? saleResp.data?.id;
+      const saleNumber = saleResp.data?.sale_number ?? saleResp.data?.code ?? String(saleId);
 
-    const params = new URLSearchParams({
-      "public-key":      wompi.data.public_key,
-      currency:          wompi.data.currency,
-      "amount-in-cents": String(wompi.data.amount_in_cents),
-      reference:         wompi.data.reference,
-      "redirect-url":    wompi.data.redirect_url,
-    });
+      if (paymentMethod === "online") {
+        // 2a. Obtener parámetros de Wompi desde el backend
+        const { data: pmtResp } = await api.post("/payments/checkout", { sale_id: saleId });
+        if (!pmtResp.success) throw new Error(pmtResp.message || "No se pudo iniciar el pago");
 
-    const wompiUrl =
-      `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${wompi.data.signature}`;
+        const p = pmtResp.data;
+        const params = new URLSearchParams({
+          "public-key":      p.public_key,
+          currency:          p.currency,
+          "amount-in-cents": String(p.amount_in_cents),
+          reference:         p.reference,
+          "redirect-url":    p.redirect_url,
+        });
 
-    setRedirecting(true);
-    clearCart();
-    window.location.href = wompiUrl;
+        // signature:integrity tiene ":" en la clave — se añade manualmente
+        const wompiUrl =
+          `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${p.signature}`;
 
-  } catch (error) {
-    setErrors({
-      submit: error.response?.data?.message || error.message || "Error al procesar tu pedido. Intenta de nuevo.",
-    });
-    setIsProcessing(false);
-    setRedirecting(false);
-  }
-};
+        clearCart();
+        setRedirecting(true);
+        window.location.href = wompiUrl;
 
-  // ── Pantalla de redireccionando (evita el flicker del guard) ─────────────
+      } else {
+        // 2b. Transferencia: ir directo a la página de éxito
+        clearCart();
+        navigate("/order-success", {
+          replace: true,
+          state: {
+            order_code:       saleNumber,
+            sale_id:          saleId,
+            total,
+            payment_method:   "transfer",
+            shipping_address: form.shipping_address,
+            shipping_city:    form.shipping_city,
+          },
+        });
+      }
+
+    } catch (err) {
+      const msg = err.response?.data?.message ?? err.message
+        ?? "Error al procesar tu pedido. Intenta de nuevo.";
+
+      // Si el backend indica que la tienda no tiene cuenta de pago conectada
+      const noPaymentAccount =
+        err.response?.status === 402 ||
+        /cuenta de pago|payment account|no configurad/i.test(msg);
+
+      if (noPaymentAccount && paymentMethod === "online") {
+        setOnlinePayAvailable(false); // ocultar opción online
+        setPaymentMethod("transfer");
+        setErrors({
+          submit: "El pago en línea no está disponible ahora. Puedes completar tu pedido con transferencia bancaria.",
+        });
+      } else {
+        setErrors({ submit: msg });
+      }
+
+      setIsProcessing(false);
+      setRedirecting(false);
+    }
+  };
+
+  // ── Pantalla de redireccionando ───────────────────────────────────────────
   if (redirecting) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-5">
-        <div className="relative">
-          <div className="w-16 h-16 rounded-full bg-[#FF3366]/10 flex items-center justify-center">
-            <Loader2 size={28} className="animate-spin text-[#FF3366]" />
-          </div>
+        <div className="w-16 h-16 rounded-full bg-[#FF3366]/10 flex items-center justify-center">
+          <Loader2 size={28} className="animate-spin text-[#FF3366]" />
         </div>
         <div className="text-center space-y-1">
           <p className="font-black text-slate-900 text-lg tracking-tight">Redirigiendo a Wompi</p>
@@ -176,6 +249,9 @@ const handleSubmit = async () => {
     );
   }
 
+  const isOnline    = paymentMethod === "online";
+  const canSubmit   = onlinePayAvailable !== null || paymentMethod === "transfer";
+
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
 
@@ -215,7 +291,7 @@ const handleSubmit = async () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-[1fr_360px] gap-6">
 
-          {/* Formulario */}
+          {/* ── Formulario ──────────────────────────────────────────────── */}
           <div>
 
             {/* Paso 1: Dirección */}
@@ -293,14 +369,6 @@ const handleSubmit = async () => {
                   />
                 </div>
 
-                {/* Info de pago */}
-                <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <CreditCard size={16} className="text-slate-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                    Pagarás de forma segura con <strong className="text-slate-700">tarjeta débito, crédito o PSE</strong> a través de Wompi en el siguiente paso.
-                  </p>
-                </div>
-
                 <button
                   onClick={() => { if (validateStep1()) setStep(2); }}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-xl
@@ -316,7 +384,75 @@ const handleSubmit = async () => {
             {/* Paso 2: Confirmar */}
             {step === 2 && (
               <div className="space-y-4">
-                {/* Resumen envío */}
+
+                {/* ── Método de pago ─────────────────────────────────────── */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+                    Método de pago
+                  </p>
+
+                  {onlinePayAvailable === null ? (
+                    <div className="flex items-center gap-2 text-slate-400 py-2">
+                      <Loader2 size={14} className="animate-spin" />
+                      <span className="text-xs font-medium">Verificando métodos disponibles…</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2.5">
+
+                      {/* Opción: pago en línea (solo si está disponible) */}
+                      {onlinePayAvailable && (
+                        <button
+                          onClick={() => setPaymentMethod("online")}
+                          className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left
+                            ${isOnline
+                              ? "border-slate-900 bg-slate-900"
+                              : "border-slate-200 bg-white hover:border-slate-300"
+                            }`}
+                        >
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
+                            ${isOnline ? "bg-white/15" : "bg-[#FF3366]/10"}`}>
+                            <CreditCard size={18} className={isOnline ? "text-white" : "text-[#FF3366]"} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-black text-sm ${isOnline ? "text-white" : "text-slate-900"}`}>
+                              Pagar en línea
+                            </p>
+                            <p className={`text-xs mt-0.5 ${isOnline ? "text-white/60" : "text-slate-400"}`}>
+                              Tarjeta débito · crédito · PSE — vía Wompi
+                            </p>
+                          </div>
+                          {isOnline && <Check size={18} className="text-white flex-shrink-0" />}
+                        </button>
+                      )}
+
+                      {/* Opción: transferencia bancaria (siempre disponible) */}
+                      <button
+                        onClick={() => setPaymentMethod("transfer")}
+                        className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left
+                          ${!isOnline
+                            ? "border-slate-900 bg-slate-900"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                          }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
+                          ${!isOnline ? "bg-white/15" : "bg-emerald-50"}`}>
+                          <Landmark size={18} className={!isOnline ? "text-white" : "text-emerald-600"} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-black text-sm ${!isOnline ? "text-white" : "text-slate-900"}`}>
+                            Transferencia bancaria
+                          </p>
+                          <p className={`text-xs mt-0.5 ${!isOnline ? "text-white/60" : "text-slate-400"}`}>
+                            Bancolombia · Nequi · sin comisiones
+                          </p>
+                        </div>
+                        {!isOnline && <Check size={18} className="text-white flex-shrink-0" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Resumen de envío ───────────────────────────────────── */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                   <div className="flex items-start gap-3">
                     <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
@@ -341,16 +477,25 @@ const handleSubmit = async () => {
                   </div>
                 </div>
 
-                {/* Info pago Wompi */}
+                {/* ── Info según método ─────────────────────────────────── */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                   <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 bg-[#FF3366]/10 rounded-xl flex items-center justify-center shrink-0">
-                      <Package size={16} className="text-[#FF3366]" />
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                      ${isOnline ? "bg-[#FF3366]/10" : "bg-emerald-50"}`}>
+                      {isOnline
+                        ? <Package size={16} className="text-[#FF3366]" />
+                        : <Landmark size={16} className="text-emerald-600" />
+                      }
                     </div>
                     <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                      Al confirmar, crearemos tu pedido y serás redirigido al portal de pago seguro de{" "}
-                      <strong className="text-slate-900">Wompi</strong> para completar el pago con
-                      tarjeta débito, crédito o PSE.
+                      {isOnline
+                        ? <>Al confirmar serás redirigido al portal de pago seguro de{" "}
+                            <strong className="text-slate-900">Wompi</strong> para pagar con
+                            tarjeta débito, crédito o PSE.</>
+                        : <>Crearemos tu pedido y recibirás los datos bancarios para
+                            <strong className="text-slate-900"> realizar la transferencia</strong>. Sube tu
+                            comprobante para que confirmemos rápido.</>
+                      }
                     </p>
                   </div>
                 </div>
@@ -364,28 +509,37 @@ const handleSubmit = async () => {
 
                 <button
                   onClick={handleSubmit}
-                  disabled={isProcessing}
+                  disabled={isProcessing || !canSubmit}
                   className={`w-full py-4 rounded-xl font-black text-sm flex items-center
                     justify-center gap-2 transition-all active:scale-[0.98]
-                    ${isProcessing
+                    ${isProcessing || !canSubmit
                       ? "bg-slate-200 text-slate-400 cursor-wait"
-                      : "bg-[#FF3366] hover:bg-[#e02d5a] text-white shadow-xl shadow-[#FF3366]/20"
+                      : isOnline
+                        ? "bg-[#FF3366] hover:bg-[#e02d5a] text-white shadow-xl shadow-[#FF3366]/20"
+                        : "bg-slate-900 hover:bg-slate-800 text-white shadow-xl shadow-slate-900/10"
                     }`}
                 >
-                  {isProcessing
-                    ? <><Loader2 size={18} className="animate-spin" /> Iniciando pago…</>
-                    : <><CreditCard size={18} /> Confirmar y pagar con Wompi</>
-                  }
+                  {isProcessing ? (
+                    <><Loader2 size={18} className="animate-spin" />
+                      {isOnline ? "Iniciando pago…" : "Creando pedido…"}</>
+                  ) : isOnline ? (
+                    <><CreditCard size={18} /> Continuar a Wompi</>
+                  ) : (
+                    <><Landmark size={18} /> Confirmar pedido</>
+                  )}
                 </button>
 
                 <p className="text-center text-[11px] text-slate-400">
-                  🔒 Pago 100% seguro · Procesado por Wompi
+                  {isOnline
+                    ? "🔒 Pago 100% seguro · Procesado por Wompi"
+                    : "🔒 Tu pedido está protegido · Confirma con comprobante"
+                  }
                 </p>
               </div>
             )}
           </div>
 
-          {/* Sidebar resumen */}
+          {/* ── Sidebar resumen del pedido ───────────────────────────────── */}
           <div className="lg:sticky lg:top-24 h-fit">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">
@@ -451,7 +605,7 @@ const handleSubmit = async () => {
                   <span className="text-2xl font-black text-slate-900">${total.toLocaleString()}</span>
                 </div>
                 <p className="text-[11px] text-slate-400 text-center pt-1">
-                  💳 Tarjeta / PSE vía Wompi
+                  {isOnline ? "💳 Tarjeta / PSE vía Wompi" : "🏦 Bancolombia · Nequi"}
                 </p>
               </div>
             </div>

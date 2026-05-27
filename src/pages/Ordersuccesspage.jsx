@@ -3,61 +3,90 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
   CheckCircle, XCircle, Copy, Check, MessageCircle,
-  Package, MapPin, Home, ChevronRight, Upload, Loader2,
+  Package, MapPin, Home, ChevronRight, Upload, Loader2, AlertCircle,
 } from "lucide-react";
 import ProofUploader from "../components/ProofUploader";
 import { BANK_INFO } from "./Checkoutpage";
 import api from "../services/api";
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Wompi redirige con estos query params:
-     ?id=<tx_id>&reference=<order_code>&amount_in_cents=...&currency=COP&status=APPROVED
-   El flujo normal (transfer/cash) sigue usando location.state
+   Wompi redirige con query params:
+     ?id=<tx_id>&reference=<order_ref>&amount_in_cents=...&currency=COP&status=APPROVED
+   El flujo manual (transfer) sigue usando location.state.
    ───────────────────────────────────────────────────────────────────────── */
 export default function OrderSuccessPage() {
   const location       = useLocation();
   const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // ── Detectar si venimos de Wompi (tiene query param "reference") ─────────
+  // ── Params de Wompi en la URL ────────────────────────────────────────────
   const wompiReference = searchParams.get("reference");
   const wompiStatus    = searchParams.get("status"); // APPROVED | DECLINED | ERROR | VOIDED
-  const wompiTxId      = searchParams.get("id");
 
-  // ── Estado normal (transfer/cash) desde location.state ──────────────────
+  // ── Estado para el flujo manual (transfer/cash) desde location.state ────
   const state = location.state || {};
 
-  const [orderData, setOrderData]   = useState(null);
-  const [loadingWompi, setLoading]  = useState(!!wompiReference);
-  const [wompiApproved, setApproved] = useState(false);
-  const [copiedIdx, setCopiedIdx]   = useState(null);
+  const [orderData,     setOrderData]     = useState(null);
+  const [loadingWompi,  setLoading]       = useState(!!wompiReference);
+  const [wompiApproved, setApproved]      = useState(false);
+  const [pollTimedOut,  setPollTimedOut]  = useState(false);
+  const [copiedIdx,     setCopiedIdx]     = useState(null);
 
-  // ── Si viene de Wompi: verificar estado en nuestro backend ───────────────
+  // ── Polling de estado de transacción (solo para flujo Wompi) ─────────────
+  //
+  // El query param ?status=APPROVED de Wompi es solo una pista; la fuente de
+  // verdad es siempre el backend (que recibe el webhook). Hacemos polling
+  // hasta obtener un estado final o agotar el tiempo máximo.
   useEffect(() => {
     if (!wompiReference) return;
 
-    const verify = async () => {
+    let timerId;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 60;   // ~3 min a 3 s por intento
+    const INTERVAL_MS  = 3_000;
+
+    const FINAL_STATUSES = new Set([
+      "approved", "declined", "voided", "error", "paid", "failed",
+    ]);
+
+    const poll = async () => {
       try {
-        // Wompi ya llamó el webhook antes de redirigir, pero verificamos por si acaso
-        const { data } = await api.get(`/wompi/verify/${wompiReference}`);
+        const { data } = await api.get(`/payments/transaction/${wompiReference}`);
         if (data.success) {
-          setOrderData(data.data);
-          setApproved(
-            wompiStatus === "APPROVED" || data.data.payment_status === "paid"
-          );
+          const raw = (
+            data.data?.status ??
+            data.data?.payment_status ??
+            ""
+          ).toLowerCase();
+
+          if (FINAL_STATUSES.has(raw)) {
+            setOrderData(data.data);
+            setApproved(raw === "approved" || raw === "paid");
+            setLoading(false);
+            return; // detener polling
+          }
         }
       } catch {
-        // Si falla la verificación, nos basamos en el query param de Wompi
-        setApproved(wompiStatus === "APPROVED");
-      } finally {
-        setLoading(false);
+        // error de red o 5xx: seguir intentando
       }
+
+      attempts++;
+      if (attempts >= MAX_ATTEMPTS) {
+        setLoading(false);
+        setPollTimedOut(true);
+        return;
+      }
+
+      timerId = setTimeout(poll, INTERVAL_MS);
     };
 
-    verify();
+    // Si Wompi ya envió un status en la URL, empezamos el primer check rápido
+    // (400 ms) en lugar de esperar 3 s, para no hacer esperar al usuario.
+    timerId = setTimeout(poll, wompiStatus ? 400 : 1_000);
+    return () => clearTimeout(timerId);
   }, [wompiReference, wompiStatus]);
 
-  // ── Si no hay datos en absoluto, redirigir al inicio ────────────────────
+  // ── Redirigir si no hay datos en absoluto ───────────────────────────────
   useEffect(() => {
     if (!wompiReference && !state.order_code) {
       const t = setTimeout(() => navigate("/"), 2000);
@@ -75,15 +104,55 @@ export default function OrderSuccessPage() {
 
   const isWompi    = payment_method === "wompi" || !!wompiReference;
   const isTransfer = payment_method === "transfer";
-  const isSuccess  = isWompi ? wompiApproved : true; // transfer/cash siempre exitoso
+  const isSuccess  = isWompi ? wompiApproved : true;
 
-  // ── Loading mientras verificamos Wompi ──────────────────────────────────
+  // ── Loading mientras hacemos polling ────────────────────────────────────
   if (loadingWompi) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 size={40} className="mx-auto text-slate-400 animate-spin mb-4" />
-          <p className="text-slate-500 font-medium">Verificando tu pago…</p>
+        <div className="text-center space-y-4">
+          <Loader2 size={40} className="mx-auto text-slate-400 animate-spin" />
+          <p className="text-slate-600 font-black text-lg">Verificando tu pago…</p>
+          <p className="text-slate-400 text-sm font-medium">
+            Confirmando con Wompi. Esto puede tomar unos segundos.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Timeout de polling: no pudimos confirmar ─────────────────────────────
+  if (pollTimedOut) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 max-w-sm w-full text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
+            <AlertCircle size={32} className="text-amber-500" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-2">Verificación pendiente</h2>
+          <p className="text-slate-500 text-sm mb-2">
+            No pudimos confirmar el estado de tu pago en este momento.
+          </p>
+          <p className="text-slate-400 text-xs mb-6">
+            Si el cargo fue realizado, el pedido quedará registrado. Revisa "Mis pedidos" en
+            unos minutos o contacta soporte.
+          </p>
+          <div className="space-y-3">
+            <Link
+              to="/mis-pedidos"
+              className="flex items-center justify-center gap-2 w-full py-3
+                bg-slate-900 text-white rounded-xl font-bold text-sm"
+            >
+              Ver mis pedidos
+            </Link>
+            <Link
+              to="/"
+              className="flex items-center justify-center gap-2 w-full py-3
+                bg-slate-100 text-slate-700 rounded-xl font-bold text-sm"
+            >
+              <Home size={15} /> Volver al inicio
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -99,23 +168,26 @@ export default function OrderSuccessPage() {
           </div>
           <h2 className="text-2xl font-black text-slate-900 mb-2">Pago no aprobado</h2>
           <p className="text-slate-500 text-sm mb-2">
-            Tu pedido <strong className="text-slate-700">{order_code}</strong> fue creado pero el pago no se completó.
+            Tu pedido <strong className="text-slate-700">{order_code}</strong> fue creado pero el
+            pago no se completó.
           </p>
           <p className="text-slate-400 text-xs mb-6">
-            Puedes intentar de nuevo desde "Mis pedidos" o elegir otro método de pago.
+            Puedes intentar de nuevo desde "Mis pedidos" o elegir transferencia bancaria.
           </p>
           <div className="space-y-3">
             <Link
               to="/mis-pedidos"
-              className="flex items-center justify-center gap-2 w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm"
+              className="flex items-center justify-center gap-2 w-full py-3
+                bg-slate-900 text-white rounded-xl font-bold text-sm"
             >
               Ver mis pedidos
             </Link>
             <Link
-              to="/productos"
-              className="flex items-center justify-center gap-2 w-full py-3 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm"
+              to="/checkout"
+              className="flex items-center justify-center gap-2 w-full py-3
+                bg-slate-100 text-slate-700 rounded-xl font-bold text-sm"
             >
-              <Home size={15} /> Volver al inicio
+              Intentar de nuevo
             </Link>
           </div>
         </div>
@@ -153,9 +225,10 @@ export default function OrderSuccessPage() {
     <div className="min-h-screen bg-[#F8FAFC] pb-16">
       <div className="max-w-lg mx-auto px-4 pt-12">
 
-        {/* ── Animación de éxito ─────────────────────────────────────── */}
+        {/* ── Animación de éxito ───────────────────────────────────────── */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-500 mb-5 shadow-xl shadow-emerald-200 animate-bounce">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full
+            bg-emerald-500 mb-5 shadow-xl shadow-emerald-200 animate-bounce">
             <CheckCircle size={40} className="text-white" strokeWidth={2.5} />
           </div>
           <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">
@@ -167,34 +240,40 @@ export default function OrderSuccessPage() {
               : "Revisamos y procesamos tu pedido muy pronto"
             }
           </p>
-          <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-full shadow-lg">
+          <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white
+            rounded-full shadow-lg">
             <Package size={15} />
             <span className="font-black text-sm tracking-wide">{order_code}</span>
           </div>
         </div>
 
-        {/* ── Resumen ────────────────────────────────────────────────── */}
+        {/* ── Resumen ──────────────────────────────────────────────────── */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
           {/* Total */}
           <div className="bg-slate-900 text-white px-6 py-5 text-center">
-            <p className="text-xs font-bold uppercase tracking-widest opacity-50 mb-1">Total del pedido</p>
+            <p className="text-xs font-bold uppercase tracking-widest opacity-50 mb-1">
+              Total del pedido
+            </p>
             <p className="text-4xl font-black">${Number(total).toLocaleString()}</p>
             {isWompi && (
-              <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 bg-emerald-500 rounded-full">
+              <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1
+                bg-emerald-500 rounded-full">
                 <CheckCircle size={12} />
                 <span className="text-[11px] font-black">Pago aprobado por Wompi</span>
               </div>
             )}
           </div>
 
-          {/* Dirección (si la tenemos) */}
+          {/* Dirección */}
           {(shipping_city || shipping_address) && (
             <div className="px-6 py-4 border-b border-slate-100 flex items-start gap-3">
               <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
                 <MapPin size={14} className="text-blue-600" />
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-0.5">Dirección de envío</p>
+                <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-0.5">
+                  Dirección de envío
+                </p>
                 {shipping_city    && <p className="font-bold text-slate-900">{shipping_city}</p>}
                 {shipping_address && <p className="text-sm text-slate-500">{shipping_address}</p>}
               </div>
@@ -203,7 +282,9 @@ export default function OrderSuccessPage() {
 
           {/* Próximos pasos */}
           <div className="px-6 py-5">
-            <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">¿Qué sigue?</p>
+            <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">
+              ¿Qué sigue?
+            </p>
             <ol className="space-y-3">
               {(isWompi
                 ? [
@@ -213,25 +294,24 @@ export default function OrderSuccessPage() {
                   ]
                 : [
                     "Revisa tu correo con el resumen del pedido",
-                    isTransfer
-                      ? "Realiza la transferencia usando los datos de abajo"
-                      : "Coordinaremos el pago en efectivo al entregar",
+                    "Realiza la transferencia usando los datos de abajo",
                     "Sube tu comprobante para agilizar el proceso",
                     "Recibe tu pedido en la dirección indicada",
                   ]
-              ).map((step, i) => (
+              ).map((text, i) => (
                 <li key={i} className="flex items-start gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-900 text-white text-[11px] font-black flex items-center justify-center mt-0.5">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-900 text-white
+                    text-[11px] font-black flex items-center justify-center mt-0.5">
                     {i + 1}
                   </span>
-                  <p className="text-sm text-slate-600 font-medium leading-snug pt-0.5">{step}</p>
+                  <p className="text-sm text-slate-600 font-medium leading-snug pt-0.5">{text}</p>
                 </li>
               ))}
             </ol>
           </div>
         </div>
 
-        {/* ── Datos bancarios (solo transferencia) ────────────────────── */}
+        {/* ── Datos bancarios (solo transferencia) ─────────────────────── */}
         {isTransfer && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
             <div className="px-6 py-4 border-b border-slate-100">
@@ -246,7 +326,8 @@ export default function OrderSuccessPage() {
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-lg">{bank.emoji}</span>
                     <p className="font-black text-slate-900">{bank.bank}</p>
-                    <span className="text-xs bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full ml-auto">
+                    <span className="text-xs bg-slate-100 text-slate-500 font-bold px-2 py-0.5
+                      rounded-full ml-auto">
                       {bank.type}
                     </span>
                   </div>
@@ -261,7 +342,8 @@ export default function OrderSuccessPage() {
                       return (
                         <div
                           key={rowIdx}
-                          className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-2.5 gap-3"
+                          className="flex items-center justify-between bg-slate-50
+                            rounded-xl px-4 py-2.5 gap-3"
                         >
                           <div className="min-w-0">
                             <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
@@ -271,7 +353,8 @@ export default function OrderSuccessPage() {
                           </div>
                           <button
                             onClick={() => copyToClipboard(row.value, copyKey)}
-                            className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all
+                            className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center
+                              justify-center transition-all
                               ${copiedIdx === copyKey
                                 ? "bg-emerald-100 text-emerald-600"
                                 : "bg-slate-200 text-slate-500 hover:bg-slate-300"
@@ -305,10 +388,7 @@ export default function OrderSuccessPage() {
               <div>
                 <p className="font-bold text-slate-900 text-sm">Sube tu comprobante</p>
                 <p className="text-xs text-slate-400">
-                  {isTransfer
-                    ? "Después de transferir, sube la captura aquí"
-                    : "Si ya tienes un comprobante, súbelo aquí"
-                  }
+                  Después de transferir, sube la captura aquí
                 </p>
               </div>
             </div>
@@ -318,25 +398,28 @@ export default function OrderSuccessPage() {
           </div>
         )}
 
-        {/* ── WhatsApp ───────────────────────────────────────────────── */}
+        {/* ── WhatsApp ─────────────────────────────────────────────────── */}
         <a
           href={`https://wa.me/573145055073?text=${encodeURIComponent(
             `Hola! Confirmo mi pedido ${order_code} por $${Number(total).toLocaleString()}`
           )}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm transition-all active:scale-[0.98] mb-3"
+          className="flex items-center justify-center gap-2 w-full py-4 bg-emerald-600
+            hover:bg-emerald-700 text-white rounded-2xl font-black text-sm
+            transition-all active:scale-[0.98] mb-3"
         >
           <MessageCircle size={18} />
           Contactar por WhatsApp
         </a>
 
-        {/* ── Acciones ───────────────────────────────────────────────── */}
+        {/* ── Acciones ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           <Link
             to="/"
-            className="flex items-center justify-center gap-2 py-3.5 bg-white border border-slate-200
-              text-slate-900 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all"
+            className="flex items-center justify-center gap-2 py-3.5 bg-white border
+              border-slate-200 text-slate-900 rounded-2xl font-bold text-sm
+              hover:bg-slate-50 transition-all"
           >
             <Home size={15} /> Volver
           </Link>
