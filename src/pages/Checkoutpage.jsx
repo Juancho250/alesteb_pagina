@@ -3,7 +3,7 @@ import {
   ChevronLeft, MapPin, Package,
   AlertCircle, Loader2, ShoppingBag, Check, CreditCard, Landmark,
 } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart, getItemPrice } from "../context/CartContext";
@@ -38,48 +38,14 @@ export default function CheckoutPage() {
   const [errors, setErrors]                 = useState({});
   const [redirecting, setRedirecting]       = useState(false);
   const [paymentMethod, setPaymentMethod]   = useState("online");
-  const [onlinePayAvailable, setOnlinePayAvailable] = useState(null); // null = checking
+  // Empieza visible; se oculta si el backend devuelve 402 al solicitar la sesión.
+  const [onlinePayAvailable, setOnlinePayAvailable] = useState(true);
 
   const [form, setForm] = useState({
     shipping_address: user?.address || "",
     shipping_city:    user?.city    || "",
     shipping_notes:   "",
   });
-
-  // ── Verificar disponibilidad de pago en línea al montar ──────────────────
-  useEffect(() => {
-    const ctrl = new AbortController();
-
-    // Timeout de 3 s: si el backend no responde, asumimos disponible y dejamos
-    // que el error de submit maneje la degradación.
-    const timer = setTimeout(() => {
-      ctrl.abort();
-      setOnlinePayAvailable(true);
-    }, 3_000);
-
-    api.get("/payments/config", { signal: ctrl.signal })
-      .then(({ data }) => {
-        clearTimeout(timer);
-        // El campo exacto puede variar; cualquier respuesta 2xx se toma como disponible
-        // salvo que el backend devuelva explícitamente enabled: false.
-        setOnlinePayAvailable(data?.data?.enabled !== false);
-      })
-      .catch(err => {
-        clearTimeout(timer);
-        if (err.code === "ERR_CANCELED") return; // abortado por el timeout
-        // 402 = la tienda no tiene cuenta de pago conectada
-        setOnlinePayAvailable(err.response?.status === 402 ? false : true);
-      });
-
-    return () => { ctrl.abort(); clearTimeout(timer); };
-  }, []);
-
-  // ── Si se determina que no hay pago en línea, cambiar a transferencia ────
-  useEffect(() => {
-    if (onlinePayAvailable === false && paymentMethod === "online") {
-      setPaymentMethod("transfer");
-    }
-  }, [onlinePayAvailable, paymentMethod]);
 
   const { total, count } = useMemo(() => {
     let t = 0, c = 0;
@@ -129,22 +95,22 @@ export default function CheckoutPage() {
       const saleNumber = saleResp.data?.sale_number ?? saleResp.data?.code ?? String(saleId);
 
       if (paymentMethod === "online") {
-        // 2a. Obtener parámetros de Wompi desde el backend
-        const { data: pmtResp } = await api.post("/payments/checkout", { sale_id: saleId });
-        if (!pmtResp.success) throw new Error(pmtResp.message || "No se pudo iniciar el pago");
+        // 2a. Obtener parámetros de Wompi desde el backend (credenciales de la tienda)
+        const { data: sessResp } = await api.get(`/wompi/session/${saleId}`);
+        if (!sessResp.success) throw new Error(sessResp.message || "No se pudo iniciar el pago");
 
-        const p = pmtResp.data;
+        const p = sessResp.data;
         const params = new URLSearchParams({
-          "public-key":      p.public_key,
+          "public-key":      p.publicKey,
           currency:          p.currency,
-          "amount-in-cents": String(p.amount_in_cents),
+          "amount-in-cents": String(p.amountInCents),
           reference:         p.reference,
-          "redirect-url":    p.redirect_url,
+          "redirect-url":    p.redirectUrl,
         });
 
-        // signature:integrity tiene ":" en la clave — se añade manualmente
+        // signature:integrity lleva ":" en la clave — se añade manualmente
         const wompiUrl =
-          `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${p.signature}`;
+          `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${p.signatureIntegrity}`;
 
         clearCart();
         setRedirecting(true);
@@ -249,8 +215,7 @@ export default function CheckoutPage() {
     );
   }
 
-  const isOnline    = paymentMethod === "online";
-  const canSubmit   = onlinePayAvailable !== null || paymentMethod === "transfer";
+  const isOnline = paymentMethod === "online";
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
@@ -391,15 +356,9 @@ export default function CheckoutPage() {
                     Método de pago
                   </p>
 
-                  {onlinePayAvailable === null ? (
-                    <div className="flex items-center gap-2 text-slate-400 py-2">
-                      <Loader2 size={14} className="animate-spin" />
-                      <span className="text-xs font-medium">Verificando métodos disponibles…</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2.5">
+                  <div className="flex flex-col gap-2.5">
 
-                      {/* Opción: pago en línea (solo si está disponible) */}
+                      {/* Opción: pago en línea (oculta si la tienda no tiene Wompi) */}
                       {onlinePayAvailable && (
                         <button
                           onClick={() => setPaymentMethod("online")}
@@ -449,7 +408,6 @@ export default function CheckoutPage() {
                         {!isOnline && <Check size={18} className="text-white flex-shrink-0" />}
                       </button>
                     </div>
-                  )}
                 </div>
 
                 {/* ── Resumen de envío ───────────────────────────────────── */}
@@ -509,10 +467,10 @@ export default function CheckoutPage() {
 
                 <button
                   onClick={handleSubmit}
-                  disabled={isProcessing || !canSubmit}
+                  disabled={isProcessing}
                   className={`w-full py-4 rounded-xl font-black text-sm flex items-center
                     justify-center gap-2 transition-all active:scale-[0.98]
-                    ${isProcessing || !canSubmit
+                    ${isProcessing
                       ? "bg-slate-200 text-slate-400 cursor-wait"
                       : isOnline
                         ? "bg-[#FF3366] hover:bg-[#e02d5a] text-white shadow-xl shadow-[#FF3366]/20"

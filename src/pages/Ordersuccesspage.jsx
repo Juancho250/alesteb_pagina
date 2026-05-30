@@ -51,7 +51,7 @@ export default function OrderSuccessPage() {
 
     const poll = async () => {
       try {
-        const { data } = await api.get(`/payments/transaction/${wompiReference}`);
+        const { data } = await api.get(`/wompi/verify/${wompiReference}`);
         if (data.success) {
           const raw = (
             data.data?.status ??
