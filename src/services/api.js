@@ -31,13 +31,24 @@ const api = axios.create({
   timeout: 30_000,
 });
 
+// Códigos de error que indican problema de JWT (no de API key)
+const TOKEN_ERROR_CODES = new Set([
+  "NO_TOKEN", "TOKEN_EXPIRED", "INVALID_TOKEN",
+  "USER_INACTIVE", "USER_NOT_FOUND",
+]);
+
 // ============================================
-// 📡 REQUEST: Adjunta la API Key en cada request
+// 📡 REQUEST: API Key + JWT del cliente logueado
 // ============================================
 api.interceptors.request.use(
   (config) => {
     if (API_KEY) {
       config.headers["X-API-Key"] = API_KEY;
+    }
+    // Adjunta el JWT cuando el cliente está autenticado
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
     }
     return config;
   },
@@ -51,14 +62,24 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
+    const code   = error.response?.data?.code || "";
 
     if (status === 401) {
-      // Key inválida o ausente
-      console.error("[API] Key inválida o no configurada.");
+      if (TOKEN_ERROR_CODES.has(code)) {
+        // JWT vencido o inválido: limpiar sesión y redirigir a login
+        console.warn("[API] Sesión expirada o inválida:", code);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        if (!window.location.pathname.startsWith("/auth")) {
+          window.location.replace("/auth");
+        }
+      } else {
+        // API key inválida o ausente
+        console.error("[API] Clave de API inválida o no configurada:", code);
+      }
     }
 
     if (status === 403) {
-      // Key desactivada, expirada, u origen no permitido
       console.error("[API] Acceso denegado:", error.response?.data?.message);
     }
 

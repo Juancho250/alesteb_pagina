@@ -14,8 +14,10 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
-// ── Configura aquí la URL de tu backend ──────────────────────────────────────
-const API_BASE = import.meta.env.VITE_API_URL || "https://alesteb-back-1.onrender.com/api";
+// Usa la misma base pública que el resto del storefront (VITE_API_BASE_URL)
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://alesteb-back-1.onrender.com/public-api/v1")
+  .replace(/\/+$/, "");
+const API_KEY  = import.meta.env.VITE_API_KEY || "";
 const ENDPOINT = `${API_BASE}/analytics/pageview`;
 
 // Genera o recupera un ID de sesión anónimo por visita
@@ -79,7 +81,10 @@ export function usePageTracking() {
     // Envío al backend (fire-and-forget, no bloqueante)
     fetch(ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(API_KEY && { "X-API-Key": API_KEY }),
+      },
       body: JSON.stringify(payload),
       keepalive: true,
     }).catch(() => {
