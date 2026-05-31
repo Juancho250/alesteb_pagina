@@ -344,7 +344,7 @@ function InfoTab({ user, onUpdate }) {
     try {
       const { data } = await api.put("/auth/profile", form);
       if (data.success) {
-        onUpdate(data.data);
+        onUpdate(data.data ?? data.user ?? form);
         setEditing(false);
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
@@ -508,8 +508,8 @@ function OrdersTab({ userId }) {
         api.get(`/sales/user/history?user_id=${userId}`),
         api.get(`/sales/user/stats?user_id=${userId}`),
       ]);
-      setOrders(ordersRes.data);
-      setStats(statsRes.data);
+      setOrders(ordersRes.data?.data ?? []);
+      setStats(statsRes.data ?? null);
     } catch (err) {
       console.error("Error cargando pedidos:", err);
     } finally {
