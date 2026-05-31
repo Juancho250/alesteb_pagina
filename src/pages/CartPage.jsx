@@ -2,8 +2,10 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useCart, getItemPrice } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-import { ShoppingBag, ArrowLeft, Trash2, Plus, Minus, ArrowRight, LogIn } from "lucide-react";
+import { ShoppingBag, ArrowLeft, Trash2, Plus, Minus, ArrowRight, LogIn, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import api from "../services/api";
 
 const optimizeUrl = (url, w = 160) => {
   if (!url) return null;

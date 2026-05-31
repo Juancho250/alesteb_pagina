@@ -76,6 +76,10 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
     ? Math.round(((priceOriginal - priceFinal) / priceOriginal) * 100) : 0;
   const hasVariants     = Boolean(p.has_variants);
 
+  // Disponibilidad desde los campos del listado (sin llamada extra por card)
+  const isOut = p.stock <= 0;
+  const isLow = !isOut && p.stock_status === "low" && !hasVariants;
+
   // Thumb pequeño para grid. Si el producto no tiene main_image (productos con
   // variantes), usa la imagen del primer swatch de color disponible.
   const rawThumb =
@@ -134,6 +138,16 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
           <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-50 animate-pulse" />
         )}
 
+        {/* Sold-out overlay */}
+        {isOut && (
+          <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10 rounded-[2.5rem]">
+            <span className="px-4 py-1.5 bg-white rounded-full text-[10px] font-black uppercase
+              tracking-widest text-slate-400 border border-slate-200 shadow-sm">
+              Agotado
+            </span>
+          </div>
+        )}
+
         {thumb && (
           <img
             src={thumb}
@@ -158,25 +172,34 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
       {hasVariants ? (
         <Link
           to={`/productos/detalle/${p.id}`}
-          className="absolute bottom-[7.5rem] right-5 z-20 p-4 rounded-full bg-white text-slate-900
-            border border-slate-100 shadow-xl hover:bg-blue-600 hover:text-white hover:border-blue-600
-            transition-all duration-300 hover:scale-105 active:scale-95"
+          className={`absolute bottom-[7.5rem] right-5 z-20 p-4 rounded-full bg-white text-slate-900
+            border border-slate-100 shadow-xl transition-all duration-300
+            ${isOut
+              ? "opacity-40 cursor-not-allowed"
+              : "hover:bg-blue-600 hover:text-white hover:border-blue-600 hover:scale-105 active:scale-95"
+            }`}
+          onClick={isOut ? e => e.preventDefault() : undefined}
         >
           <ShoppingBag size={19} strokeWidth={2} />
         </Link>
       ) : (
         <button
-          onClick={() => onToggle({ ...p, cartKey: String(p.id) }, 1)}
+          onClick={() => !isOut && onToggle({ ...p, cartKey: String(p.id) }, 1)}
+          disabled={isOut}
           className={`absolute bottom-[7.5rem] right-5 z-20 p-4 rounded-full shadow-2xl
-            transition-all duration-300 hover:scale-105 active:scale-95
-            ${isInCart
-              ? "bg-blue-600 text-white shadow-blue-500/30 border border-blue-500"
-              : "bg-white text-slate-900 border border-slate-100 shadow-slate-200/80"
+            transition-all duration-300
+            ${isOut
+              ? "bg-slate-100 text-slate-300 cursor-not-allowed border border-slate-100"
+              : isInCart
+                ? "bg-blue-600 text-white shadow-blue-500/30 border border-blue-500 hover:scale-105 active:scale-95"
+                : "bg-white text-slate-900 border border-slate-100 shadow-slate-200/80 hover:scale-105 active:scale-95"
             }`}
         >
-          {isInCart
-            ? <ShoppingBag size={19} strokeWidth={2} />
-            : <Plus size={19} strokeWidth={2} />
+          {isOut
+            ? <X size={19} strokeWidth={2} />
+            : isInCart
+              ? <ShoppingBag size={19} strokeWidth={2} />
+              : <Plus size={19} strokeWidth={2} />
           }
         </button>
       )}
@@ -188,7 +211,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
           {p.name}
         </p>
         <div className="flex items-baseline gap-2.5">
-          <span className="text-xl font-black text-slate-900 tracking-tight">
+          <span className={`text-xl font-black tracking-tight ${isOut ? "text-slate-300" : "text-slate-900"}`}>
             {hasVariants ? "Desde " : ""}${priceFinal.toLocaleString()}
           </span>
           {hasDiscount && (
@@ -197,6 +220,12 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
             </span>
           )}
         </div>
+        {isLow && (
+          <span className="inline-flex items-center px-2 py-0.5 bg-amber-50 border border-amber-200
+            text-[9px] font-black text-amber-700 rounded-full uppercase tracking-wider">
+            Últimas {p.stock}
+          </span>
+        )}
         <ProductReviewSummary productId={p.id} compact />
       </div>
     </motion.div>

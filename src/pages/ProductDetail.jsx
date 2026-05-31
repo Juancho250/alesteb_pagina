@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useCart } from "../context/CartContext";
 import { useFavorites } from "../context/FavoritesContext";
+import { useAvailability } from "../hooks/useAvailability";
 import ProductReviewsSection from "../components/reviews/ProductReviewsSection";
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
@@ -177,6 +178,7 @@ export default function ProductDetail() {
   const [quantity,     setQuantity]     = useState(1);
   const [selections,   setSelections]   = useState({});
   const [zoomed,       setZoomed]       = useState(false);
+  const [stockError,   setStockError]   = useState(null);
   const thumbsRef = useRef(null);
 
   const fav = isFavorite(product?.id);
@@ -387,6 +389,12 @@ export default function ProductDetail() {
     };
   }, [selectedVariant, hasVariants, variants, product]);
 
+  // ── Disponibilidad en tiempo real ─────────────────────────────────────────
+  // Re-consulta automáticamente cuando cambia selectedVariant.
+  const avail = useAvailability(product?.id ?? null, selectedVariant?.id ?? null);
+  // Mientras carga, usa el stock del API de listado como valor provisional.
+  const effectiveAvailable = avail.available ?? stock;
+
   // ── Cart ───────────────────────────────────────────────────────────────────
   const cartKey = selectedVariant
     ? `${product?.id}-v${selectedVariant.id}`
@@ -394,10 +402,23 @@ export default function ProductDetail() {
 
   const isInCart        = cart.some(item => item.cartKey === cartKey);
   const isFullySelected = !hasVariants || Object.keys(selections).length === attributeTypes.length;
-  const canAdd          = isFullySelected && stock > 0;
+  const canAdd          = isFullySelected && effectiveAvailable > 0;
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
+    setStockError(null);
+
+    // Validate against live availability before adding
+    if (avail.available !== null && quantity > avail.available) {
+      const n = avail.available;
+      setStockError(
+        n <= 0
+          ? "Este producto ya no tiene stock disponible."
+          : `Solo ${n} unidad${n === 1 ? "" : "es"} disponible${n === 1 ? "" : "s"}. Ajusta la cantidad.`
+      );
+      return;
+    }
+
     const payload = {
       ...product,
       cartKey,
@@ -410,7 +431,7 @@ export default function ProductDetail() {
       }),
     };
     toggleCart(payload, quantity);
-  }, [product, selectedVariant, quantity, cartKey, toggleCart]);
+  }, [product, selectedVariant, quantity, cartKey, toggleCart, avail.available]);
 
   const handleSelect = useCallback((slug, valueId) => {
     setSelections(prev => {
@@ -672,11 +693,18 @@ export default function ProductDetail() {
                   {isFullySelected && selectedVariant ? (
                     <motion.div key="stock-ok"
                       initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
-                        ${stock > 0 ? "text-emerald-600" : "text-red-400"}`}
+                      className="flex flex-wrap items-center gap-2"
                     >
-                      <div className={`w-2 h-2 rounded-full ${stock > 0 ? "bg-emerald-500 animate-pulse" : "bg-red-400"}`} />
-                      {stock > 0 ? `${stock} disponibles` : "Sin stock"}
+                      <span className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
+                        ${effectiveAvailable > 0 ? (avail.isLow ? "text-amber-600" : "text-emerald-600") : "text-red-400"}`}>
+                        <span className={`w-2 h-2 rounded-full ${effectiveAvailable > 0 ? (avail.isLow ? "bg-amber-400 animate-pulse" : "bg-emerald-500 animate-pulse") : "bg-red-400"}`} />
+                        {effectiveAvailable > 0
+                          ? avail.isLow
+                            ? `Últimas ${effectiveAvailable} unidades`
+                            : `${effectiveAvailable} disponibles`
+                          : "Sin stock"
+                        }
+                      </span>
                     </motion.div>
                   ) : isFullySelected && !selectedVariant ? (
                     <motion.p key="no-combo"
@@ -703,13 +731,17 @@ export default function ProductDetail() {
             )}
 
             {!hasVariants && (
-              <motion.div
-                variants={fadeUp}
-                className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
-                  ${stock > 0 ? "text-emerald-600" : "text-red-400"}`}
-              >
-                <div className={`w-2 h-2 rounded-full ${stock > 0 ? "bg-emerald-500 animate-pulse" : "bg-red-400"}`} />
-                {stock > 0 ? `${stock} disponibles` : "Sin stock"}
+              <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
+                  ${effectiveAvailable > 0 ? (avail.isLow ? "text-amber-600" : "text-emerald-600") : "text-red-400"}`}>
+                  <span className={`w-2 h-2 rounded-full ${effectiveAvailable > 0 ? (avail.isLow ? "bg-amber-400 animate-pulse" : "bg-emerald-500 animate-pulse") : "bg-red-400"}`} />
+                  {effectiveAvailable > 0
+                    ? avail.isLow
+                      ? `Últimas ${effectiveAvailable} unidades`
+                      : `${effectiveAvailable} disponibles`
+                    : "Sin stock"
+                  }
+                </span>
               </motion.div>
             )}
 
@@ -739,14 +771,21 @@ export default function ProductDetail() {
                   </button>
                   <span className="font-black text-sm w-4 text-center">{quantity}</span>
                   <button
-                    onClick={() => setQuantity(q => Math.min(stock, q + 1))}
-                    disabled={quantity >= stock || !canAdd}
+                    onClick={() => setQuantity(q => Math.min(effectiveAvailable, q + 1))}
+                    disabled={quantity >= effectiveAvailable || !canAdd}
                     className="p-2 hover:text-blue-600 disabled:opacity-20 transition-colors"
                   >
                     <Plus size={14} />
                   </button>
                 </div>
               </div>
+
+              {stockError && (
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 rounded-xl border border-amber-200">
+                  <AlertCircle size={13} className="text-amber-500 flex-shrink-0" />
+                  <p className="text-xs font-bold text-amber-700">{stockError}</p>
+                </div>
+              )}
 
               <button
                 onClick={handleAddToCart}
