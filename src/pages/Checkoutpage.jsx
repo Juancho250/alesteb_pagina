@@ -101,16 +101,14 @@ export default function CheckoutPage() {
 
         const p = sessResp.data;
         const params = new URLSearchParams({
-          "public-key":      p.publicKey,
+          "public-key":      p.public_key,
           currency:          p.currency,
-          "amount-in-cents": String(Math.round(Number(p.amountInCents))),
+          "amount-in-cents": String(Math.round(Number(p.amount_in_cents))),
           reference:         p.reference,
-          "redirect-url":    p.redirectUrl,
+          "redirect-url":    p.redirect_url,
         });
-
-        // signature:integrity lleva ":" en la clave — se añade manualmente
         const wompiUrl =
-          `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${p.signatureIntegrity}`;
+          `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${p.signature}`;
 
         clearCart();
         setRedirecting(true);
