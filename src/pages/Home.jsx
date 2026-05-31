@@ -27,7 +27,7 @@ const staggerContainer = {
 };
 
 const getOptimizedImageUrl = (url, width = 600) => {
-  if (!url) return "https://via.placeholder.com/400x500";
+  if (!url) return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'%3E%3Crect width='400' height='500' fill='%23F5F5F7'/%3E%3C/svg%3E";
   if (url.includes("/upload/")) {
     return url.replace("/upload/", `/upload/f_auto,q_auto,w_${width},c_scale/`);
   }

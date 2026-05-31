@@ -85,7 +85,7 @@ export default function CartFloating() {
             >
               <div className="relative shrink-0">
                 <img
-                  src={item.main_image || "https://placehold.co/44x44/F5F5F7/F5F5F7"}
+                  src={item.main_image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3Crect width='1' height='1' fill='%23F5F5F7'/%3E%3C/svg%3E"}
                   alt={item.name}
                   className="w-11 h-11 rounded-xl object-cover border border-slate-100"
                 />

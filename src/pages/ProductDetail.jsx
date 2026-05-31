@@ -28,7 +28,7 @@ function cacheSet(key, data) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const optimizeUrl = (url, width = 800) => {
-  if (!url) return "https://placehold.co/800x1000/F5F5F7/F5F5F7";
+  if (!url) return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 1000'%3E%3Crect width='800' height='1000' fill='%23F5F5F7'/%3E%3C/svg%3E";
   return url.includes("/upload/")
     ? url.replace("/upload/", `/upload/f_webp,q_auto:good,w_${width},c_limit,dpr_auto/`)
     : url;
