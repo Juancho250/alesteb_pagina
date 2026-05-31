@@ -103,7 +103,7 @@ export default function CheckoutPage() {
         const params = new URLSearchParams({
           "public-key":      p.publicKey,
           currency:          p.currency,
-          "amount-in-cents": String(p.amountInCents),
+          "amount-in-cents": String(Math.round(Number(p.amountInCents))),
           reference:         p.reference,
           "redirect-url":    p.redirectUrl,
         });
