@@ -1,7 +1,6 @@
 // src/hooks/useInventoryReservation.js
-// Creates a single stock reservation when the checkout page mounts.
-// Manages the countdown timer and releases the reservation on unmount
-// (unless markPaid() was called, which marks the reservation as consumed).
+// Creates an inventory reservation on checkout mount; manages countdown;
+// releases all reservation IDs on unmount unless markPaid() was called.
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "../services/api";
 
@@ -17,31 +16,31 @@ function getSessionId() {
 /**
  * @param {Array} cartItems  — cart array from CartContext
  * @returns {{
- *   reservationId: string|null,
- *   secondsLeft:   number|null,
- *   expired:       boolean,
- *   reserving:     boolean,
- *   error:         string|null,
- *   is409:         boolean,
- *   markPaid:      () => void
+ *   reservationIds: number[],
+ *   secondsLeft:    number|null,
+ *   expired:        boolean,
+ *   reserving:      boolean,
+ *   error:          string|null,
+ *   is409:          boolean,
+ *   markPaid:       () => void
  * }}
  */
 export function useInventoryReservation(cartItems) {
-  const [reservationId, setReservationId] = useState(null);
-  const [expiresAt,     setExpiresAt]     = useState(null);
-  const [secondsLeft,   setSecondsLeft]   = useState(null);
-  const [expired,       setExpired]       = useState(false);
-  const [reserving,     setReserving]     = useState(false);
-  const [error,         setError]         = useState(null);
-  const [is409,         setIs409]         = useState(false);
+  const [reservationIds, setReservationIds] = useState([]);
+  const [expiresAt,      setExpiresAt]      = useState(null);
+  const [secondsLeft,    setSecondsLeft]    = useState(null);
+  const [expired,        setExpired]        = useState(false);
+  const [reserving,      setReserving]      = useState(false);
+  const [error,          setError]          = useState(null);
+  const [is409,          setIs409]          = useState(false);
 
-  // Survives re-renders; read inside cleanup without stale-closure issues
+  // Refs survive re-renders and are readable in cleanup closures
   const paidRef = useRef(false);
-  const idRef   = useRef(null);
+  const idsRef  = useRef([]);
 
   const markPaid = useCallback(() => { paidRef.current = true; }, []);
 
-  // ── Create reservation on mount ──────────────────────────────────────────
+  // ── Create reservation on mount ───────────────────────────────────────────
   useEffect(() => {
     if (!cartItems?.length) return;
 
@@ -58,9 +57,10 @@ export function useInventoryReservation(cartItems) {
     })
       .then(({ data }) => {
         if (!alive) return;
-        const id  = data?.data?.reservationId ?? null;
+        // Backend returns { data: { reservationIds: number[], expiresAt: string } }
+        const ids = data?.data?.reservationIds ?? [];
         const exp = data?.data?.expiresAt ? new Date(data.data.expiresAt) : null;
-        if (id) { setReservationId(id); idRef.current = id; }
+        if (ids.length) { setReservationIds(ids); idsRef.current = ids; }
         if (exp) setExpiresAt(exp);
       })
       .catch(err => {
@@ -72,14 +72,14 @@ export function useInventoryReservation(cartItems) {
             "Uno o más productos ya no tienen stock suficiente."
           );
         }
-        // 404 / network / other: fail silently — checkout proceeds without reservation
+        // For 404/network/other: fail silently — checkout still works without reservation
       })
       .finally(() => { if (alive) setReserving(false); });
 
     return () => { alive = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps — intentionally runs once
 
-  // ── Countdown ─────────────────────────────────────────────────────────────
+  // ── Countdown ticker ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!expiresAt) return;
 
@@ -94,14 +94,16 @@ export function useInventoryReservation(cartItems) {
     return () => clearInterval(timer);
   }, [expiresAt]);
 
-  // ── Release on unmount (if not paid) ──────────────────────────────────────
+  // ── Release ALL reservation IDs on unmount (if not yet paid) ─────────────
   useEffect(() => {
     return () => {
-      if (!paidRef.current && idRef.current) {
-        api.delete(`/inventory/reservations/${idRef.current}`).catch(() => {});
+      if (!paidRef.current && idsRef.current.length) {
+        idsRef.current.forEach(id => {
+          api.delete(`/inventory/reservations/${id}`).catch(() => {});
+        });
       }
     };
   }, []);
 
-  return { reservationId, secondsLeft, expired, reserving, error, is409, markPaid };
+  return { reservationIds, secondsLeft, expired, reserving, error, is409, markPaid };
 }

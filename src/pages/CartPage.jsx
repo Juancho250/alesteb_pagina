@@ -1,10 +1,13 @@
 // src/pages/CartPage.jsx
+import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart, getItemPrice } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-import { ShoppingBag, ArrowLeft, Trash2, Plus, Minus, ArrowRight, LogIn, AlertCircle } from "lucide-react";
+import {
+  ShoppingBag, ArrowLeft, Trash2, Plus, Minus,
+  ArrowRight, LogIn, AlertCircle,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
 import api from "../services/api";
 
 const optimizeUrl = (url, w = 160) => {
@@ -24,17 +27,78 @@ export default function CartPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const total = cart.reduce((sum, item) => {
-    return sum + getItemPrice(item) * (item.quantity || 1);
-  }, 0);
+  // availMap: cartKey → { available: number|null, minStock: number|null }
+  const [availMap,    setAvailMap]    = useState({});
+  // stockErrors: cartKey → error string (cleared when qty is valid again)
+  const [stockErrors, setStockErrors] = useState({});
+  // Global 409 banner (shown when backend rejects due to insufficient stock)
+  const [globalStockError, setGlobalStockError] = useState(null);
 
+  const total = cart.reduce((sum, item) => sum + getItemPrice(item) * (item.quantity || 1), 0);
   const count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
-  const handleCheckout = () => {
-    if (!user) {
-      navigate("/auth", { state: { from: "/checkout" } });
+  // ── Load live availability for all cart items in parallel ──────────────────
+  // Re-runs when the set of cart keys changes (item added / removed).
+  const cartKeyString = cart.map(i => i.cartKey).join(",");
+  useEffect(() => {
+    if (!cart.length) { setAvailMap({}); return; }
+
+    Promise.allSettled(
+      cart.map(item => {
+        const params = new URLSearchParams({ productId: item.id });
+        if (item.variantId) params.append("variantId", item.variantId);
+        return api.get(`/inventory/availability?${params}`)
+          .then(({ data }) => ({
+            cartKey:  item.cartKey,
+            available: data?.data?.available ?? null,
+            minStock:  data?.data?.min_stock  ?? null,
+          }));
+      })
+    ).then(results => {
+      const map = {};
+      results.forEach(r => {
+        if (r.status === "fulfilled") map[r.value.cartKey] = r.value;
+      });
+      setAvailMap(map);
+    });
+  }, [cartKeyString]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Quantity change with live stock guard ──────────────────────────────────
+  const handleQtyChange = useCallback((item, newQty) => {
+    if (newQty <= 0) { removeFromCart(item.cartKey); return; }
+
+    const avail = availMap[item.cartKey]?.available;
+    if (avail !== null && avail !== undefined && newQty > avail) {
+      const n = avail;
+      setStockErrors(prev => ({
+        ...prev,
+        [item.cartKey]: n <= 0
+          ? "Sin stock disponible"
+          : `Solo ${n} unidad${n === 1 ? "" : "es"} disponible${n === 1 ? "" : "s"}`,
+      }));
+      // Cap at what's available rather than blocking entirely
+      if (avail > 0) updateQty(item.cartKey, avail);
       return;
     }
+
+    setStockErrors(prev => { const next = { ...prev }; delete next[item.cartKey]; return next; });
+    updateQty(item.cartKey, newQty);
+  }, [availMap, updateQty, removeFromCart]);
+
+  const handleCheckout = () => {
+    // Check for any 0-stock items before proceeding
+    const soldOut = cart.filter(item => {
+      const a = availMap[item.cartKey]?.available;
+      return a !== null && a !== undefined && a <= 0;
+    });
+    if (soldOut.length) {
+      setGlobalStockError(
+        `${soldOut.map(i => i.name).join(", ")} ${soldOut.length === 1 ? "ya no tiene stock" : "ya no tienen stock"}. Elimínalos del carrito para continuar.`
+      );
+      return;
+    }
+
+    if (!user) { navigate("/auth", { state: { from: "/checkout" } }); return; }
     navigate("/checkout");
   };
 
@@ -70,7 +134,7 @@ export default function CartPage() {
     <div className="min-h-screen bg-white font-sans">
       <div className="max-w-5xl mx-auto px-5 sm:px-8 pt-10 pb-32">
 
-        {/* ── Header ──────────────────────────────────────────────────── */}
+        {/* ── Header ────────────────────────────────────────────────── */}
         <motion.div variants={fadeUp} initial="hidden" animate="visible"
           className="flex items-center justify-between mb-12">
           <div className="space-y-2">
@@ -90,7 +154,6 @@ export default function CartPage() {
               </p>
             </div>
           </div>
-
           <button onClick={clearCart}
             className="flex items-center gap-1.5 text-[10px] font-black tracking-widest
               text-slate-300 uppercase hover:text-red-400 transition-colors self-start mt-2">
@@ -98,7 +161,28 @@ export default function CartPage() {
           </button>
         </motion.div>
 
-        {/* ── Grid: lista + resumen ────────────────────────────────────── */}
+        {/* ── 409 / stock global error ─────────────────────────────── */}
+        <AnimatePresence>
+          {globalStockError && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="flex items-start gap-3 mb-6 p-4 bg-red-50 rounded-2xl border border-red-200"
+            >
+              <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-red-700">{globalStockError}</p>
+              </div>
+              <button
+                onClick={() => setGlobalStockError(null)}
+                className="text-red-300 hover:text-red-500 transition-colors text-xs font-bold"
+              >
+                ✕
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Grid: lista + resumen ────────────────────────────────── */}
         <div className="grid lg:grid-cols-[1fr_340px] gap-8 items-start">
 
           {/* Lista de items */}
@@ -108,6 +192,12 @@ export default function CartPage() {
                 const price    = getItemPrice(item);
                 const qty      = item.quantity || 1;
                 const subtotal = price * qty;
+                const av       = availMap[item.cartKey];
+                const avail    = av?.available ?? null;
+                const minStock = av?.minStock  ?? null;
+                const isOut    = avail !== null && avail <= 0;
+                const isLow    = avail !== null && avail > 0 && minStock !== null && avail <= minStock;
+                const maxQty   = avail !== null ? avail : Infinity;
 
                 return (
                   <motion.div
@@ -116,9 +206,12 @@ export default function CartPage() {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20, height: 0, marginBottom: 0 }}
                     transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                    className="group flex items-center gap-4 p-4 rounded-2xl border
-                      border-slate-100 bg-slate-50/40 hover:bg-white hover:border-slate-200
-                      hover:shadow-sm transition-all duration-300"
+                    className={`group flex items-center gap-4 p-4 rounded-2xl border
+                      transition-all duration-300
+                      ${isOut
+                        ? "border-red-100 bg-red-50/30"
+                        : "border-slate-100 bg-slate-50/40 hover:bg-white hover:border-slate-200 hover:shadow-sm"
+                      }`}
                   >
                     {/* Imagen */}
                     <div className="relative shrink-0">
@@ -126,7 +219,8 @@ export default function CartPage() {
                         <img
                           src={optimizeUrl(item.main_image)}
                           alt={item.name}
-                          className="w-20 h-20 rounded-xl object-cover border border-slate-100"
+                          className={`w-20 h-20 rounded-xl object-cover border border-slate-100
+                            ${isOut ? "opacity-40" : ""}`}
                         />
                       ) : (
                         <div className="w-20 h-20 rounded-xl bg-slate-100 flex items-center
@@ -148,11 +242,23 @@ export default function CartPage() {
                         ${price.toLocaleString()} c/u
                       </p>
 
+                      {/* Disponibilidad badge */}
+                      {isOut && (
+                        <p className="text-[10px] font-black text-red-500 uppercase tracking-wider">
+                          Sin stock · eliminar del carrito
+                        </p>
+                      )}
+                      {isLow && !isOut && (
+                        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">
+                          Últimas {avail} unidades
+                        </p>
+                      )}
+
                       {/* Controles cantidad */}
                       <div className="flex items-center gap-0 bg-white border border-slate-200
                         rounded-xl w-fit overflow-hidden mt-2">
                         <button
-                          onClick={() => updateQty(item.cartKey, qty - 1)}
+                          onClick={() => handleQtyChange(item, qty - 1)}
                           disabled={qty <= 1}
                           className="p-2 hover:bg-slate-50 disabled:opacity-30 transition-colors"
                         >
@@ -163,17 +269,26 @@ export default function CartPage() {
                           {qty}
                         </span>
                         <button
-                          onClick={() => updateQty(item.cartKey, qty + 1)}
-                          className="p-2 hover:bg-slate-50 transition-colors"
+                          onClick={() => handleQtyChange(item, qty + 1)}
+                          disabled={avail !== null && qty >= avail}
+                          className="p-2 hover:bg-slate-50 disabled:opacity-30 transition-colors"
                         >
                           <Plus size={12} />
                         </button>
                       </div>
+
+                      {/* Per-item stock error */}
+                      {stockErrors[item.cartKey] && (
+                        <p className="flex items-center gap-1 text-[10px] font-bold text-red-500 mt-1">
+                          <AlertCircle size={10} />
+                          {stockErrors[item.cartKey]}
+                        </p>
+                      )}
                     </div>
 
                     {/* Subtotal + eliminar */}
                     <div className="flex flex-col items-end gap-3 shrink-0">
-                      <span className="font-black text-slate-900">
+                      <span className={`font-black ${isOut ? "text-slate-300 line-through" : "text-slate-900"}`}>
                         ${subtotal.toLocaleString()}
                       </span>
                       <button
@@ -190,7 +305,7 @@ export default function CartPage() {
             </AnimatePresence>
           </div>
 
-          {/* ── Resumen ────────────────────────────────────────────────── */}
+          {/* ── Resumen ──────────────────────────────────────────────── */}
           <motion.div
             variants={fadeUp} initial="hidden" animate="visible"
             className="lg:sticky lg:top-8 bg-white border border-slate-100

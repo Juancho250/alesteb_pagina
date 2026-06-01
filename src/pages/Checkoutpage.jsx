@@ -1,12 +1,14 @@
 // src/pages/CheckoutPage.jsx
+import { useState, useMemo } from "react";
 import {
-  ChevronLeft, MapPin, Package,
+  ChevronLeft, MapPin, Package, Clock,
   AlertCircle, Loader2, ShoppingBag, Check, CreditCard, Landmark,
 } from "lucide-react";
-import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import { useCart, getItemPrice } from "../context/CartContext";
+import { useInventoryReservation } from "../hooks/useInventoryReservation";
 import api from "../services/api";
 
 export const BANK_INFO = [
@@ -28,6 +30,12 @@ export const BANK_INFO = [
   },
 ];
 
+function fmtCountdown(seconds) {
+  const m = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const s = String(seconds % 60).padStart(2, "0");
+  return `${m}:${s}`;
+}
+
 export default function CheckoutPage() {
   const navigate            = useNavigate();
   const { user }            = useAuth();
@@ -38,7 +46,6 @@ export default function CheckoutPage() {
   const [errors, setErrors]                 = useState({});
   const [redirecting, setRedirecting]       = useState(false);
   const [paymentMethod, setPaymentMethod]   = useState("online");
-  // Empieza visible; se oculta si el backend devuelve 402 al solicitar la sesión.
   const [onlinePayAvailable, setOnlinePayAvailable] = useState(true);
 
   const [form, setForm] = useState({
@@ -46,6 +53,10 @@ export default function CheckoutPage() {
     shipping_city:    user?.city    || "",
     shipping_notes:   "",
   });
+
+  // ── Inventory reservation (created on mount; released on unmount) ──────────
+  // Must be called unconditionally before any early returns.
+  const reserv = useInventoryReservation(cart);
 
   const { total, count } = useMemo(() => {
     let t = 0, c = 0;
@@ -74,9 +85,10 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     setErrors({});
     try {
-      // 1. Crear la venta
+      // 1. Crear la venta — incluye reservationId si existe
       const { data: saleResp } = await api.post("/sales", {
         customer_id:      user.id,
+        reservation_id:   reserv.reservationId ?? undefined,
         items: cart.map(i => ({
           product_id: i.id,
           quantity:   i.quantity || 1,
@@ -94,8 +106,12 @@ export default function CheckoutPage() {
       const saleId     = saleResp.data?.sale_id ?? saleResp.data?.id;
       const saleNumber = saleResp.data?.sale_number ?? saleResp.data?.code ?? String(saleId);
 
+      // Marcar la reserva como consumida ANTES del redirect para que el
+      // cleanup de unmount no llame DELETE /reservations/:id innecesariamente.
+      reserv.markPaid();
+
       if (paymentMethod === "online") {
-        // 2a. Obtener parámetros de Wompi desde el backend (credenciales de la tienda)
+        // 2a. Obtener parámetros de Wompi desde el backend
         const { data: sessResp } = await api.get(`/wompi/session/${saleId}`);
         if (!sessResp.success) throw new Error(sessResp.message || "No se pudo iniciar el pago");
 
@@ -107,15 +123,14 @@ export default function CheckoutPage() {
           reference:         p.reference,
           "redirect-url":    p.redirect_url,
         });
-        const wompiUrl =
-          `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${p.signature}`;
 
         clearCart();
         setRedirecting(true);
-        window.location.href = wompiUrl;
+        window.location.href =
+          `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${p.signature}`;
 
       } else {
-        // 2b. Transferencia: ir directo a la página de éxito
+        // 2b. Transferencia bancaria
         clearCart();
         navigate("/order-success", {
           replace: true,
@@ -131,19 +146,31 @@ export default function CheckoutPage() {
       }
 
     } catch (err) {
-      const msg = err.response?.data?.message ?? err.message
+      const status = err.response?.status;
+      const msg    = err.response?.data?.message ?? err.message
         ?? "Error al procesar tu pedido. Intenta de nuevo.";
 
-      // Si el backend indica que la tienda no tiene cuenta de pago conectada
-      const noPaymentAccount =
-        err.response?.status === 402 ||
-        /cuenta de pago|payment account|no configurad/i.test(msg);
-
-      if (noPaymentAccount && paymentMethod === "online") {
-        setOnlinePayAvailable(false); // ocultar opción online
+      if (status === 409) {
+        // Stock insuficiente al crear la venta
+        setErrors({
+          submit: "Uno o más productos ya no tienen stock suficiente. Vuelve al carrito y ajusta las cantidades.",
+          is409: true,
+        });
+      } else if (
+        status === 402 ||
+        /cuenta de pago|payment account|no configurad/i.test(msg)
+      ) {
+        setOnlinePayAvailable(false);
         setPaymentMethod("transfer");
         setErrors({
-          submit: "El pago en línea no está disponible ahora. Puedes completar tu pedido con transferencia bancaria.",
+          submit: "El pago en línea no está disponible ahora. Completa tu pedido con transferencia bancaria.",
+        });
+      } else if (
+        /reserva.*expir|reservation.*expir/i.test(msg)
+      ) {
+        setErrors({
+          submit: "Tu reserva de stock expiró. Vuelve al carrito e inténtalo de nuevo.",
+          reservaExpirada: true,
         });
       } else {
         setErrors({ submit: msg });
@@ -175,7 +202,55 @@ export default function CheckoutPage() {
     );
   }
 
-  // ── Guards ────────────────────────────────────────────────────────────────
+  // ── Guard: reserva expirada ───────────────────────────────────────────────
+  if (reserv.expired) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 max-w-sm w-full text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
+            <Clock size={28} className="text-amber-500" />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 mb-2">Reserva expirada</h2>
+          <p className="text-slate-500 text-sm mb-6">
+            Tu carrito estuvo reservado 15 minutos. Vuelve e inténtalo de nuevo.
+          </p>
+          <button
+            onClick={() => navigate("/carrito")}
+            className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl
+              font-bold text-sm transition-all active:scale-[0.98]"
+          >
+            Volver al carrito
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Guard: 409 en reserva (stock insuficiente al crear reserva) ───────────
+  if (reserv.is409) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 max-w-sm w-full text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+            <AlertCircle size={28} className="text-red-500" />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 mb-2">Stock insuficiente</h2>
+          <p className="text-slate-500 text-sm mb-6">
+            {reserv.error || "Uno o más productos ya no tienen stock suficiente."}
+          </p>
+          <button
+            onClick={() => navigate("/carrito")}
+            className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl
+              font-bold text-sm transition-all active:scale-[0.98]"
+          >
+            Volver al carrito
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Guards estándar ────────────────────────────────────────────────────────
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -214,44 +289,95 @@ export default function CheckoutPage() {
   }
 
   const isOnline = paymentMethod === "online";
+  const showCountdown = reserv.reservationId && reserv.secondsLeft !== null;
+  const countdownUrgent = showCountdown && reserv.secondsLeft <= 120; // < 2 min = urgente
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
 
-      {/* Header sticky */}
+      {/* ── Header sticky ─────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
               <button
                 onClick={() => step === 1 ? navigate(-1) : setStep(1)}
-                className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500 shrink-0"
               >
                 <ChevronLeft size={20} />
               </button>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-lg font-black text-slate-900 leading-none">
                   {step === 1 ? "Datos de envío" : "Confirmar pedido"}
                 </h1>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">Paso {step} de 2</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] text-slate-400 font-bold uppercase">Total</p>
-              <p className="text-xl font-black text-slate-900">${total.toLocaleString()}</p>
+
+            <div className="flex items-center gap-4 shrink-0">
+              {/* Countdown badge */}
+              {showCountdown && (
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black
+                  transition-colors
+                  ${countdownUrgent
+                    ? "bg-red-50 border-red-200 text-red-600"
+                    : "bg-amber-50 border-amber-200 text-amber-700"
+                  }`}>
+                  <Clock size={11} className="shrink-0" />
+                  {fmtCountdown(reserv.secondsLeft)}
+                </div>
+              )}
+              <div className="text-right">
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Total</p>
+                <p className="text-xl font-black text-slate-900">${total.toLocaleString()}</p>
+              </div>
             </div>
           </div>
         </div>
+
         <div className="h-0.5 bg-slate-100">
           <div
             className="h-full bg-slate-900 transition-all duration-500"
             style={{ width: step === 1 ? "50%" : "100%" }}
           />
         </div>
+
+        {/* Countdown sub-banner (urgente < 2 min) */}
+        <AnimatePresence>
+          {countdownUrgent && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 py-2 bg-red-50 border-t border-red-100 flex items-center gap-2">
+                <Clock size={12} className="text-red-500 shrink-0" />
+                <p className="text-[11px] font-bold text-red-600">
+                  Tu carrito está reservado por <span className="font-black">{fmtCountdown(reserv.secondsLeft)}</span>.
+                  Confirma antes de que expire.
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Contenido */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      {/* ── Countdown info (normal, > 2 min) ──────────────────────────────── */}
+      {showCountdown && !countdownUrgent && (
+        <div className="max-w-4xl mx-auto px-4 pt-4">
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 rounded-2xl border border-amber-100">
+            <Clock size={13} className="text-amber-500 shrink-0" />
+            <p className="text-xs font-bold text-amber-700">
+              Tu carrito está reservado por{" "}
+              <span className="font-black">{fmtCountdown(reserv.secondsLeft)}</span>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Contenido ─────────────────────────────────────────────────────── */}
+      <div className="max-w-4xl mx-auto px-4 py-6">
         <div className="grid lg:grid-cols-[1fr_360px] gap-6">
 
           {/* ── Formulario ──────────────────────────────────────────────── */}
@@ -348,67 +474,63 @@ export default function CheckoutPage() {
             {step === 2 && (
               <div className="space-y-4">
 
-                {/* ── Método de pago ─────────────────────────────────────── */}
+                {/* Método de pago */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
                   <p className="text-xs font-black uppercase tracking-wider text-slate-400">
                     Método de pago
                   </p>
-
                   <div className="flex flex-col gap-2.5">
-
-                      {/* Opción: pago en línea (oculta si la tienda no tiene Wompi) */}
-                      {onlinePayAvailable && (
-                        <button
-                          onClick={() => setPaymentMethod("online")}
-                          className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left
-                            ${isOnline
-                              ? "border-slate-900 bg-slate-900"
-                              : "border-slate-200 bg-white hover:border-slate-300"
-                            }`}
-                        >
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
-                            ${isOnline ? "bg-white/15" : "bg-[#FF3366]/10"}`}>
-                            <CreditCard size={18} className={isOnline ? "text-white" : "text-[#FF3366]"} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`font-black text-sm ${isOnline ? "text-white" : "text-slate-900"}`}>
-                              Pagar en línea
-                            </p>
-                            <p className={`text-xs mt-0.5 ${isOnline ? "text-white/60" : "text-slate-400"}`}>
-                              Tarjeta débito · crédito · PSE — vía Wompi
-                            </p>
-                          </div>
-                          {isOnline && <Check size={18} className="text-white flex-shrink-0" />}
-                        </button>
-                      )}
-
-                      {/* Opción: transferencia bancaria (siempre disponible) */}
+                    {onlinePayAvailable && (
                       <button
-                        onClick={() => setPaymentMethod("transfer")}
+                        onClick={() => setPaymentMethod("online")}
                         className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left
-                          ${!isOnline
+                          ${isOnline
                             ? "border-slate-900 bg-slate-900"
                             : "border-slate-200 bg-white hover:border-slate-300"
                           }`}
                       >
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
-                          ${!isOnline ? "bg-white/15" : "bg-emerald-50"}`}>
-                          <Landmark size={18} className={!isOnline ? "text-white" : "text-emerald-600"} />
+                          ${isOnline ? "bg-white/15" : "bg-[#FF3366]/10"}`}>
+                          <CreditCard size={18} className={isOnline ? "text-white" : "text-[#FF3366]"} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`font-black text-sm ${!isOnline ? "text-white" : "text-slate-900"}`}>
-                            Transferencia bancaria
+                          <p className={`font-black text-sm ${isOnline ? "text-white" : "text-slate-900"}`}>
+                            Pagar en línea
                           </p>
-                          <p className={`text-xs mt-0.5 ${!isOnline ? "text-white/60" : "text-slate-400"}`}>
-                            Bancolombia · Nequi · sin comisiones
+                          <p className={`text-xs mt-0.5 ${isOnline ? "text-white/60" : "text-slate-400"}`}>
+                            Tarjeta débito · crédito · PSE — vía Wompi
                           </p>
                         </div>
-                        {!isOnline && <Check size={18} className="text-white flex-shrink-0" />}
+                        {isOnline && <Check size={18} className="text-white flex-shrink-0" />}
                       </button>
-                    </div>
+                    )}
+
+                    <button
+                      onClick={() => setPaymentMethod("transfer")}
+                      className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left
+                        ${!isOnline
+                          ? "border-slate-900 bg-slate-900"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                        }`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
+                        ${!isOnline ? "bg-white/15" : "bg-emerald-50"}`}>
+                        <Landmark size={18} className={!isOnline ? "text-white" : "text-emerald-600"} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-black text-sm ${!isOnline ? "text-white" : "text-slate-900"}`}>
+                          Transferencia bancaria
+                        </p>
+                        <p className={`text-xs mt-0.5 ${!isOnline ? "text-white/60" : "text-slate-400"}`}>
+                          Bancolombia · Nequi · sin comisiones
+                        </p>
+                      </div>
+                      {!isOnline && <Check size={18} className="text-white flex-shrink-0" />}
+                    </button>
+                  </div>
                 </div>
 
-                {/* ── Resumen de envío ───────────────────────────────────── */}
+                {/* Resumen de envío */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                   <div className="flex items-start gap-3">
                     <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
@@ -433,7 +555,7 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* ── Info según método ─────────────────────────────────── */}
+                {/* Info según método */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                   <div className="flex items-start gap-3">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0
@@ -445,7 +567,7 @@ export default function CheckoutPage() {
                     </div>
                     <p className="text-sm text-slate-600 font-medium leading-relaxed">
                       {isOnline
-                        ? <>Al confirmar serás redirigido al portal de pago seguro de{" "}
+                        ? <>Al confirmar serás redirigido al portal seguro de{" "}
                             <strong className="text-slate-900">Wompi</strong> para pagar con
                             tarjeta débito, crédito o PSE.</>
                         : <>Crearemos tu pedido y recibirás los datos bancarios para
@@ -456,10 +578,21 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                {/* Error de submit */}
                 {errors.submit && (
-                  <div className="flex items-center gap-3 p-4 bg-red-50 rounded-2xl border border-red-200">
-                    <AlertCircle size={16} className="text-red-500 shrink-0" />
-                    <p className="text-sm text-red-600 font-medium">{errors.submit}</p>
+                  <div className="flex items-start gap-3 p-4 bg-red-50 rounded-2xl border border-red-200">
+                    <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm text-red-600 font-medium">{errors.submit}</p>
+                      {(errors.is409 || errors.reservaExpirada) && (
+                        <button
+                          onClick={() => navigate("/carrito")}
+                          className="mt-1.5 text-xs font-bold text-red-500 underline"
+                        >
+                          Volver al carrito
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -495,8 +628,8 @@ export default function CheckoutPage() {
             )}
           </div>
 
-          {/* ── Sidebar resumen del pedido ───────────────────────────────── */}
-          <div className="lg:sticky lg:top-24 h-fit">
+          {/* ── Sidebar resumen del pedido ─────────────────────────────── */}
+          <div className="lg:sticky lg:top-28 h-fit">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">
                 Tu pedido · {count} {count === 1 ? "producto" : "productos"}
