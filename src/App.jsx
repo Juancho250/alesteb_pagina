@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider }      from "./context/AuthContext";
 import { CartProvider }      from "./context/CartContext";
 import { FavoritesProvider } from "./context/FavoritesContext";
+import { DiscountsProvider }  from "./context/DiscountsContext"; // ← nuevo provider de descuentos
 import { usePageTracking }   from "./hooks/usePageTracking";  // ← hook de tracking
 
 import Home             from "./pages/Home";
@@ -58,14 +59,15 @@ function AppContent() {
   );
 }
 
-// ─── Root ─────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <FavoritesProvider>
           <CartProvider>
-            <AppContent />   {/* ← todo adentro del Router */}
+            <DiscountsProvider>      {/* ← añadir aquí */}
+              <AppContent />
+            </DiscountsProvider>     {/* ← cerrar aquí */}
           </CartProvider>
         </FavoritesProvider>
       </AuthProvider>

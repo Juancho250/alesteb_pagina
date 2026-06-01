@@ -4,6 +4,7 @@ import { useParams, Link } from "react-router-dom";
 import api from "../services/api";
 import { extractPagination, extractProducts } from "../utils/apiResponse";
 import { useCart } from "../context/CartContext";
+import { useDiscounts } from "../context/DiscountsContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReactLenis } from "lenis/react";
 import {
@@ -286,6 +287,7 @@ function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
 export default function Products() {
   const { slug }             = useParams();
   const { cart, toggleCart } = useCart();
+  const { applyDiscount } = useDiscounts();
 
   const [products,   setProducts]   = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -313,7 +315,7 @@ export default function Products() {
       // Render inmediato desde cache
       const items = extractProducts(cached);
       const pag   = extractPagination(cached);
-      setProducts(items);
+      setProducts(items.map(applyDiscount));
       setPagination(pag);
       if (slug && items[0]?.category_name) setCatName(items[0].category_name);
       setLoading(false);
@@ -333,7 +335,7 @@ export default function Products() {
         cacheSet(cacheKey, data);
         const items = extractProducts(data);
         const pag   = extractPagination(data);
-        setProducts(items);
+        setProducts(items.map(applyDiscount));   // ← agregar .map(applyDiscount)
         setPagination(pag);
         if (slug && items[0]?.category_name) setCatName(items[0].category_name);
       })
@@ -346,7 +348,7 @@ export default function Products() {
       });
 
     return () => { active = false; };
-  }, [slug, debSearch, page]);
+  }, [slug, debSearch, page, applyDiscount]);   // ← agregar applyDiscount
 
   // Prefetch de la página siguiente en background
   usePrefetchNextPage({ slug, debSearch, page, totalPages: pagination.totalPages });
