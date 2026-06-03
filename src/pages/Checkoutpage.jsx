@@ -55,16 +55,37 @@ export default function CheckoutPage() {
   });
 
   // ── Inventory reservation (created on mount; released on unmount) ──────────
-  // Must be called unconditionally before any early returns.
   const reserv = useInventoryReservation(cart);
 
-  const { total, count } = useMemo(() => {
-    let t = 0, c = 0;
+  // ── Cálculo de totales ─────────────────────────────────────────────────────
+  // ✅ FIX: calculamos subtotal_original (precio sin descuento) y
+  // subtotal_con_descuento (precio con final_price aplicado) por separado.
+  // El discount_amount = diferencia entre ambos se manda al backend
+  // para que sales.total en DB refleje el precio real que debe cobrar Wompi.
+  const { total, count, subtotalOriginal, discountAmount } = useMemo(() => {
+    let totalConDescuento   = 0; // suma de final_price × qty
+    let totalSinDescuento   = 0; // suma de sale_price × qty
+    let c = 0;
+
     cart.forEach(i => {
-      t += getItemPrice(i) * (i.quantity || 1);
-      c += i.quantity || 1;
+      const qty          = i.quantity || 1;
+      // Precio efectivo con descuento (lo que el usuario ve y paga)
+      const precioFinal  = getItemPrice(i);
+      // Precio original sin descuento (sale_price o variantPrice original)
+      const precioBase   = Number(i.variantPrice ?? i.sale_price ?? i.price ?? precioFinal);
+
+      totalConDescuento += precioFinal  * qty;
+      totalSinDescuento += precioBase   * qty;
+      c += qty;
     });
-    return { total: t, count: c };
+
+    return {
+      total:           totalConDescuento,
+      count:           c,
+      subtotalOriginal: totalSinDescuento,
+      // El descuento es la diferencia; nunca negativo
+      discountAmount:  Math.max(0, Math.round(totalSinDescuento - totalConDescuento)),
+    };
   }, [cart]);
 
   const handleChange = (e) => {
@@ -85,17 +106,29 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     setErrors({});
     try {
-      // 1. Crear la venta — incluye reservationId si existe
+      // ✅ FIX: Mandamos al backend:
+      //   - items con unit_price = precio CON descuento (getItemPrice)
+      //   - discount_amount = diferencia total entre precio base y precio final
+      //   - subtotal calculado desde precios sin descuento (para que el backend
+      //     pueda validar: subtotal - discount_amount = total correcto)
+      //
+      // Esto garantiza que sales.total en DB = precio que realmente cobra Wompi.
       const { data: saleResp } = await api.post("/sales", {
         customer_id:      user.id,
         reservation_id:   reserv.reservationId ?? undefined,
         items: cart.map(i => ({
           product_id: i.id,
           quantity:   i.quantity || 1,
+          // unit_price = precio con descuento aplicado
           unit_price: getItemPrice(i),
           ...(i.variantId && { variant_id: i.variantId }),
         })),
+        // ✅ NUEVO: mandamos el descuento total para que el backend
+        // lo reste del subtotal y genere el total correcto en DB.
+        // El backend validará y usará este valor.
+        discount_amount: discountAmount,
         payment_method:   paymentMethod === "online" ? "credit" : "transfer",
+        sale_type:        "web",
         shipping_address: form.shipping_address,
         shipping_city:    form.shipping_city,
         shipping_notes:   form.shipping_notes,
@@ -106,12 +139,11 @@ export default function CheckoutPage() {
       const saleId     = saleResp.data?.sale_id ?? saleResp.data?.id;
       const saleNumber = saleResp.data?.sale_number ?? saleResp.data?.code ?? String(saleId);
 
-      // Marcar la reserva como consumida ANTES del redirect para que el
-      // cleanup de unmount no llame DELETE /reservations/:id innecesariamente.
       reserv.markPaid();
 
       if (paymentMethod === "online") {
-        // 2a. Obtener parámetros de Wompi desde el backend
+        // Obtener parámetros de Wompi desde el backend
+        // El backend lee sales.total desde DB — que ahora es el precio correcto
         const { data: sessResp } = await api.get(`/wompi/session/${saleId}`);
         if (!sessResp.success) throw new Error(sessResp.message || "No se pudo iniciar el pago");
 
@@ -130,7 +162,7 @@ export default function CheckoutPage() {
           `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${p.signature}`;
 
       } else {
-        // 2b. Transferencia bancaria
+        // Transferencia bancaria
         clearCart();
         navigate("/order-success", {
           replace: true,
@@ -151,7 +183,6 @@ export default function CheckoutPage() {
         ?? "Error al procesar tu pedido. Intenta de nuevo.";
 
       if (status === 409) {
-        // Stock insuficiente al crear la venta
         setErrors({
           submit: "Uno o más productos ya no tienen stock suficiente. Vuelve al carrito y ajusta las cantidades.",
           is409: true,
@@ -290,7 +321,7 @@ export default function CheckoutPage() {
 
   const isOnline = paymentMethod === "online";
   const showCountdown = reserv.reservationId && reserv.secondsLeft !== null;
-  const countdownUrgent = showCountdown && reserv.secondsLeft <= 120; // < 2 min = urgente
+  const countdownUrgent = showCountdown && reserv.secondsLeft <= 120;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
@@ -683,8 +714,15 @@ export default function CheckoutPage() {
               <div className="border-t border-slate-100 pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400 font-medium">Subtotal</span>
-                  <span className="font-bold text-slate-900">${total.toLocaleString()}</span>
+                  <span className="font-bold text-slate-900">${subtotalOriginal.toLocaleString()}</span>
                 </div>
+                {/* ✅ Mostrar descuento si existe */}
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-emerald-600 font-medium">Descuento</span>
+                    <span className="font-bold text-emerald-600">−${discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400 font-medium">Envío</span>
                   <span className="font-bold text-slate-500">A coordinar</span>

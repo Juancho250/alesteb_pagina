@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 // ⚠️ Usa el cliente público (API Key), NO el api.js de admin (JWT)
@@ -19,14 +20,26 @@ export function DiscountsProvider({ children }) {
       .catch(() => setDiscounts([]));
   }, []);
 
-  const applyDiscount = useCallback((product) => {
-    const price = Number(product.sale_price || product.price) || 0;
+  // ✅ FIX: applyDiscount acepta un segundo argumento `basePrice` opcional.
+  // Esto permite que ProductDetail pase el precio de una variante específica
+  // para calcular su descuento, sin depender de product.sale_price del padre.
+  const applyDiscount = useCallback((product, overrideBasePrice = null) => {
+    const price = overrideBasePrice !== null
+      ? Number(overrideBasePrice)
+      : Number(product.sale_price || product.price) || 0;
+
     if (!price || !discounts.length) return product;
 
     // Si el backend ya calculó final_price (viene del LATERAL JOIN en products.controller),
-    // confiar en ese valor directamente — es más preciso que recalcular aquí.
-    if (product.final_price && Number(product.final_price) < price) {
-      return product; // ya viene resuelto desde el servidor
+    // y viene del listing (tiene discount_type), confiar en ese valor directamente.
+    // En el detalle, final_price puede ser igual a sale_price (sin descuento del servidor),
+    // así que siempre recalculamos para garantizar coherencia con el contexto local.
+    const serverHasDiscount = product.discount_type && product.final_price &&
+      Number(product.final_price) < price;
+
+    if (serverHasDiscount && overrideBasePrice === null) {
+      // El backend ya aplicó el descuento correcto en el listing — no recalcular
+      return product;
     }
 
     const productId  = String(product.id);
@@ -37,15 +50,14 @@ export function DiscountsProvider({ children }) {
     let bestPrice    = price;
 
     for (const d of discounts) {
-      // La API pública ya filtra active=true, fechas vigentes y scope web/all,
-      // pero si el cache está desactualizado verificamos fechas aquí también
+      // Verificar vigencia (la API pública ya filtra, pero por si el cache está desactualizado)
       const now   = Date.now();
       const start = d.starts_at ? new Date(d.starts_at).getTime() : 0;
       const end   = d.ends_at   ? new Date(d.ends_at).getTime()   : Infinity;
       if (now < start || now > end) continue;
 
-      // Verificar scope: solo 'web' o 'all' aplican en la tienda pública
-      if (d.scope && d.scope !== 'web' && d.scope !== 'all') continue;
+      // Solo descuentos de canal web/all aplican en la tienda pública
+      if (d.scope && d.scope !== "web" && d.scope !== "all") continue;
 
       // Verificar si el descuento aplica a este producto
       const targets = Array.isArray(d.targets) ? d.targets : [];
@@ -54,26 +66,24 @@ export function DiscountsProvider({ children }) {
       const isGlobal = targets.length === 0;
 
       // Con targets → verificar si este producto o su categoría están incluidos
-      const appliesToProduct  = targets.some(t => t.target_type === 'product'  && String(t.target_id) === productId);
-      const appliesToCategory = targets.some(t => t.target_type === 'category' && String(t.target_id) === categoryId && categoryId);
+      const appliesToProduct  = targets.some(t => t.target_type === "product"  && String(t.target_id) === productId);
+      const appliesToCategory = targets.some(t => t.target_type === "category" && String(t.target_id) === categoryId && categoryId);
 
       if (!isGlobal && !appliesToProduct && !appliesToCategory) continue;
 
+      // No aplicar si hay un mínimo de compra (en el listado/detalle no conocemos el total del carrito)
+      const min = Number(d.min_purchase_amount) || 0;
+      if (min > 0) continue;
+
       // Calcular precio final con este descuento
       let finalPrice = price;
-      if (d.type === 'percentage') {
+      if (d.type === "percentage") {
         const cut    = (price * Number(d.value)) / 100;
         const maxCut = d.max_discount_amount ? Number(d.max_discount_amount) : Infinity;
         finalPrice   = price - Math.min(cut, maxCut);
       } else {
         finalPrice = Math.max(0, price - Number(d.value));
       }
-
-      // No aplicar si no se supera el mínimo de compra
-      // (En el listado no conocemos el total del carrito, así que solo
-      //  aplicamos si min_purchase_amount es 0 o nulo)
-      const min = Number(d.min_purchase_amount) || 0;
-      if (min > 0) continue;
 
       // Quedarse con el descuento más beneficioso
       if (finalPrice < bestPrice) {

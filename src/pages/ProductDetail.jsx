@@ -4,13 +4,14 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, Check, ShoppingBag, Package,
   ShieldCheck, Tag, Plus, Minus, Info, Loader2, ChevronRight, Heart,
-  ZoomIn, X,
+  ZoomIn, X, AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useCart } from "../context/CartContext";
 import { useFavorites } from "../context/FavoritesContext";
 import { useAvailability } from "../hooks/useAvailability";
+import { useDiscounts } from "../context/DiscountsContext";
 import ProductReviewsSection from "../components/reviews/ProductReviewsSection";
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
@@ -171,6 +172,8 @@ export default function ProductDetail() {
   const { id }                         = useParams();
   const { cart, toggleCart }           = useCart();
   const { toggleFavorite, isFavorite } = useFavorites();
+  // ✅ FIX: importamos applyDiscount para aplicarlo al producto del detalle
+  const { applyDiscount }              = useDiscounts();
 
   const [product,      setProduct]      = useState(null);
   const [loading,      setLoading]      = useState(true);
@@ -193,8 +196,11 @@ export default function ProductDetail() {
 
     const cached = cacheGet(id);
     if (cached) {
-      setProduct(cached);
-      autoSelectSingleVariant(cached);
+      // ✅ FIX: Re-aplicar descuentos al leer de cache por si el contexto
+      // cambió (ej. descuento expiró o se activó uno nuevo)
+      const withDiscount = applyDiscount(cached);
+      setProduct(withDiscount);
+      autoSelectSingleVariant(withDiscount);
       setLoading(false);
       return;
     }
@@ -207,18 +213,29 @@ export default function ProductDetail() {
         const resolved = raw ? {
           ...raw,
           sale_price:    raw.sale_price    ?? raw.price,
+          // Conservamos el final_price del backend (LATERAL JOIN) si existe,
+          // si no, usamos sale_price como base para que applyDiscount lo calcule.
           final_price:   raw.final_price   ?? raw.sale_price ?? raw.price,
           category_name: raw.category_name ?? raw.category,
         } : null;
-        cacheSet(id, resolved || null);
-        setProduct(resolved || null);
-        autoSelectSingleVariant(resolved);
+
+        // ✅ FIX: aplicar descuentos del DiscountsContext sobre el producto
+        // del detalle, igual que se hace en el listing con .map(applyDiscount).
+        // Esto garantiza que final_price en el carrito sea el precio con descuento.
+        const withDiscount = resolved ? applyDiscount(resolved) : null;
+
+        // Guardamos en cache el producto YA con descuento aplicado
+        cacheSet(id, withDiscount || null);
+        setProduct(withDiscount || null);
+        autoSelectSingleVariant(withDiscount);
       })
       .catch(() => { if (alive) setProduct(null); })
       .finally(() => { if (alive) setLoading(false); });
 
     return () => { alive = false; };
-  }, [id]);
+  // ✅ FIX: applyDiscount como dependencia para que el efecto re-corra
+  // si los descuentos se cargan después del montaje del componente
+  }, [id, applyDiscount]);
 
   function autoSelectSingleVariant(resolved) {
     const variants = resolved?.variants || [];
@@ -341,9 +358,7 @@ export default function ProductDetail() {
   // Imagen activa
   const activeImg = images.includes(selectedImg) ? selectedImg : (images[0] || "");
 
-  // ── CORRECCIÓN: Preload sin memory leak ────────────────────────────────────
-  // Se usa new Image() en lugar de <link rel="preload"> para evitar que se
-  // acumulen tags en el <head> con cada cambio de selección de color.
+  // ── Preload sin memory leak ────────────────────────────────────────────────
   useEffect(() => {
     images.slice(0, 5).forEach(url => {
       const img = new Image();
@@ -360,15 +375,23 @@ export default function ProductDetail() {
 
   // ── Precios ────────────────────────────────────────────────────────────────
   const { priceOriginal, priceFinal, hasDiscount, stock, priceRange } = useMemo(() => {
+    // ✅ FIX: product.final_price ya viene de applyDiscount(), así que
+    // siempre refleja el precio con descuento correcto para productos simples.
     const basePrice = Number(product?.sale_price) || 0;
     const finalBase = Number(product?.final_price) || basePrice;
 
     if (selectedVariant) {
       const vPrice = Number(selectedVariant.sale_price) || basePrice;
+      // Para variantes: mostramos el precio de la variante.
+      // Si el producto padre tiene descuento y la variante no tiene precio propio,
+      // usamos finalBase (con descuento) como precio de la variante.
+      const effectiveVariantPrice = selectedVariant.sale_price != null
+        ? vPrice
+        : finalBase;
       return {
         priceOriginal: basePrice,
-        priceFinal:    vPrice,
-        hasDiscount:   vPrice < basePrice,
+        priceFinal:    effectiveVariantPrice,
+        hasDiscount:   effectiveVariantPrice < basePrice,
         stock:         Number(selectedVariant.stock) || 0,
         priceRange:    null,
       };
@@ -390,9 +413,7 @@ export default function ProductDetail() {
   }, [selectedVariant, hasVariants, variants, product]);
 
   // ── Disponibilidad en tiempo real ─────────────────────────────────────────
-  // Re-consulta automáticamente cuando cambia selectedVariant.
   const avail = useAvailability(product?.id ?? null, selectedVariant?.id ?? null);
-  // Mientras carga, usa el stock del API de listado como valor provisional.
   const effectiveAvailable = avail.available ?? stock;
 
   // ── Cart ───────────────────────────────────────────────────────────────────
@@ -408,7 +429,6 @@ export default function ProductDetail() {
     if (!product) return;
     setStockError(null);
 
-    // Validate against live availability before adding
     if (avail.available !== null && quantity > avail.available) {
       const n = avail.available;
       setStockError(
@@ -419,15 +439,27 @@ export default function ProductDetail() {
       return;
     }
 
+    // ✅ FIX: construimos el payload asegurando que final_price siempre
+    // contenga el precio con descuento para que getItemPrice() lo use correctamente.
+    //
+    // Para productos simples: product.final_price ya viene de applyDiscount().
+    // Para variantes: usamos el precio de la variante (variantPrice).
+    //   - getItemPrice() usa variantPrice primero, así el precio de variante
+    //     tiene prioridad sobre final_price del producto padre.
+    //   - Si la variante no tiene sale_price propio, cae en product.final_price.
     const payload = {
       ...product,
       cartKey,
       ...(selectedVariant && {
         variantId:    selectedVariant.id,
         variantSku:   selectedVariant.sku,
-        final_price:  selectedVariant.sale_price || product.final_price || product.sale_price,
+        // ✅ variantPrice = precio real de esta SKU específica
+        variantPrice: selectedVariant.sale_price != null
+          ? Number(selectedVariant.sale_price)
+          : Number(product.final_price) || Number(product.sale_price),
         stock:        selectedVariant.stock,
         variantLabel: (selectedVariant.attributes || []).map(a => a.display_value).join(" / "),
+        variantAttributes: selectedVariant.attributes || [],
       }),
     };
     toggleCart(payload, quantity);
@@ -846,9 +878,9 @@ export default function ProductDetail() {
             <motion.div variants={fadeUp} className="h-px bg-slate-50" />
 
             <motion.div variants={fadeUp} className="grid grid-cols-3 gap-2">
-              <Badge icon={<Package   size={14} />} text="Envío"     />
+              <Badge icon={<Package    size={14} />} text="Envío"     />
               <Badge icon={<ShieldCheck size={14} />} text="Garantía" />
-              <Badge icon={<Tag       size={14} />} text="Original"  />
+              <Badge icon={<Tag        size={14} />} text="Original"  />
             </motion.div>
           </motion.div>
         </div>
