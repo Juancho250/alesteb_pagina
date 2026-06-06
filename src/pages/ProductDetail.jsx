@@ -439,27 +439,38 @@ export default function ProductDetail() {
       return;
     }
 
-    // ✅ FIX: construimos el payload asegurando que final_price siempre
-    // contenga el precio con descuento para que getItemPrice() lo use correctamente.
-    //
-    // Para productos simples: product.final_price ya viene de applyDiscount().
-    // Para variantes: usamos el precio de la variante (variantPrice).
-    //   - getItemPrice() usa variantPrice primero, así el precio de variante
-    //     tiene prioridad sobre final_price del producto padre.
-    //   - Si la variante no tiene sale_price propio, cae en product.final_price.
+    // Para variantes: calculamos precio original y precio con descuento por separado.
+    // variantOriginalPrice → base para calcular discountAmount en checkout.
+    // variantPrice         → precio efectivo que paga el cliente (con descuento si aplica).
+    let variantOriginalPrice;
+    let variantFinalPrice;
+    if (selectedVariant) {
+      variantOriginalPrice = selectedVariant.sale_price != null
+        ? Number(selectedVariant.sale_price)
+        : Number(product.sale_price) || 0;
+
+      variantFinalPrice = variantOriginalPrice;
+      if (product.discount_info && variantOriginalPrice > 0) {
+        const d   = product.discount_info;
+        const cut = d.type === "percentage"
+          ? (variantOriginalPrice * Number(d.value)) / 100
+          : Number(d.value);
+        const maxCut = d.max_discount_amount ? Number(d.max_discount_amount) : Infinity;
+        variantFinalPrice = Math.max(0, Math.round(variantOriginalPrice - Math.min(cut, maxCut)));
+      }
+    }
+
     const payload = {
       ...product,
       cartKey,
       ...(selectedVariant && {
-        variantId:    selectedVariant.id,
-        variantSku:   selectedVariant.sku,
-        // ✅ variantPrice = precio real de esta SKU específica
-        variantPrice: selectedVariant.sale_price != null
-          ? Number(selectedVariant.sale_price)
-          : Number(product.final_price) || Number(product.sale_price),
-        stock:        selectedVariant.stock,
-        variantLabel: (selectedVariant.attributes || []).map(a => a.display_value).join(" / "),
-        variantAttributes: selectedVariant.attributes || [],
+        variantId:            selectedVariant.id,
+        variantSku:           selectedVariant.sku,
+        variantPrice:         variantFinalPrice,
+        variantOriginalPrice: variantOriginalPrice,
+        stock:                selectedVariant.stock,
+        variantLabel:         (selectedVariant.attributes || []).map(a => a.display_value).join(" / "),
+        variantAttributes:    selectedVariant.attributes || [],
       }),
     };
     toggleCart(payload, quantity);

@@ -58,34 +58,40 @@ export default function CheckoutPage() {
   const reserv = useInventoryReservation(cart);
 
   // ── Cálculo de totales ─────────────────────────────────────────────────────
-  // ✅ FIX: calculamos subtotal_original (precio sin descuento) y
-  // subtotal_con_descuento (precio con final_price aplicado) por separado.
-  // El discount_amount = diferencia entre ambos se manda al backend
-  // para que sales.total en DB refleje el precio real que debe cobrar Wompi.
   const { total, count, subtotalOriginal, discountAmount } = useMemo(() => {
-    let totalConDescuento   = 0; // suma de final_price × qty
-    let totalSinDescuento   = 0; // suma de sale_price × qty
+    let totalConDescuento = 0;
+    let totalSinDescuento = 0;
     let c = 0;
 
     cart.forEach(i => {
-      const qty          = i.quantity || 1;
-      // Precio efectivo con descuento (lo que el usuario ve y paga)
-      const precioFinal  = getItemPrice(i);
-      // Precio original sin descuento (sale_price o variantPrice original)
-      const precioBase   = Number(i.variantPrice ?? i.sale_price ?? i.price ?? precioFinal);
+      const qty = i.quantity || 1;
+      // precioFinal: precio con descuento (variantPrice ya es el precio descontado si hay discount_info)
+      const precioFinal = getItemPrice(i);
+      // precioBase: precio original sin descuento
+      // variantOriginalPrice se almacena en ProductDetail cuando hay variante + descuento
+      const precioBase = Number(
+        i.variantOriginalPrice ?? i.variantPrice ?? i.sale_price ?? i.price ?? precioFinal
+      );
 
-      totalConDescuento += precioFinal  * qty;
-      totalSinDescuento += precioBase   * qty;
+      totalConDescuento += precioFinal * qty;
+      totalSinDescuento += precioBase  * qty;
       c += qty;
     });
 
     return {
-      total:           totalConDescuento,
-      count:           c,
+      total:            totalConDescuento,
+      count:            c,
       subtotalOriginal: totalSinDescuento,
-      // El descuento es la diferencia; nunca negativo
-      discountAmount:  Math.max(0, Math.round(totalSinDescuento - totalConDescuento)),
+      discountAmount:   Math.max(0, Math.round(totalSinDescuento - totalConDescuento)),
     };
+  }, [cart]);
+
+  // discount_id del primer ítem que tenga descuento aplicado (discount_info viene de DiscountsContext)
+  const appliedDiscountId = useMemo(() => {
+    for (const item of cart) {
+      if (item.discount_info?.id) return item.discount_info.id;
+    }
+    return undefined;
   }, [cart]);
 
   const handleChange = (e) => {
@@ -106,27 +112,17 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     setErrors({});
     try {
-      // ✅ FIX: Mandamos al backend:
-      //   - items con unit_price = precio CON descuento (getItemPrice)
-      //   - discount_amount = diferencia total entre precio base y precio final
-      //   - subtotal calculado desde precios sin descuento (para que el backend
-      //     pueda validar: subtotal - discount_amount = total correcto)
-      //
-      // Esto garantiza que sales.total en DB = precio que realmente cobra Wompi.
       const { data: saleResp } = await api.post("/sales", {
         customer_id:      user.id,
         reservation_id:   reserv.reservationId ?? undefined,
         items: cart.map(i => ({
           product_id: i.id,
           quantity:   i.quantity || 1,
-          // unit_price = precio con descuento aplicado
           unit_price: getItemPrice(i),
           ...(i.variantId && { variant_id: i.variantId }),
         })),
-        // ✅ NUEVO: mandamos el descuento total para que el backend
-        // lo reste del subtotal y genere el total correcto en DB.
-        // El backend validará y usará este valor.
-        discount_amount: discountAmount,
+        discount_id:      appliedDiscountId  || undefined,
+        discount_amount:  discountAmount     || undefined,
         payment_method:   paymentMethod === "online" ? "credit" : "transfer",
         sale_type:        "web",
         shipping_address: form.shipping_address,
