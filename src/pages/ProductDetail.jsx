@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, Check, ShoppingBag, Package,
   ShieldCheck, Tag, Plus, Minus, Info, Loader2, ChevronRight, Heart,
-  ZoomIn, X, AlertCircle,
+  ZoomIn, X, AlertCircle, Truck, Clock, AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
@@ -423,7 +423,9 @@ export default function ProductDetail() {
 
   const isInCart        = cart.some(item => item.cartKey === cartKey);
   const isFullySelected = !hasVariants || Object.keys(selections).length === attributeTypes.length;
-  const canAdd          = isFullySelected && effectiveAvailable > 0;
+  const isOnDemand      = product?.fulfillment_mode === "on_demand";
+  const isHybrid        = product?.fulfillment_mode === "hybrid";
+  const canAdd          = isFullySelected && (effectiveAvailable > 0 || isOnDemand);
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
@@ -799,6 +801,44 @@ export default function ProductDetail() {
               </motion.div>
             )}
 
+            {/* Fulfillment notice */}
+            {(isOnDemand || isHybrid) && (
+              <motion.div variants={fadeUp} className="space-y-2">
+                <div className={`flex items-start gap-3 px-4 py-3.5 rounded-2xl border ${
+                  isOnDemand
+                    ? "bg-purple-50 border-purple-200"
+                    : "bg-blue-50 border-blue-200"
+                }`}>
+                  <Truck size={16} className={`flex-shrink-0 mt-0.5 ${isOnDemand ? "text-purple-600" : "text-blue-600"}`} />
+                  <div className="space-y-0.5">
+                    <p className={`text-xs font-black uppercase tracking-wider ${isOnDemand ? "text-purple-700" : "text-blue-700"}`}>
+                      {isOnDemand ? "Producto bajo pedido" : "Disponible en stock o bajo pedido"}
+                    </p>
+                    {product.supplier_lead_time_days && (
+                      <p className={`text-[11px] font-medium flex items-center gap-1 ${isOnDemand ? "text-purple-600" : "text-blue-600"}`}>
+                        <Clock size={10} />
+                        Tiempo de entrega estimado: <strong>{product.supplier_lead_time_days} días hábiles</strong>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {product.requires_advance_payment && (
+                  <div className="flex items-start gap-3 px-4 py-3.5 rounded-2xl bg-amber-50 border border-amber-200">
+                    <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-amber-700">
+                        Requiere anticipo
+                      </p>
+                      <p className="text-[11px] text-amber-600 mt-0.5">
+                        Este producto requiere un pago anticipado al proveedor antes de ser procesado.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
             <motion.div variants={fadeUp} className="flex flex-col gap-3">
               <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-2 border border-slate-100">
                 <span className="pl-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
@@ -854,7 +894,7 @@ export default function ProductDetail() {
                       initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                       className="flex items-center gap-2.5">
                       <ShoppingBag size={16} />
-                      {!isFullySelected && hasVariants ? "ELIGE UNA OPCIÓN" : "SIN STOCK"}
+                      {!isFullySelected && hasVariants ? "ELIGE UNA OPCIÓN" : isOnDemand ? "BAJO PEDIDO" : "SIN STOCK"}
                     </motion.span>
                   ) : (
                     <motion.span key="add"

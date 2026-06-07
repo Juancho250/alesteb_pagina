@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
   CheckCircle, XCircle, Copy, Check, MessageCircle,
-  Package, MapPin, Home, ChevronRight, Upload, Loader2, AlertCircle,
+  Package, MapPin, Home, ChevronRight, Upload, Loader2, AlertCircle, Truck, Clock,
 } from "lucide-react";
 import ProofUploader from "../components/ProofUploader";
 import { BANK_INFO } from "./Checkoutpage";
@@ -95,12 +95,14 @@ export default function OrderSuccessPage() {
   }, [wompiReference, state.order_code, navigate]);
 
   // ── Datos unificados para el template ───────────────────────────────────
-  const order_code       = state.order_code  || orderData?.sale_number || wompiReference || "";
-  const sale_id          = state.sale_id     || orderData?.id          || null;
-  const total            = state.total       || orderData?.total       || 0;
-  const payment_method   = state.payment_method || (wompiReference ? "wompi" : "");
-  const shipping_address = state.shipping_address || "";
-  const shipping_city    = state.shipping_city    || "";
+  const order_code           = state.order_code  || orderData?.sale_number || wompiReference || "";
+  const sale_id              = state.sale_id     || orderData?.id          || null;
+  const total                = state.total       || orderData?.total       || 0;
+  const payment_method       = state.payment_method || (wompiReference ? "wompi" : "");
+  const shipping_address     = state.shipping_address || "";
+  const shipping_city        = state.shipping_city    || "";
+  const has_on_demand_items  = state.has_on_demand_items  || orderData?.has_on_demand_items  || false;
+  const estimated_delivery_date = state.estimated_delivery_date || orderData?.estimated_delivery_date || null;
 
   const isWompi    = payment_method === "wompi" || !!wompiReference;
   const isTransfer = payment_method === "transfer";
@@ -276,6 +278,30 @@ export default function OrderSuccessPage() {
                 </p>
                 {shipping_city    && <p className="font-bold text-slate-900">{shipping_city}</p>}
                 {shipping_address && <p className="text-sm text-slate-500">{shipping_address}</p>}
+              </div>
+            </div>
+          )}
+
+          {/* Entrega bajo pedido */}
+          {has_on_demand_items && (
+            <div className="px-6 py-4 border-b border-slate-100">
+              <div className="flex items-start gap-3 bg-purple-50 border border-purple-100 rounded-xl px-4 py-3.5">
+                <Truck size={16} className="text-purple-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-black text-purple-700 uppercase tracking-wider mb-1">
+                    Tu pedido incluye ítems bajo pedido
+                  </p>
+                  <p className="text-[11px] text-purple-600 leading-relaxed">
+                    Algunos productos se adquirirán especialmente para ti. Esto puede tardar algunos
+                    días adicionales.
+                  </p>
+                  {estimated_delivery_date && (
+                    <p className="text-[11px] text-purple-700 font-bold flex items-center gap-1 mt-1.5">
+                      <Clock size={10} />
+                      Entrega estimada: {estimated_delivery_date}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}

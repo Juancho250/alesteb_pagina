@@ -5,10 +5,17 @@ import { useCart, getItemPrice } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import {
   ShoppingBag, ArrowLeft, Trash2, Plus, Minus,
-  ArrowRight, LogIn, AlertCircle,
+  ArrowRight, LogIn, AlertCircle, Truck, Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
+
+function estimatedDeliveryDate(leadDays) {
+  if (!leadDays) return null;
+  const d = new Date();
+  d.setDate(d.getDate() + Number(leadDays));
+  return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 const optimizeUrl = (url, w = 160) => {
   if (!url) return null;
@@ -36,6 +43,12 @@ export default function CartPage() {
 
   const total = cart.reduce((sum, item) => sum + getItemPrice(item) * (item.quantity || 1), 0);
   const count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  const onDemandItems = cart.filter(i => i.fulfillment_mode === "on_demand" || i.fulfillment_mode === "hybrid");
+  const hasOnDemand   = onDemandItems.length > 0;
+  const maxLeadDays   = hasOnDemand
+    ? Math.max(...onDemandItems.map(i => Number(i.supplier_lead_time_days) || 0))
+    : 0;
+  const maxDeliveryDate = maxLeadDays > 0 ? estimatedDeliveryDate(maxLeadDays) : null;
 
   // ── Load live availability for all cart items in parallel ──────────────────
   // Re-runs when the set of cart keys changes (item added / removed).
@@ -88,6 +101,7 @@ export default function CartPage() {
   const handleCheckout = () => {
     // Check for any 0-stock items before proceeding
     const soldOut = cart.filter(item => {
+      if (item.fulfillment_mode === "on_demand") return false;
       const a = availMap[item.cartKey]?.available;
       return a !== null && a !== undefined && a <= 0;
     });
@@ -192,12 +206,15 @@ export default function CartPage() {
                 const price    = getItemPrice(item);
                 const qty      = item.quantity || 1;
                 const subtotal = price * qty;
-                const av       = availMap[item.cartKey];
-                const avail    = av?.available ?? null;
-                const minStock = av?.minStock  ?? null;
-                const isOut    = avail !== null && avail <= 0;
-                const isLow    = avail !== null && avail > 0 && minStock !== null && avail <= minStock;
-                const maxQty   = avail !== null ? avail : Infinity;
+                const av         = availMap[item.cartKey];
+                const avail      = av?.available ?? null;
+                const minStock   = av?.minStock  ?? null;
+                const itemOnDemand = item.fulfillment_mode === "on_demand";
+                const isOut      = !itemOnDemand && avail !== null && avail <= 0;
+                const isLow      = avail !== null && avail > 0 && minStock !== null && avail <= minStock && !itemOnDemand;
+                const maxQty     = itemOnDemand ? Infinity : (avail !== null ? avail : Infinity);
+                const itemDeliveryDate = itemOnDemand && item.supplier_lead_time_days
+                  ? estimatedDeliveryDate(item.supplier_lead_time_days) : null;
 
                 return (
                   <motion.div
@@ -253,6 +270,12 @@ export default function CartPage() {
                           Últimas {avail} unidades
                         </p>
                       )}
+                      {itemOnDemand && (
+                        <p className="text-[10px] font-bold text-purple-600 flex items-center gap-1">
+                          <Truck size={10} /> Bajo pedido
+                          {itemDeliveryDate && <span>· entrega ~{itemDeliveryDate}</span>}
+                        </p>
+                      )}
 
                       {/* Controles cantidad */}
                       <div className="flex items-center gap-0 bg-white border border-slate-200
@@ -270,7 +293,7 @@ export default function CartPage() {
                         </span>
                         <button
                           onClick={() => handleQtyChange(item, qty + 1)}
-                          disabled={avail !== null && qty >= avail}
+                          disabled={!itemOnDemand && avail !== null && qty >= avail}
                           className="p-2 hover:bg-slate-50 disabled:opacity-30 transition-colors"
                         >
                           <Plus size={12} />
@@ -334,6 +357,24 @@ export default function CartPage() {
                 </span>
               </div>
             </div>
+
+            {/* On-demand notice */}
+            {hasOnDemand && (
+              <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-100 rounded-2xl px-4 py-3">
+                <Truck size={14} className="text-purple-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[11px] font-black text-purple-700 uppercase tracking-wider">
+                    Algunos ítems son bajo pedido
+                  </p>
+                  {maxDeliveryDate && (
+                    <p className="text-[11px] text-purple-600 flex items-center gap-1 mt-0.5">
+                      <Clock size={10} />
+                      Entrega estimada más lejana: <strong className="ml-0.5">{maxDeliveryDate}</strong>
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* CTA */}
             <button

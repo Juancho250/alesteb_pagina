@@ -78,8 +78,10 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
   const hasVariants     = Boolean(p.has_variants);
 
   // Disponibilidad desde los campos del listado (sin llamada extra por card)
-  const isOut = p.stock <= 0;
-  const isLow = !isOut && p.stock_status === "low" && !hasVariants;
+  const isOnDemand = p.fulfillment_mode === "on_demand";
+  const isHybrid   = p.fulfillment_mode === "hybrid";
+  const isOut = p.stock <= 0 && !isOnDemand;
+  const isLow = !isOut && p.stock_status === "low" && !hasVariants && !isOnDemand;
 
   // Thumb pequeño para grid. Si el producto no tiene main_image (productos con
   // variantes), usa la imagen del primer swatch de color disponible.
@@ -100,10 +102,25 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
       animate="visible"
       className="group relative flex flex-col"
     >
+      {/* Badge fulfillment_mode */}
+      {!isOut && (
+        <div className={`absolute top-4 left-4 z-20 flex items-center gap-1 backdrop-blur-md
+          px-3 py-1 rounded-2xl text-[10px] font-black shadow-sm border
+          ${isOnDemand
+            ? "bg-purple-600/90 text-white border-purple-500"
+            : isHybrid
+              ? "bg-blue-600/90 text-white border-blue-500"
+              : "bg-emerald-600/90 text-white border-emerald-500"
+          }`}>
+          {isOnDemand ? "Bajo pedido" : isHybrid ? "Disponible / Pedido" : "Entrega inmediata"}
+        </div>
+      )}
+
       {/* Badge descuento */}
       {hasDiscount && (
-        <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-white/90 backdrop-blur-md
-          text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black shadow-sm border border-slate-100">
+        <div className={`absolute z-20 flex items-center gap-1 bg-white/90 backdrop-blur-md
+          text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black shadow-sm border border-slate-100
+          ${!isOut ? "top-11 left-4" : "top-4 left-4"}`}>
           <Percent size={9} className="text-blue-600" strokeWidth={3} />
           {discountPercent}% OFF
         </div>
@@ -111,8 +128,9 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
 
       {/* Badge variantes + Favorito */}
       {hasVariants && (
-        <div className="absolute top-4 right-4 z-20 bg-slate-900/70 backdrop-blur-md
-          text-white px-2.5 py-1 rounded-xl text-[9px] font-black tracking-wider">
+        <div className={`absolute z-20 bg-slate-900/70 backdrop-blur-md
+          text-white px-2.5 py-1 rounded-xl text-[9px] font-black tracking-wider
+          ${(isOnDemand || isHybrid) ? "top-11 right-4" : "top-4 right-4"}`}>
           + opciones
         </div>
       )}
@@ -225,6 +243,12 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
           <span className="inline-flex items-center px-2 py-0.5 bg-amber-50 border border-amber-200
             text-[9px] font-black text-amber-700 rounded-full uppercase tracking-wider">
             Últimas {p.stock}
+          </span>
+        )}
+        {isOnDemand && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 border border-purple-200
+            text-[9px] font-black text-purple-700 rounded-full uppercase tracking-wider">
+            Entrega en {p.supplier_lead_time_days ?? "?"} días
           </span>
         )}
         <ProductReviewSummary productId={p.id} compact />

@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import {
   ChevronLeft, MapPin, Package, Clock,
-  AlertCircle, Loader2, ShoppingBag, Check, CreditCard, Landmark,
+  AlertCircle, Loader2, ShoppingBag, Check, CreditCard, Landmark, Truck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -86,6 +86,17 @@ export default function CheckoutPage() {
     };
   }, [cart]);
 
+  // on_demand delivery summary
+  const onDemandItems   = cart.filter(i => i.fulfillment_mode === "on_demand");
+  const hasOnDemand     = onDemandItems.length > 0;
+  const maxLeadDays     = hasOnDemand
+    ? Math.max(...onDemandItems.map(i => Number(i.supplier_lead_time_days) || 0))
+    : 0;
+  const maxDeliveryDate = maxLeadDays > 0
+    ? new Date(Date.now() + maxLeadDays * 86400000)
+        .toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })
+    : null;
+
   // discount_id del primer ítem que tenga descuento aplicado (discount_info viene de DiscountsContext)
   const appliedDiscountId = useMemo(() => {
     for (const item of cart) {
@@ -163,12 +174,14 @@ export default function CheckoutPage() {
         navigate("/order-success", {
           replace: true,
           state: {
-            order_code:       saleNumber,
-            sale_id:          saleId,
+            order_code:            saleNumber,
+            sale_id:               saleId,
             total,
-            payment_method:   "transfer",
-            shipping_address: form.shipping_address,
-            shipping_city:    form.shipping_city,
+            payment_method:        "transfer",
+            shipping_address:      form.shipping_address,
+            shipping_city:         form.shipping_city,
+            has_on_demand_items:   hasOnDemand,
+            estimated_delivery_date: maxDeliveryDate,
           },
         });
       }
@@ -727,6 +740,21 @@ export default function CheckoutPage() {
                   <span className="text-sm font-black uppercase text-slate-600">Total</span>
                   <span className="text-2xl font-black text-slate-900">${total.toLocaleString()}</span>
                 </div>
+                {hasOnDemand && (
+                  <div className="flex items-start gap-2 bg-purple-50 border border-purple-100 rounded-xl px-3 py-2.5 mt-2">
+                    <Truck size={12} className="text-purple-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[10px] font-black text-purple-700 uppercase tracking-wider">
+                        Algunos ítems bajo pedido
+                      </p>
+                      {maxDeliveryDate && (
+                        <p className="text-[10px] text-purple-600 flex items-center gap-1 mt-0.5">
+                          <Clock size={9} /> Entrega estimada: <strong className="ml-0.5">{maxDeliveryDate}</strong>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <p className="text-[11px] text-slate-400 text-center pt-1">
                   {isOnline ? "💳 Tarjeta / PSE vía Wompi" : "🏦 Bancolombia · Nequi"}
                 </p>
