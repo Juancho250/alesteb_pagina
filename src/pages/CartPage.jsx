@@ -3,6 +3,9 @@ import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart, getItemPrice } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+
+const rawBase = import.meta.env.VITE_API_BASE_URL?.trim() ?? "https://alesteb-back-1.onrender.com/api";
+const PUBLIC_API_BASE = rawBase.replace(/\/api\/?$/, "/public-api/v1");
 import {
   ShoppingBag, ArrowLeft, Trash2, Plus, Minus,
   ArrowRight, LogIn, AlertCircle, Truck, Clock,
@@ -60,10 +63,10 @@ export default function CartPage() {
       cart.map(item => {
         const params = new URLSearchParams({ productId: item.id });
         if (item.variantId) params.append("variantId", item.variantId);
-        return api.get(`/inventory/availability?${params}`)
+        return api.get(`${PUBLIC_API_BASE}/inventory/availability?${params}`)
           .then(({ data }) => ({
-            cartKey:  item.cartKey,
-            available: data?.data?.available ?? null,
+            cartKey:   item.cartKey,
+            available: data?.data?.disponible ?? null,
             minStock:  data?.data?.min_stock  ?? null,
           }));
       })
@@ -81,7 +84,8 @@ export default function CartPage() {
     if (newQty <= 0) { removeFromCart(item.cartKey); return; }
 
     const avail = availMap[item.cartKey]?.available;
-    if (avail !== null && avail !== undefined && newQty > avail) {
+    const alwaysSellable = item.fulfillment_mode === "on_demand" || item.fulfillment_mode === "hybrid";
+    if (!alwaysSellable && avail !== null && avail !== undefined && newQty > avail) {
       const n = avail;
       setStockErrors(prev => ({
         ...prev,
@@ -101,7 +105,7 @@ export default function CartPage() {
   const handleCheckout = () => {
     // Check for any 0-stock items before proceeding
     const soldOut = cart.filter(item => {
-      if (item.fulfillment_mode === "on_demand") return false;
+      if (item.fulfillment_mode === "on_demand" || item.fulfillment_mode === "hybrid") return false;
       const a = availMap[item.cartKey]?.available;
       return a !== null && a !== undefined && a <= 0;
     });
@@ -261,17 +265,17 @@ export default function CartPage() {
 
                       {/* Disponibilidad badge */}
                       {isOut && (
-                        <p className="text-[10px] font-black text-red-500 uppercase tracking-wider">
+                        <p className="text-[10px] font-black text-red-500 dark:text-red-400 uppercase tracking-wider">
                           Sin stock · eliminar del carrito
                         </p>
                       )}
                       {isLow && !isOut && (
-                        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">
+                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
                           Últimas {avail} unidades
                         </p>
                       )}
                       {itemOnDemand && (
-                        <p className="text-[10px] font-bold text-purple-600 flex items-center gap-1">
+                        <p className="text-[10px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
                           <Truck size={10} /> Bajo pedido
                           {itemDeliveryDate && <span>· entrega ~{itemDeliveryDate}</span>}
                         </p>

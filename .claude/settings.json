@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\juaz2\\\\Documents\\\\GitHub\" -Directory)",
+      "Bash(dir \"C:\\\\Users\\\\juaz2\\\\Documents\\\\GitHub\\\\alesteb_back\")",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\juaz2\\\\Documents\\\\GitHub\\\\alesteb_front\\\\src\" -Recurse -File | Where-Object { $_.Extension -match '\\\\.\\(jsx|tsx|js|ts\\)$' } | Select-Object -ExpandProperty FullName | Sort-Object)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\juaz2\\\\Documents\\\\GitHub\\\\alesteb_back\" -Recurse -File | Where-Object { $_.Extension -match '\\\\.\\(js|ts|sql\\)$' -and $_.FullName -notmatch 'node_modules' } | Select-Object -ExpandProperty FullName | Sort-Object)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\juaz2\\Documents\\GitHub\\alesteb_back\\controllers"
+    ]
+  }
+}

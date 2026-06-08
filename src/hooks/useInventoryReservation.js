@@ -105,5 +105,5 @@ export function useInventoryReservation(cartItems) {
     };
   }, []);
 
-  return { reservationIds, secondsLeft, expired, reserving, error, is409, markPaid };
+  return { reservationIds, reservationId: reservationIds[0] ?? null, secondsLeft, expired, reserving, error, is409, markPaid };
 }

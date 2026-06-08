@@ -425,7 +425,7 @@ export default function ProductDetail() {
   const isFullySelected = !hasVariants || Object.keys(selections).length === attributeTypes.length;
   const isOnDemand      = product?.fulfillment_mode === "on_demand";
   const isHybrid        = product?.fulfillment_mode === "hybrid";
-  const canAdd          = isFullySelected && (effectiveAvailable > 0 || isOnDemand);
+  const canAdd          = isFullySelected && (effectiveAvailable > 0 || isOnDemand || isHybrid);
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
@@ -740,16 +740,30 @@ export default function ProductDetail() {
                       initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                       className="flex flex-wrap items-center gap-2"
                     >
-                      <span className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
-                        ${effectiveAvailable > 0 ? (avail.isLow ? "text-amber-600" : "text-emerald-600") : "text-red-400"}`}>
-                        <span className={`w-2 h-2 rounded-full ${effectiveAvailable > 0 ? (avail.isLow ? "bg-amber-400 animate-pulse" : "bg-emerald-500 animate-pulse") : "bg-red-400"}`} />
-                        {effectiveAvailable > 0
-                          ? avail.isLow
-                            ? `Últimas ${effectiveAvailable} unidades`
-                            : `${effectiveAvailable} disponibles`
-                          : "Sin stock"
-                        }
-                      </span>
+                      {isOnDemand ? (
+                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-purple-600">
+                          <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                          {product.supplier_lead_time_days
+                            ? `Bajo pedido · llega en ~${product.supplier_lead_time_days} días`
+                            : "Bajo pedido"}
+                        </span>
+                      ) : isHybrid && effectiveAvailable <= 0 ? (
+                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-blue-500">
+                          <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                          Sin stock físico · disponible por pedido
+                        </span>
+                      ) : (
+                        <span className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
+                          ${effectiveAvailable > 0 ? (avail.isLow ? "text-amber-600" : "text-emerald-600") : "text-red-400"}`}>
+                          <span className={`w-2 h-2 rounded-full ${effectiveAvailable > 0 ? (avail.isLow ? "bg-amber-400 animate-pulse" : "bg-emerald-500 animate-pulse") : "bg-red-400"}`} />
+                          {effectiveAvailable > 0
+                            ? avail.isLow
+                              ? `Últimas ${effectiveAvailable} unidades`
+                              : `${effectiveAvailable} disponibles`
+                            : "Sin stock"
+                          }
+                        </span>
+                      )}
                     </motion.div>
                   ) : isFullySelected && !selectedVariant ? (
                     <motion.p key="no-combo"
@@ -762,12 +776,14 @@ export default function ProductDetail() {
                     <motion.div key="partial-stock"
                       initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                       className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider
-                        ${partialStock > 0 ? "text-slate-400" : "text-red-400"}`}
+                        ${isOnDemand || partialStock > 0 ? "text-slate-400" : "text-red-400"}`}
                     >
-                      <div className={`w-2 h-2 rounded-full ${partialStock > 0 ? "bg-slate-300" : "bg-red-400"}`} />
-                      {partialStock > 0
+                      <div className={`w-2 h-2 rounded-full ${isOnDemand || partialStock > 0 ? "bg-slate-300" : "bg-red-400"}`} />
+                      {isOnDemand
                         ? `${partiallySelectedVariants.length} ${partiallySelectedVariants.length === 1 ? "opción disponible" : "opciones disponibles"} · elige la talla`
-                        : "Sin stock en esta opción"
+                        : partialStock > 0
+                          ? `${partiallySelectedVariants.length} ${partiallySelectedVariants.length === 1 ? "opción disponible" : "opciones disponibles"} · elige la talla`
+                          : "Sin stock en esta opción"
                       }
                     </motion.div>
                   ) : null}
@@ -777,16 +793,30 @@ export default function ProductDetail() {
 
             {!hasVariants && (
               <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-2">
-                <span className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
-                  ${effectiveAvailable > 0 ? (avail.isLow ? "text-amber-600" : "text-emerald-600") : "text-red-400"}`}>
-                  <span className={`w-2 h-2 rounded-full ${effectiveAvailable > 0 ? (avail.isLow ? "bg-amber-400 animate-pulse" : "bg-emerald-500 animate-pulse") : "bg-red-400"}`} />
-                  {effectiveAvailable > 0
-                    ? avail.isLow
-                      ? `Últimas ${effectiveAvailable} unidades`
-                      : `${effectiveAvailable} disponibles`
-                    : "Sin stock"
-                  }
-                </span>
+                {isOnDemand ? (
+                  <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-purple-600">
+                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                    {product.supplier_lead_time_days
+                      ? `Bajo pedido · llega en ~${product.supplier_lead_time_days} días`
+                      : "Bajo pedido"}
+                  </span>
+                ) : isHybrid && effectiveAvailable <= 0 ? (
+                  <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-blue-500">
+                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                    Sin stock físico · disponible por pedido
+                  </span>
+                ) : (
+                  <span className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider
+                    ${effectiveAvailable > 0 ? (avail.isLow ? "text-amber-600" : "text-emerald-600") : "text-red-400"}`}>
+                    <span className={`w-2 h-2 rounded-full ${effectiveAvailable > 0 ? (avail.isLow ? "bg-amber-400 animate-pulse" : "bg-emerald-500 animate-pulse") : "bg-red-400"}`} />
+                    {effectiveAvailable > 0
+                      ? avail.isLow
+                        ? `Últimas ${effectiveAvailable} unidades`
+                        : `${effectiveAvailable} disponibles`
+                      : "Sin stock"
+                    }
+                  </span>
+                )}
               </motion.div>
             )}
 
@@ -864,9 +894,10 @@ export default function ProductDetail() {
               </div>
 
               {stockError && (
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 rounded-xl border border-amber-200">
-                  <AlertCircle size={13} className="text-amber-500 flex-shrink-0" />
-                  <p className="text-xs font-bold text-amber-700">{stockError}</p>
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border
+                  bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20">
+                  <AlertCircle size={13} className="text-amber-500 dark:text-amber-400 flex-shrink-0" />
+                  <p className="text-xs font-bold text-amber-700 dark:text-amber-400">{stockError}</p>
                 </div>
               )}
 

@@ -240,8 +240,11 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
           )}
         </div>
         {isLow && (
-          <span className="inline-flex items-center px-2 py-0.5 bg-amber-50 border border-amber-200
-            text-[9px] font-black text-amber-700 rounded-full uppercase tracking-wider">
+          <span className="inline-flex items-center px-2 py-0.5
+            bg-amber-50 dark:bg-amber-500/10
+            border border-amber-200 dark:border-amber-500/20
+            text-[9px] font-black text-amber-700 dark:text-amber-400
+            rounded-full uppercase tracking-wider">
             Últimas {p.stock}
           </span>
         )}

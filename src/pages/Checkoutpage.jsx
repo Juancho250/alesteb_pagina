@@ -125,7 +125,7 @@ export default function CheckoutPage() {
     try {
       const { data: saleResp } = await api.post("/sales", {
         customer_id:      user.id,
-        reservation_id:   reserv.reservationId ?? undefined,
+        reservation_ids:  reserv.reservationIds.length ? reserv.reservationIds : undefined,
         items: cart.map(i => ({
           product_id: i.id,
           quantity:   i.quantity || 1,
@@ -329,7 +329,7 @@ export default function CheckoutPage() {
   }
 
   const isOnline = paymentMethod === "online";
-  const showCountdown = reserv.reservationId && reserv.secondsLeft !== null;
+  const showCountdown = reserv.reservationIds.length > 0 && reserv.secondsLeft !== null;
   const countdownUrgent = showCountdown && reserv.secondsLeft <= 120;
 
   return (
