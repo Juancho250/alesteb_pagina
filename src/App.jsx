@@ -1,10 +1,11 @@
 // App.jsx  ─  ALESTEB_PAGINA/src/App.jsx
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AppearanceProvider } from "./context/AppearanceContext";
 import { AuthProvider }      from "./context/AuthContext";
 import { CartProvider }      from "./context/CartContext";
 import { FavoritesProvider } from "./context/FavoritesContext";
-import { DiscountsProvider }  from "./context/DiscountsContext"; // ← nuevo provider de descuentos
-import { usePageTracking }   from "./hooks/usePageTracking";  // ← hook de tracking
+import { DiscountsProvider }  from "./context/DiscountsContext";
+import { usePageTracking }   from "./hooks/usePageTracking";
 
 import Home             from "./pages/Home";
 import Products         from "./pages/Products";
@@ -62,15 +63,17 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <FavoritesProvider>
-          <CartProvider>
-            <DiscountsProvider>      {/* ← añadir aquí */}
-              <AppContent />
-            </DiscountsProvider>     {/* ← cerrar aquí */}
-          </CartProvider>
-        </FavoritesProvider>
-      </AuthProvider>
+      <AppearanceProvider>
+        <AuthProvider>
+          <FavoritesProvider>
+            <CartProvider>
+              <DiscountsProvider>
+                <AppContent />
+              </DiscountsProvider>
+            </CartProvider>
+          </FavoritesProvider>
+        </AuthProvider>
+      </AppearanceProvider>
     </BrowserRouter>
   );
 }

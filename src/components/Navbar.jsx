@@ -1,8 +1,3 @@
-// src/components/Navbar.jsx
-// ─── El Navbar consume GET /public-api/v1/profile (mismo baseURL + API Key)
-// para mostrar el logo, nombre y colores del negocio del admin.
-// No depende del panel de admin ni de autenticación JWT.
-
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -10,9 +5,10 @@ import {
   User, LogOut, Search, LayoutGrid,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import api from "../services/api";            // axios con X-API-Key ya configurado
+import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
+import { useAppearance } from "../context/AppearanceContext";
 import { extractCategories } from "../utils/apiResponse";
 
 // ─── Variantes ────────────────────────────────────────────────
@@ -245,8 +241,8 @@ function MobileTree({ nodes, level = 0, openMap, toggle, onClose }) {
   ));
 }
 
-// ─── Brand: logo + nombre desde /profile ──────────────────────
-function BrandLogo({ profile, loading }) {
+// ─── Brand: logo + nombre desde AppearanceContext ──────────────
+function BrandLogo({ appearance, loading, textLight }) {
   if (loading) {
     return (
       <div className="flex items-center gap-2.5 animate-pulse">
@@ -256,9 +252,10 @@ function BrandLogo({ profile, loading }) {
     );
   }
 
-  const name   = profile?.business_name || "Mi Tienda";
-  const logo   = profile?.logo_url;
-  const color  = profile?.primary_color || "#000000";
+  const name       = appearance?.business_name || "Mi Tienda";
+  const logo       = appearance?.logo_url;
+  const brandColor = appearance?.primary_color || "#000000";
+  const nameColor  = textLight ? "#ffffff" : brandColor;
 
   return (
     <div className="flex items-center gap-2.5">
@@ -273,14 +270,14 @@ function BrandLogo({ profile, loading }) {
       ) : (
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[13px] font-black shrink-0 select-none"
-          style={{ backgroundColor: color }}
+          style={{ backgroundColor: brandColor }}
         >
           {name[0]?.toUpperCase() || "T"}
         </div>
       )}
       <span
         className="text-[17px] sm:text-[19px] font-black tracking-tight select-none leading-none"
-        style={{ color }}
+        style={{ color: nameColor }}
       >
         {name}
       </span>
@@ -292,6 +289,7 @@ function BrandLogo({ profile, loading }) {
 export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
   const { cart } = useCart();
+  const { appearance, loading: profileLoad } = useAppearance() ?? {};
   const location = useLocation();
 
   const [menuOpen,    setMenuOpen]    = useState(false);
@@ -301,8 +299,6 @@ export default function Navbar() {
   const [searchOpen,  setSearchOpen]  = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categories,  setCategories]  = useState([]);
-  const [profile,     setProfile]     = useState(null);
-  const [profileLoad, setProfileLoad] = useState(true);
 
   const megaRef = useRef(null);
 
@@ -331,20 +327,6 @@ export default function Navbar() {
       .catch(() => setCategories([]));
   }, []);
 
-  // ── GET /public-api/v1/profile ──────────────────────────────
-  // Mismo `api` (axios) que ya lleva X-API-Key en cada request.
-  // El endpoint nuevo en public-api.routes.js resuelve el admin_id
-  // desde req.apiKey.adminId y hace JOIN con admin_profiles.
-  useEffect(() => {
-    setProfileLoad(true);
-    api.get("/profile")
-      .then(res => {
-        if (res.data?.success) setProfile(res.data.data ?? null);
-      })
-      .catch(() => setProfile(null))
-      .finally(() => setProfileLoad(false));
-  }, []);
-
   useEffect(() => {
     const fn = e => {
       if (megaRef.current && !megaRef.current.contains(e.target)) setMegaOpen(false);
@@ -354,26 +336,48 @@ export default function Navbar() {
   }, []);
 
   const toggleMobileSub = id => setOpenMap(prev => ({ ...prev, [id]: !prev[id] }));
-  const cartCount = cart.reduce((s, i) => s + (i.quantity || 1), 0);
-  const accent    = profile?.accent_color || profile?.primary_color || "#000";
+  const cartCount   = cart.reduce((s, i) => s + (i.quantity || 1), 0);
+  const accent      = appearance?.primary_color || "#000";
+  const textLight   = appearance?.store_navbar_text === "light";
+  const navBg       = appearance?.store_navbar_bg || "#ffffff";
+
+  // CSS class helpers that adapt to navbar text mode
+  const linkCls = textLight
+    ? "text-white/70 hover:text-white hover:bg-white/10"
+    : "text-neutral-500 hover:text-black hover:bg-neutral-100";
+  const iconCls = textLight
+    ? "text-white/70 hover:text-white hover:bg-white/10"
+    : "text-neutral-600 hover:text-black hover:bg-neutral-100";
+  const cartCls = textLight
+    ? "text-white hover:bg-white/10"
+    : "text-neutral-800 hover:bg-neutral-100";
+  const menuToggleCls = textLight
+    ? "text-white hover:bg-white/10"
+    : "text-black hover:bg-neutral-100";
+  const borderCls = textLight ? "border-white/15" : "border-neutral-150";
+  const authDividerCls = textLight ? "border-white/20" : "border-neutral-200";
 
   return (
     <>
       <nav
         className={`fixed top-0 left-0 w-full z-[200] transition-all duration-300 ${
           scrolled
-            ? "bg-white border-b border-neutral-150 shadow-sm shadow-black/[0.05]"
-            : "bg-white/90 backdrop-blur-xl"
+            ? `border-b ${borderCls} shadow-sm shadow-black/[0.05]`
+            : "backdrop-blur-xl"
         }`}
+        style={{ backgroundColor: navBg }}
       >
         <div className="max-w-[1540px] mx-auto px-4 sm:px-6 lg:px-10 h-16 lg:h-[68px] flex items-center gap-3">
 
           <Link to="/" className="shrink-0 mr-1 z-[210]">
-            <BrandLogo profile={profile} loading={profileLoad} />
+            <BrandLogo appearance={appearance} loading={profileLoad} textLight={textLight} />
           </Link>
 
           <nav className="hidden md:flex items-center gap-0.5 flex-1">
-            <Link to="/productos" className="px-3.5 py-2 text-[13px] font-semibold text-neutral-500 hover:text-black hover:bg-neutral-100 rounded-xl transition-all">
+            <Link
+              to="/productos"
+              className={`px-3.5 py-2 text-[13px] font-semibold rounded-xl transition-all ${linkCls}`}
+            >
               Tienda
             </Link>
 
@@ -381,7 +385,9 @@ export default function Navbar() {
               <button
                 onClick={() => setMegaOpen(v => !v)}
                 className={`flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold rounded-xl transition-all ${
-                  megaOpen ? "text-black bg-neutral-100" : "text-neutral-500 hover:text-black hover:bg-neutral-100"
+                  megaOpen
+                    ? (textLight ? "text-white bg-white/10" : "text-black bg-neutral-100")
+                    : linkCls
                 }`}
               >
                 <LayoutGrid size={13} className="shrink-0" />
@@ -400,7 +406,10 @@ export default function Navbar() {
               </AnimatePresence>
             </div>
 
-            <Link to="/support" className="px-3.5 py-2 text-[13px] font-semibold text-neutral-500 hover:text-black hover:bg-neutral-100 rounded-xl transition-all">
+            <Link
+              to="/support"
+              className={`px-3.5 py-2 text-[13px] font-semibold rounded-xl transition-all ${linkCls}`}
+            >
               Soporte
             </Link>
           </nav>
@@ -426,38 +435,55 @@ export default function Navbar() {
               </AnimatePresence>
               <button
                 onClick={() => { setSearchOpen(v => !v); setSearchQuery(""); }}
-                className="relative z-10 w-9 h-9 flex items-center justify-center text-neutral-600 hover:text-black hover:bg-neutral-100 rounded-xl transition-all"
+                className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-xl transition-all ${iconCls}`}
               >
                 {searchOpen ? <X size={17} /> : <Search size={17} />}
               </button>
             </div>
 
             {isAuthenticated && user ? (
-              <div className="hidden md:flex items-center gap-1 pl-3 border-l border-neutral-200 ml-1">
-                <Link to="/perfil" className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-neutral-100 transition-all">
+              <div className={`hidden md:flex items-center gap-1 pl-3 border-l ml-1 ${authDividerCls}`}>
+                <Link
+                  to="/perfil"
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all ${textLight ? "hover:bg-white/10" : "hover:bg-neutral-100"}`}
+                >
                   <div
                     className="w-7 h-7 rounded-lg text-white flex items-center justify-center text-[11px] font-black shrink-0"
-                    style={{ backgroundColor: profile?.primary_color || "#000" }}
+                    style={{ backgroundColor: appearance?.primary_color || "#000" }}
                   >
                     {user?.name?.[0]?.toUpperCase() || "U"}
                   </div>
                   <div className="flex flex-col items-start leading-none">
-                    <span className="text-[12px] font-bold text-black">{user?.name?.split(" ")[0]}</span>
-                    <span className="text-[10px] text-neutral-400 mt-0.5 font-medium">Mi cuenta</span>
+                    <span className={`text-[12px] font-bold ${textLight ? "text-white" : "text-black"}`}>
+                      {user?.name?.split(" ")[0]}
+                    </span>
+                    <span className={`text-[10px] mt-0.5 font-medium ${textLight ? "text-white/50" : "text-neutral-400"}`}>
+                      Mi cuenta
+                    </span>
                   </div>
                 </Link>
-                <button onClick={logout} title="Cerrar sesión" className="w-8 h-8 flex items-center justify-center text-neutral-400 hover:text-black hover:bg-neutral-100 rounded-xl transition-all">
+                <button
+                  onClick={logout}
+                  title="Cerrar sesión"
+                  className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${iconCls}`}
+                >
                   <LogOut size={14} />
                 </button>
               </div>
             ) : (
-              <Link to="/auth" className="hidden md:flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold text-neutral-600 hover:text-black hover:bg-neutral-100 rounded-xl transition-all">
+              <Link
+                to="/auth"
+                className={`hidden md:flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold rounded-xl transition-all ${linkCls}`}
+              >
                 <User size={15} />
                 Ingresar
               </Link>
             )}
 
-            <Link to="/carrito" className="relative w-9 h-9 flex items-center justify-center text-neutral-800 hover:bg-neutral-100 rounded-xl transition-all">
+            <Link
+              to="/carrito"
+              className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-all ${cartCls}`}
+            >
               <ShoppingBag size={19} />
               <AnimatePresence>
                 {cartCount > 0 && (
@@ -478,7 +504,7 @@ export default function Navbar() {
 
             <button
               onClick={() => setMenuOpen(v => !v)}
-              className="md:hidden w-9 h-9 flex items-center justify-center text-black rounded-xl hover:bg-neutral-100 transition-all"
+              className={`md:hidden w-9 h-9 flex items-center justify-center rounded-xl transition-all ${menuToggleCls}`}
               aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
             >
               <AnimatePresence mode="wait">
@@ -502,7 +528,7 @@ export default function Navbar() {
             className="fixed inset-0 z-[190] bg-white md:hidden flex flex-col overflow-hidden"
           >
             <div className="h-16 shrink-0 flex items-center justify-between px-4 border-b border-neutral-100">
-              <BrandLogo profile={profile} loading={profileLoad} />
+              <BrandLogo appearance={appearance} loading={profileLoad} textLight={false} />
               <button onClick={() => setMenuOpen(false)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-neutral-100">
                 <X size={18} />
               </button>
@@ -522,7 +548,7 @@ export default function Navbar() {
                 <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-neutral-50 border border-neutral-100">
                   <div
                     className="w-10 h-10 text-white rounded-xl flex items-center justify-center font-black text-sm shrink-0"
-                    style={{ backgroundColor: profile?.primary_color || "#000" }}
+                    style={{ backgroundColor: appearance?.primary_color || "#000" }}
                   >
                     {user?.name?.[0]?.toUpperCase() || "U"}
                   </div>
@@ -540,7 +566,7 @@ export default function Navbar() {
                   to="/auth"
                   onClick={() => setMenuOpen(false)}
                   className="flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-black text-[13px] uppercase tracking-widest"
-                  style={{ backgroundColor: profile?.primary_color || "#000" }}
+                  style={{ backgroundColor: appearance?.primary_color || "#000" }}
                 >
                   <User size={15} />
                   Iniciar sesión
@@ -581,7 +607,7 @@ export default function Navbar() {
 
             <div className="shrink-0 px-4 py-3 border-t border-neutral-100">
               <p className="text-[10px] text-neutral-400 text-center font-bold uppercase tracking-widest">
-                © {new Date().getFullYear()} {profile?.business_name || "Mi Tienda"} · Todos los derechos reservados
+                © {new Date().getFullYear()} {appearance?.business_name || "Mi Tienda"} · Todos los derechos reservados
               </p>
             </div>
           </motion.div>

@@ -1,8 +1,8 @@
 // src/pages/Products.jsx
 import React, { useEffect, useState, useRef, memo, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
-import { extractPagination, extractProducts } from "../utils/apiResponse";
+import { extractPagination, extractProducts, extractCategories } from "../utils/apiResponse";
 import { useCart } from "../context/CartContext";
 import { useDiscounts } from "../context/DiscountsContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -292,6 +292,12 @@ function Pagination({ page, totalPages, onPrev, onNext }) {
   );
 }
 
+// ─── Detecta si un slug es descendiente de una categoría (recursivo) ─────────
+function isDescendantOf(cat, slug) {
+  if (cat.slug === slug) return true;
+  return cat.children?.some(c => isDescendantOf(c, slug)) ?? false;
+}
+
 // ─── Prefetch del siguiente bloque de productos ───────────────────────────────
 function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
   useEffect(() => {
@@ -313,17 +319,19 @@ function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function Products() {
   const { slug }             = useParams();
+  const navigate             = useNavigate();
   const { cart, toggleCart } = useCart();
   const { applyDiscount } = useDiscounts();
 
-  const [products,   setProducts]   = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [firstLoad,  setFirstLoad]  = useState(true);
-  const [search,     setSearch]     = useState("");
-  const [debSearch,  setDebSearch]  = useState("");
-  const [page,       setPage]       = useState(1);
-  const [pagination, setPagination] = useState({ totalPages: 1, totalItems: 0 });
-  const [catName,    setCatName]    = useState("");
+  const [products,    setProducts]   = useState([]);
+  const [loading,     setLoading]    = useState(true);
+  const [firstLoad,   setFirstLoad]  = useState(true);
+  const [search,      setSearch]     = useState("");
+  const [debSearch,   setDebSearch]  = useState("");
+  const [page,        setPage]       = useState(1);
+  const [pagination,  setPagination] = useState({ totalPages: 1, totalItems: 0 });
+  const [catName,     setCatName]    = useState("");
+  const [categories,  setCategories] = useState([]);
   const searchRef = useRef(null);
 
   // Debounce búsqueda
@@ -331,6 +339,18 @@ export default function Products() {
     const t = setTimeout(() => { setDebSearch(search); setPage(1); }, 420);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Resetear página al cambiar de categoría
+  useEffect(() => {
+    setPage(1);
+  }, [slug]);
+
+  // Carga de categorías para el filtro
+  useEffect(() => {
+    api.get("/categories")
+      .then(res => setCategories(extractCategories(res.data)))
+      .catch(() => {});
+  }, []);
 
   // Fetch con cache
   useEffect(() => {
@@ -381,6 +401,9 @@ export default function Products() {
   usePrefetchNextPage({ slug, debSearch, page, totalPages: pagination.totalPages });
 
   const handleToggle = useCallback(toggleCart, [toggleCart]);
+
+  // Categoría activa en el filtro (la que contiene el slug actual)
+  const activeCat = slug ? categories.find(cat => isDescendantOf(cat, slug)) : null;
 
   const SKELETONS = 12;
 
@@ -459,6 +482,78 @@ export default function Products() {
               </AnimatePresence>
             </div>
           </motion.div>
+
+          {/* ── Filtro de categorías ────────────────────────────────── */}
+          {categories.length > 0 && (
+            <div className="mb-10 space-y-3">
+              {/* Fila 1: categorías principales */}
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                <button
+                  onClick={() => navigate("/productos")}
+                  className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wider transition-all duration-200 ${
+                    !slug
+                      ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                  }`}
+                >
+                  Todos
+                </button>
+                {categories.map(cat => {
+                  const isActive = activeCat?.id === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => navigate(`/productos/categoria/${cat.slug}`)}
+                      className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wider transition-all duration-200 ${
+                        isActive
+                          ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20"
+                          : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Fila 2: subcategorías de la categoría activa */}
+              {activeCat?.children?.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
+                >
+                  <button
+                    onClick={() => navigate(`/productos/categoria/${activeCat.slug}`)}
+                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all duration-200 ${
+                      slug === activeCat.slug
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-slate-400 border-slate-200 hover:border-slate-400 hover:text-slate-600"
+                    }`}
+                  >
+                    Todo en {activeCat.name}
+                  </button>
+                  {activeCat.children.map(sub => {
+                    const subActive = slug === sub.slug;
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => navigate(`/productos/categoria/${sub.slug}`)}
+                        className={`shrink-0 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all duration-200 ${
+                          subActive
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-slate-400 border-slate-200 hover:border-slate-400 hover:text-slate-600"
+                        }`}
+                      >
+                        {sub.name}
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </div>
+          )}
 
           {/* ── Grid ────────────────────────────────────────────────── */}
           <AnimatePresence mode="wait">
