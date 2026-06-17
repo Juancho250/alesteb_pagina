@@ -265,7 +265,7 @@ function NewsletterSection() {
                 <button
                   type="submit"
                   disabled={status === "loading"}
-                  className="px-6 py-3.5 bg-black text-white rounded-full text-sm font-bold hover:bg-neutral-800 transition-all disabled:opacity-50 shrink-0"
+                  className="px-6 py-3.5 bg-brand text-white rounded-full text-sm font-bold hover:bg-[var(--brand-hover)] transition-all disabled:opacity-50 shrink-0"
                 >
                   {status === "loading" ? "..." : "Suscribirse"}
                 </button>
@@ -355,14 +355,14 @@ export default function Home() {
 
   if (loading)
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--store-page-bg,#ffffff)]">
         <Loader2 className="animate-spin text-black mb-4" size={40} />
       </div>
     );
 
   return (
     <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
-      <div className="min-h-screen bg-white text-black font-sans antialiased selection:bg-neutral-200">
+      <div className="min-h-screen text-black font-sans antialiased selection:bg-neutral-200 bg-[var(--store-page-bg,#ffffff)]">
         <main className="pt-20 md:pt-24">
 
           {/* ── BANNER CAROUSEL ── */}
@@ -399,7 +399,7 @@ export default function Home() {
               <Motion.div variants={fadeInUp}>
                 <Link
                   to="/productos"
-                  className="inline-block px-10 py-4 bg-black text-white font-bold rounded-full text-sm transition-all hover:scale-105 hover:bg-neutral-800 hover:shadow-xl"
+                  className="inline-block px-10 py-4 bg-brand text-white font-bold rounded-full text-sm transition-all hover:scale-105 hover:bg-[var(--brand-hover)] hover:shadow-xl"
                 >
                   Ver colección
                 </Link>

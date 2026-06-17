@@ -527,9 +527,18 @@ export default function Navbar() {
             exit="exit"
             className="fixed inset-0 z-[190] bg-white md:hidden flex flex-col overflow-hidden"
           >
-            <div className="h-16 shrink-0 flex items-center justify-between px-4 border-b border-neutral-100">
-              <BrandLogo appearance={appearance} loading={profileLoad} textLight={false} />
-              <button onClick={() => setMenuOpen(false)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-neutral-100">
+            <div
+              className="h-16 shrink-0 flex items-center justify-between px-4 border-b"
+              style={{
+                backgroundColor: navBg,
+                borderColor: textLight ? "rgba(255,255,255,0.15)" : undefined,
+              }}
+            >
+              <BrandLogo appearance={appearance} loading={profileLoad} textLight={textLight} />
+              <button
+                onClick={() => setMenuOpen(false)}
+                className={`w-9 h-9 flex items-center justify-center rounded-xl ${textLight ? "bg-white/10 text-white" : "bg-neutral-100 text-neutral-700"}`}
+              >
                 <X size={18} />
               </button>
             </div>

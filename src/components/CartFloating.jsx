@@ -8,7 +8,7 @@ import { useCart, getItemPrice } from "../context/CartContext";
 function VariantLabel({ item }) {
   if (item.variantLabel) {
     return (
-      <p className="text-[9px] font-bold text-blue-400 truncate leading-tight">
+      <p className="text-[9px] font-bold text-brand truncate leading-tight">
         {item.variantLabel}
       </p>
     );
@@ -18,7 +18,7 @@ function VariantLabel({ item }) {
       <div className="flex flex-wrap gap-1 mt-0.5">
         {item.variantAttributes.map((a, i) => (
           <span key={i}
-            className="inline-flex items-center gap-0.5 text-[8px] font-bold text-blue-400 leading-none">
+            className="inline-flex items-center gap-0.5 text-[8px] font-bold text-brand leading-none">
             {a.hex_color && (
               <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: a.hex_color }} />
@@ -109,12 +109,12 @@ export default function CartFloating() {
                   <div className="flex items-center bg-slate-100 rounded-full px-1 py-0.5
                     opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <button onClick={() => updateQty(item.cartKey, qty - 1)}
-                      className="p-0.5 hover:text-blue-600 transition-colors">
+                      className="p-0.5 hover:text-brand transition-colors">
                       <Minus size={9} />
                     </button>
                     <span className="text-[10px] font-black w-3 text-center">{qty}</span>
                     <button onClick={() => updateQty(item.cartKey, qty + 1)}
-                      className="p-0.5 hover:text-blue-600 transition-colors">
+                      className="p-0.5 hover:text-brand transition-colors">
                       <Plus size={9} />
                     </button>
                   </div>
@@ -146,7 +146,7 @@ export default function CartFloating() {
             onClick={handleGoToCart}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
               bg-slate-900 text-white font-black text-[10px] tracking-[0.2em] uppercase
-              hover:bg-blue-600 transition-all duration-300 active:scale-95"
+              hover:bg-[var(--brand-hover)] transition-all duration-300 active:scale-95"
           >
             <ShoppingBag size={13} />
             Ver mi bolsa

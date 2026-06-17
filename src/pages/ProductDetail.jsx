@@ -490,19 +490,19 @@ export default function ProductDetail() {
 
   // ── Guards ─────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
-      <Loader2 className="animate-spin text-blue-600" size={28} />
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[var(--store-page-bg,#ffffff)]">
+      <Loader2 className="animate-spin text-brand" size={28} />
       <p className="text-[10px] font-black tracking-[0.3em] text-slate-300 uppercase">Cargando</p>
     </div>
   );
 
   if (!product) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[var(--store-page-bg,#ffffff)]">
       <p className="text-2xl font-black text-slate-900 italic uppercase tracking-tighter">
         Producto no encontrado
       </p>
       <Link to="/productos"
-        className="flex items-center gap-2 text-xs font-black tracking-widest text-blue-600 uppercase">
+        className="flex items-center gap-2 text-xs font-black tracking-widest text-brand uppercase">
         <ArrowLeft size={14} /> Volver a la tienda
       </Link>
     </div>
@@ -527,7 +527,7 @@ export default function ProductDetail() {
   );
 
   return (
-    <div className="bg-white min-h-screen pb-20 font-sans text-slate-900 selection:bg-blue-100">
+    <div className="min-h-screen pb-20 font-sans text-slate-900 selection:bg-brand/15 bg-[var(--store-page-bg,#ffffff)]">
 
       {/* ── Lightbox ── */}
       <AnimatePresence>
@@ -578,10 +578,10 @@ export default function ProductDetail() {
           className="flex items-center gap-2.5 text-[10px] font-black
             text-slate-400 mb-10 uppercase tracking-[0.2em]"
         >
-          <Link to="/" className="hover:text-blue-600 transition-colors">Inicio</Link>
+          <Link to="/" className="hover:text-brand transition-colors">Inicio</Link>
           <ChevronRight size={10} className="text-slate-200" />
           <Link to="/productos"
-            className="hover:text-blue-600 transition-colors flex items-center gap-1 group">
+            className="hover:text-brand transition-colors flex items-center gap-1 group">
             <ArrowLeft size={10} className="group-hover:-translate-x-0.5 transition-transform" />
             Tienda
           </Link>
@@ -590,7 +590,7 @@ export default function ProductDetail() {
               <ChevronRight size={10} className="text-slate-200" />
               <Link
                 to={`/productos/categoria/${slugify(product.category_name)}`}
-                className="hover:text-blue-600 transition-colors"
+                className="hover:text-brand transition-colors"
               >
                 {product.category_name}
               </Link>
@@ -612,7 +612,7 @@ export default function ProductDetail() {
                 <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-white/90
                   backdrop-blur-md text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black
                   shadow-sm border border-slate-100">
-                  <span className="text-blue-600">−{discountPercent}%</span>
+                  <span className="text-brand">−{discountPercent}%</span>
                 </div>
               )}
 
@@ -681,8 +681,8 @@ export default function ProductDetail() {
             className="lg:col-span-5 flex flex-col pt-2 space-y-6"
           >
             <motion.div variants={fadeUp}>
-              <span className="text-[9px] font-black uppercase tracking-[0.25em] text-blue-600
-                bg-blue-50 px-2.5 py-1 rounded-lg">
+              <span className="text-[9px] font-black uppercase tracking-[0.25em] text-brand
+                bg-brand/10 px-2.5 py-1 rounded-lg">
                 {product.category_name || "Premium"}
               </span>
             </motion.div>
@@ -748,8 +748,8 @@ export default function ProductDetail() {
                             : "Bajo pedido"}
                         </span>
                       ) : isHybrid && effectiveAvailable <= 0 ? (
-                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-blue-500">
-                          <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-brand">
+                          <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
                           Sin stock físico · disponible por pedido
                         </span>
                       ) : (
@@ -801,8 +801,8 @@ export default function ProductDetail() {
                       : "Bajo pedido"}
                   </span>
                 ) : isHybrid && effectiveAvailable <= 0 ? (
-                  <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-blue-500">
-                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                  <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-brand">
+                    <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
                     Sin stock físico · disponible por pedido
                   </span>
                 ) : (
@@ -823,7 +823,7 @@ export default function ProductDetail() {
             {product.description && (
               <motion.div variants={fadeUp} className="space-y-2">
                 <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  <Info size={12} className="text-blue-500" /> Detalles
+                  <Info size={12} className="text-brand" /> Detalles
                 </div>
                 <p className="text-slate-500 leading-relaxed text-sm font-medium">
                   {product.description}
@@ -837,15 +837,15 @@ export default function ProductDetail() {
                 <div className={`flex items-start gap-3 px-4 py-3.5 rounded-2xl border ${
                   isOnDemand
                     ? "bg-purple-50 border-purple-200"
-                    : "bg-blue-50 border-blue-200"
+                    : "bg-brand/5 border-brand/20"
                 }`}>
-                  <Truck size={16} className={`flex-shrink-0 mt-0.5 ${isOnDemand ? "text-purple-600" : "text-blue-600"}`} />
+                  <Truck size={16} className={`flex-shrink-0 mt-0.5 ${isOnDemand ? "text-purple-600" : "text-brand"}`} />
                   <div className="space-y-0.5">
-                    <p className={`text-xs font-black uppercase tracking-wider ${isOnDemand ? "text-purple-700" : "text-blue-700"}`}>
+                    <p className={`text-xs font-black uppercase tracking-wider ${isOnDemand ? "text-purple-700" : "text-brand"}`}>
                       {isOnDemand ? "Producto bajo pedido" : "Disponible en stock o bajo pedido"}
                     </p>
                     {product.supplier_lead_time_days && (
-                      <p className={`text-[11px] font-medium flex items-center gap-1 ${isOnDemand ? "text-purple-600" : "text-blue-600"}`}>
+                      <p className={`text-[11px] font-medium flex items-center gap-1 ${isOnDemand ? "text-purple-600" : "text-brand"}`}>
                         <Clock size={10} />
                         Tiempo de entrega estimado: <strong>{product.supplier_lead_time_days} días hábiles</strong>
                       </p>
@@ -878,7 +878,7 @@ export default function ProductDetail() {
                   <button
                     onClick={() => setQuantity(q => Math.max(1, q - 1))}
                     disabled={quantity <= 1 || !canAdd}
-                    className="p-2 hover:text-blue-600 disabled:opacity-20 transition-colors"
+                    className="p-2 hover:text-brand disabled:opacity-20 transition-colors"
                   >
                     <Minus size={14} />
                   </button>
@@ -886,7 +886,7 @@ export default function ProductDetail() {
                   <button
                     onClick={() => setQuantity(q => Math.min(effectiveAvailable, q + 1))}
                     disabled={quantity >= effectiveAvailable || !canAdd}
-                    className="p-2 hover:text-blue-600 disabled:opacity-20 transition-colors"
+                    className="p-2 hover:text-brand disabled:opacity-20 transition-colors"
                   >
                     <Plus size={14} />
                   </button>
@@ -910,7 +910,7 @@ export default function ProductDetail() {
                     ? "bg-emerald-500 text-white shadow-xl shadow-emerald-500/20"
                     : !canAdd
                       ? "bg-slate-100 text-slate-300 cursor-not-allowed"
-                      : "bg-slate-900 text-white hover:bg-blue-600 shadow-xl shadow-blue-500/10 hover:shadow-blue-500/25"
+                      : "bg-slate-900 text-white hover:bg-[var(--brand-hover)] shadow-xl shadow-brand/10 hover:shadow-brand/25"
                   }`}
               >
                 <AnimatePresence mode="wait">

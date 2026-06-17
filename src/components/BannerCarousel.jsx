@@ -285,11 +285,11 @@ export default function BannerCarousel({ banners }) {
                   initial="enter" animate="center" exit="exit"
                   className="inline-flex items-center gap-2.5 mb-6"
                 >
-                  <span className="h-px w-8 bg-blue-400 rounded-full" />
-                  <span className="text-blue-400 text-[10px] font-black uppercase tracking-[0.35em]">
+                  <span className="h-px w-8 bg-brand rounded-full" />
+                  <span className="text-brand text-[10px] font-black uppercase tracking-[0.35em]">
                     {slide.label}
                   </span>
-                  <span className="h-px w-8 bg-blue-400 rounded-full" />
+                  <span className="h-px w-8 bg-brand rounded-full" />
                 </motion.span>
               )}
             </AnimatePresence>
@@ -321,7 +321,7 @@ export default function BannerCarousel({ banners }) {
                 to={slide.button_link || "/productos"}
                 className="w-full sm:w-auto px-10 py-4 bg-white text-slate-900 rounded-full
                   font-black text-[10px] tracking-[0.2em] uppercase
-                  transition-all duration-300 hover:bg-blue-600 hover:text-white
+                  transition-all duration-300 hover:bg-[var(--brand-hover)] hover:text-white
                   hover:scale-105 active:scale-95 shadow-2xl shadow-black/20"
               >
                 {slide.button_text || "Ver detalles"}

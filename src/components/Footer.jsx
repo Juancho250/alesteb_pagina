@@ -21,25 +21,25 @@ export default function Footer() {
           <div className="flex flex-col gap-4">
             <h4 className="font-bold text-[10px] text-[#1d1d1f] uppercase tracking-[0.2em]">Tienda</h4>
             <ul className="space-y-3 text-[13px] text-[#424245] font-medium">
-              <li><Link to="/productos" className="hover:text-blue-600 transition-colors">Catálogo Completo</Link></li>
-              <li><Link to="/productos" className="hover:text-blue-600 transition-colors">Novedades</Link></li>
-              <li><Link to="/productos" className="hover:text-blue-600 transition-colors">Ofertas</Link></li>
+              <li><Link to="/productos" className="hover:text-brand transition-colors">Catálogo Completo</Link></li>
+              <li><Link to="/productos" className="hover:text-brand transition-colors">Novedades</Link></li>
+              <li><Link to="/productos" className="hover:text-brand transition-colors">Ofertas</Link></li>
             </ul>
           </div>
 
           <div className="flex flex-col gap-4">
             <h4 className="font-bold text-[10px] text-[#1d1d1f] uppercase tracking-[0.2em]">Soporte</h4>
             <ul className="space-y-3 text-[13px] text-[#424245] font-medium">
-              <li><Link to="/contact"  className="hover:text-blue-600 transition-colors">Contacto Directo</Link></li>
+              <li><Link to="/contact"  className="hover:text-brand transition-colors">Contacto Directo</Link></li>
             </ul>
           </div>
 
           <div className="flex flex-col gap-4">
             <h4 className="font-bold text-[10px] text-[#1d1d1f] uppercase tracking-[0.2em]">Social</h4>
             <div className="flex gap-5 text-[#424245]">
-              <a href="https://instagram.com/alesteb" target="_blank" rel="noreferrer" className="hover:text-blue-600 transition-all hover:scale-110"><Instagram size={18} /></a>
-              <a href="#" className="hover:text-blue-600 transition-all hover:scale-110"><Twitter size={18} /></a>
-              <a href="https://wa.me/573145055073" target="_blank" rel="noreferrer" className="hover:text-blue-600 transition-all hover:scale-110"><MessageCircle size={18} /></a>
+              <a href="https://instagram.com/alesteb" target="_blank" rel="noreferrer" className="hover:text-brand transition-all hover:scale-110"><Instagram size={18} /></a>
+              <a href="#" className="hover:text-brand transition-all hover:scale-110"><Twitter size={18} /></a>
+              <a href="https://wa.me/573145055073" target="_blank" rel="noreferrer" className="hover:text-brand transition-all hover:scale-110"><MessageCircle size={18} /></a>
             </div>
           </div>
         </div>
@@ -50,9 +50,9 @@ export default function Footer() {
               <p>© 2026 ALESTEB STORE.</p>
               <span className="hidden sm:block text-[#d2d2d7]">|</span>
               <div className="flex gap-4">
-                <Link to="/privacidad" className="hover:text-blue-600">Privacidad</Link>
-                <Link to="/legal"      className="hover:text-blue-600">Legal</Link>
-                <Link to="/support"    className="hover:text-blue-600">Mapa del sitio</Link>
+                <Link to="/privacidad" className="hover:text-brand">Privacidad</Link>
+                <Link to="/legal"      className="hover:text-brand">Legal</Link>
+                <Link to="/support"    className="hover:text-brand">Mapa del sitio</Link>
               </div>
             </div>
             <p className="text-[#86868b] text-[9px] font-black tracking-[0.2em] uppercase">COLOMBIA / GLOBAL</p>

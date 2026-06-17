@@ -122,7 +122,7 @@ export default function CartPage() {
 
   // ── Empty state ────────────────────────────────────────────────────────────
   if (cart.length === 0) return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-5 px-6">
+    <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-6 bg-[var(--store-page-bg,#ffffff)]">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -141,7 +141,7 @@ export default function CartPage() {
         <Link to="/productos"
           className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white
             rounded-full font-black text-xs tracking-widest uppercase
-            hover:bg-blue-600 transition-all duration-300 hover:scale-105 active:scale-95">
+            hover:bg-[var(--brand-hover)] transition-all duration-300 hover:scale-105 active:scale-95">
           <ArrowLeft size={14} /> Ir a la tienda
         </Link>
       </motion.div>
@@ -149,7 +149,7 @@ export default function CartPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white font-sans">
+    <div className="min-h-screen font-sans bg-[var(--store-page-bg,#ffffff)]">
       <div className="max-w-5xl mx-auto px-5 sm:px-8 pt-10 pb-32">
 
         {/* ── Header ────────────────────────────────────────────────── */}
@@ -158,7 +158,7 @@ export default function CartPage() {
           <div className="space-y-2">
             <Link to="/productos"
               className="flex items-center gap-1.5 text-[10px] font-black tracking-widest
-                text-slate-400 uppercase hover:text-blue-600 transition-colors">
+                text-slate-400 uppercase hover:text-brand transition-colors">
               <ArrowLeft size={11} /> Seguir comprando
             </Link>
             <h1 className="text-[clamp(2.5rem,8vw,5rem)] font-black italic uppercase
@@ -255,7 +255,7 @@ export default function CartPage() {
                     <div className="flex-1 min-w-0 space-y-1">
                       <p className="font-black text-sm text-slate-900 truncate">{item.name}</p>
                       {item.variantLabel && (
-                        <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">
+                        <p className="text-[10px] text-brand font-bold uppercase tracking-wider">
                           {item.variantLabel}
                         </p>
                       )}
@@ -385,8 +385,8 @@ export default function CartPage() {
               onClick={handleCheckout}
               className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl
                 bg-slate-900 text-white font-black text-[10px] tracking-[0.25em] uppercase
-                hover:bg-blue-600 transition-all duration-300 hover:scale-[1.02]
-                active:scale-95 shadow-xl shadow-blue-500/10"
+                hover:bg-[var(--brand-hover)] transition-all duration-300 hover:scale-[1.02]
+                active:scale-95 shadow-xl shadow-brand/10"
             >
               {user
                 ? <><ArrowRight size={14} /> Ir al checkout</>

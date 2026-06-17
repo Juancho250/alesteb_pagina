@@ -109,7 +109,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
           ${isOnDemand
             ? "bg-purple-600/90 text-white border-purple-500"
             : isHybrid
-              ? "bg-blue-600/90 text-white border-blue-500"
+              ? "bg-brand/90 text-white border-brand"
               : "bg-emerald-600/90 text-white border-emerald-500"
           }`}>
           {isOnDemand ? "Bajo pedido" : isHybrid ? "Disponible / Pedido" : "Entrega inmediata"}
@@ -121,7 +121,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
         <div className={`absolute z-20 flex items-center gap-1 bg-white/90 backdrop-blur-md
           text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black shadow-sm border border-slate-100
           ${!isOut ? "top-11 left-4" : "top-4 left-4"}`}>
-          <Percent size={9} className="text-blue-600" strokeWidth={3} />
+          <Percent size={9} className="text-brand" strokeWidth={3} />
           {discountPercent}% OFF
         </div>
       )}
@@ -195,7 +195,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
             border border-slate-100 shadow-xl transition-all duration-300
             ${isOut
               ? "opacity-40 cursor-not-allowed"
-              : "hover:bg-blue-600 hover:text-white hover:border-blue-600 hover:scale-105 active:scale-95"
+              : "hover:bg-brand hover:text-white hover:border-brand hover:scale-105 active:scale-95"
             }`}
           onClick={isOut ? e => e.preventDefault() : undefined}
         >
@@ -210,7 +210,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
             ${isOut
               ? "bg-slate-100 text-slate-300 cursor-not-allowed border border-slate-100"
               : isInCart
-                ? "bg-blue-600 text-white shadow-blue-500/30 border border-blue-500 hover:scale-105 active:scale-95"
+                ? "bg-brand text-white shadow-brand/30 border border-brand hover:scale-105 active:scale-95"
                 : "bg-white text-slate-900 border border-slate-100 shadow-slate-200/80 hover:scale-105 active:scale-95"
             }`}
         >
@@ -226,7 +226,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
       {/* Info */}
       <div className="mt-5 px-1 space-y-1.5">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-tight
-          group-hover:text-blue-600 transition-colors duration-300 truncate">
+          group-hover:text-brand transition-colors duration-300 truncate">
           {p.name}
         </p>
         <div className="flex items-baseline gap-2.5">
@@ -409,7 +409,7 @@ export default function Products() {
 
   return (
     <ReactLenis root options={{ lerp: 0.08, duration: 1.8, smoothTouch: false }}>
-      <div className="bg-white min-h-screen font-sans selection:bg-blue-100">
+      <div className="min-h-screen font-sans selection:bg-brand/15 bg-[var(--store-page-bg,#ffffff)]">
         <main className="pt-24 md:pt-32 max-w-7xl mx-auto px-5 sm:px-8 pb-32">
 
           {/* ── Breadcrumb ──────────────────────────────────────────── */}
@@ -419,9 +419,9 @@ export default function Products() {
               className="flex items-center gap-2.5 text-[10px] font-black
                 text-slate-400 mb-10 uppercase tracking-[0.2em]"
             >
-              <Link to="/" className="hover:text-blue-600 transition-colors">Inicio</Link>
+              <Link to="/" className="hover:text-brand transition-colors">Inicio</Link>
               <ChevronRight size={10} className="text-slate-200" />
-              <Link to="/productos" className="hover:text-blue-600 transition-colors">Tienda</Link>
+              <Link to="/productos" className="hover:text-brand transition-colors">Tienda</Link>
               <ChevronRight size={10} className="text-slate-200" />
               <span className="text-slate-900">{catName || slug.replace(/-/g, " ")}</span>
             </motion.nav>
@@ -441,7 +441,7 @@ export default function Products() {
                 }
               </h1>
               <div className="flex items-center gap-3">
-                <div className="h-1 w-14 bg-blue-600 rounded-full" />
+                <div className="h-1 w-14 bg-brand rounded-full" />
                 <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">
                   {loading ? "Cargando…" : `${pagination.totalItems} productos`}
                 </p>
@@ -452,7 +452,7 @@ export default function Products() {
             <div className="relative group w-full lg:w-80 xl:w-96">
               <Search
                 className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300
-                  group-focus-within:text-blue-600 transition-colors duration-300"
+                  group-focus-within:text-brand transition-colors duration-300"
                 size={18} strokeWidth={2.5}
               />
               <input
@@ -462,7 +462,7 @@ export default function Products() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="w-full bg-slate-50 rounded-2xl py-4 pl-12 pr-10 outline-none border border-transparent
-                  focus:border-blue-200 focus:bg-white focus:ring-4 focus:ring-blue-600/8
+                  focus:border-brand/30 focus:bg-white focus:ring-4 focus:ring-brand/8
                   transition-all duration-300 font-semibold text-sm text-slate-800
                   placeholder:text-slate-300 shadow-sm"
               />
@@ -528,7 +528,7 @@ export default function Products() {
                     onClick={() => navigate(`/productos/categoria/${activeCat.slug}`)}
                     className={`shrink-0 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all duration-200 ${
                       slug === activeCat.slug
-                        ? "bg-blue-600 text-white border-blue-600"
+                        ? "bg-brand text-white border-brand"
                         : "bg-white text-slate-400 border-slate-200 hover:border-slate-400 hover:text-slate-600"
                     }`}
                   >
@@ -542,7 +542,7 @@ export default function Products() {
                         onClick={() => navigate(`/productos/categoria/${sub.slug}`)}
                         className={`shrink-0 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all duration-200 ${
                           subActive
-                            ? "bg-blue-600 text-white border-blue-600"
+                            ? "bg-brand text-white border-brand"
                             : "bg-white text-slate-400 border-slate-200 hover:border-slate-400 hover:text-slate-600"
                         }`}
                       >
@@ -604,7 +604,7 @@ export default function Products() {
                   to="/productos"
                   onClick={() => setSearch("")}
                   className="flex items-center gap-2 bg-slate-900 text-white px-8 py-4
-                    rounded-full font-bold text-sm hover:bg-blue-600
+                    rounded-full font-bold text-sm hover:bg-[var(--brand-hover)]
                     transition-all duration-300 hover:scale-105 active:scale-95 shadow-xl shadow-slate-900/10"
                 >
                   <ArrowLeft size={16} /> Limpiar filtros

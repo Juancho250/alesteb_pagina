@@ -427,9 +427,9 @@ export default function CheckoutPage() {
             {step === 1 && (
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-5">
                 {user?.address && (
-                  <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                    <MapPin size={16} className="text-blue-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-blue-700 font-medium leading-relaxed">
+                  <div className="flex items-start gap-3 p-4 bg-brand/5 rounded-2xl border border-brand/15">
+                    <MapPin size={16} className="text-brand shrink-0 mt-0.5" />
+                    <p className="text-xs text-brand font-medium leading-relaxed">
                       Precargamos tu dirección de perfil. Modifícala si es necesario.
                     </p>
                   </div>
@@ -588,7 +588,7 @@ export default function CheckoutPage() {
                     </div>
                     <button
                       onClick={() => setStep(1)}
-                      className="text-blue-600 hover:text-blue-800 text-xs font-bold underline shrink-0"
+                      className="text-brand hover:opacity-80 text-xs font-bold underline shrink-0"
                     >
                       Editar
                     </button>
@@ -699,12 +699,12 @@ export default function CheckoutPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900 truncate">{item.name}</p>
                         {item.variantLabel && (
-                          <p className="text-[10px] text-blue-500 font-bold truncate">
+                          <p className="text-[10px] text-brand font-bold truncate">
                             {item.variantLabel}
                           </p>
                         )}
                         {!item.variantLabel && item.variantAttributes?.length > 0 && (
-                          <p className="text-[10px] text-blue-500 font-bold truncate">
+                          <p className="text-[10px] text-brand font-bold truncate">
                             {item.variantAttributes.map(a => a.display_value ?? a.value).join(" / ")}
                           </p>
                         )}
