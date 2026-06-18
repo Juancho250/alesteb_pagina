@@ -1,6 +1,6 @@
 // src/pages/Products.jsx
 import React, { useEffect, useState, useRef, memo, useCallback } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { extractPagination, extractProducts, extractCategories } from "../utils/apiResponse";
 import { useCart } from "../context/CartContext";
@@ -308,7 +308,7 @@ function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
 
     const params = new URLSearchParams({ page: nextPage, limit: 200 });
     if (debSearch) params.append("search", debSearch);
-    if (slug)      params.append("categoria", slug);
+    if (slug)      params.append("category", slug);
 
     api.get(`/products?${params}`)
       .then(({ data }) => cacheSet(key, data))
@@ -320,13 +320,14 @@ function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
 export default function Products() {
   const { slug }             = useParams();
   const navigate             = useNavigate();
+  const [searchParams]       = useSearchParams();
   const { cart, toggleCart } = useCart();
   const { applyDiscount } = useDiscounts();
 
   const [products,    setProducts]   = useState([]);
   const [loading,     setLoading]    = useState(true);
   const [firstLoad,   setFirstLoad]  = useState(true);
-  const [search,      setSearch]     = useState("");
+  const [search,      setSearch]     = useState(() => searchParams.get("search") || "");
   const [debSearch,   setDebSearch]  = useState("");
   const [page,        setPage]       = useState(1);
   const [pagination,  setPagination] = useState({ totalPages: 1, totalItems: 0 });
@@ -374,7 +375,7 @@ export default function Products() {
 
     const params = new URLSearchParams({ page, limit: 200 });
     if (debSearch) params.append("search", debSearch);
-    if (slug)      params.append("categoria", slug);
+    if (slug)      params.append("category", slug);
 
     api.get(`/products?${params}`)
       .then(({ data }) => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ShoppingBag, Menu, X, ChevronDown, ChevronRight,
   User, LogOut, Search, LayoutGrid,
@@ -291,6 +291,7 @@ export default function Navbar() {
   const { cart } = useCart();
   const { appearance, loading: profileLoad } = useAppearance() ?? {};
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [menuOpen,    setMenuOpen]    = useState(false);
   const [scrolled,    setScrolled]    = useState(false);
@@ -376,7 +377,11 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center gap-0.5 flex-1">
             <Link
               to="/productos"
-              className={`px-3.5 py-2 text-[13px] font-semibold rounded-xl transition-all ${linkCls}`}
+              className={`px-3.5 py-2 text-[13px] font-semibold rounded-xl transition-all ${
+                location.pathname.startsWith("/productos")
+                  ? (textLight ? "text-white bg-white/10" : "text-black bg-neutral-100")
+                  : linkCls
+              }`}
             >
               Tienda
             </Link>
@@ -429,7 +434,14 @@ export default function Navbar() {
                     placeholder="Buscar…"
                     autoFocus
                     className="absolute right-10 bg-neutral-50 border border-neutral-200 text-[13px] rounded-xl px-3.5 py-2 outline-none focus:border-black transition-colors"
-                    onKeyDown={e => { if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); } }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && searchQuery.trim()) {
+                        navigate(`/productos?search=${encodeURIComponent(searchQuery.trim())}`);
+                        setSearchOpen(false);
+                        setSearchQuery("");
+                      }
+                      if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); }
+                    }}
                   />
                 )}
               </AnimatePresence>
@@ -550,6 +562,12 @@ export default function Navbar() {
                   type="text"
                   placeholder="Buscar productos…"
                   className="w-full pl-9 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-[13px] outline-none focus:border-black transition-colors"
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && e.target.value.trim()) {
+                      navigate(`/productos?search=${encodeURIComponent(e.target.value.trim())}`);
+                      setMenuOpen(false);
+                    }
+                  }}
                 />
               </div>
 
