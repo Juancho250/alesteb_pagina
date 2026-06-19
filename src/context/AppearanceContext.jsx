@@ -20,6 +20,15 @@ function darken(hex, pct) {
   return `#${ch(m[1])}${ch(m[2])}${ch(m[3])}`;
 }
 
+// WCAG relative luminance — 0 (black) → 1 (white)
+function getLuminance(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return 1;
+  return [m[1], m[2], m[3]]
+    .map(c => { const v = parseInt(c, 16) / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
+    .reduce((acc, c, i) => acc + [0.2126, 0.7152, 0.0722][i] * c, 0);
+}
+
 function applyGlobalStyles(data) {
   if (!data) return;
   const root = document.documentElement;
@@ -34,6 +43,23 @@ function applyGlobalStyles(data) {
   const pageBg = data.store_page_bg || "#ffffff";
   root.style.setProperty("--store-page-bg", pageBg);
   document.body.style.backgroundColor = pageBg;
+
+  const isDark = getLuminance(pageBg) < 0.18;
+  if (isDark) {
+    root.style.setProperty("--store-text-primary",   "#f8fafc");
+    root.style.setProperty("--store-text-secondary", "#cbd5e1");
+    root.style.setProperty("--store-text-muted",     "#94a3b8");
+    root.style.setProperty("--store-surface",        "rgba(255,255,255,0.07)");
+    root.style.setProperty("--store-surface-hover",  "rgba(255,255,255,0.11)");
+    root.style.setProperty("--store-border",         "rgba(255,255,255,0.12)");
+  } else {
+    root.style.setProperty("--store-text-primary",   "#0f172a");
+    root.style.setProperty("--store-text-secondary", "#475569");
+    root.style.setProperty("--store-text-muted",     "#94a3b8");
+    root.style.setProperty("--store-surface",        "#f8fafc");
+    root.style.setProperty("--store-surface-hover",  "#f1f5f9");
+    root.style.setProperty("--store-border",         "#e2e8f0");
+  }
 
   const font = data.store_font;
   if (font && ALLOWED_FONTS.has(font)) {

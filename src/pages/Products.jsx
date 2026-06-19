@@ -40,10 +40,10 @@ function imgUrl(url, w = 600) {
 // ─── Skeleton card ────────────────────────────────────────────────────────────
 const SkeletonCard = () => (
   <div className="flex flex-col animate-pulse">
-    <div className="aspect-[4/5] rounded-[2rem] bg-slate-100" />
+    <div className="aspect-[4/5] rounded-[2rem] bg-[var(--store-surface)]" />
     <div className="mt-5 px-1 space-y-2">
-      <div className="h-2 w-24 bg-slate-100 rounded-full" />
-      <div className="h-5 w-32 bg-slate-100 rounded-full" />
+      <div className="h-2 w-24 bg-[var(--store-surface)] rounded-full" />
+      <div className="h-5 w-32 bg-[var(--store-surface)] rounded-full" />
     </div>
   </div>
 );
@@ -137,6 +137,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
 
       <button
         onClick={(e) => { e.preventDefault(); toggleFavorite(p); }}
+        aria-label={fav ? "Quitar de favoritos" : "Agregar a favoritos"}
         className={`absolute z-20 p-2.5 rounded-full bg-white/90 backdrop-blur-md
           border border-slate-100 shadow-sm transition-all duration-300
           hover:scale-110 active:scale-95
@@ -153,8 +154,9 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
         className="relative block overflow-hidden rounded-[2.5rem] bg-[#F5F5F7] aspect-[4/5]
           transition-shadow duration-500 group-hover:shadow-2xl group-hover:shadow-slate-200/80"
       >
-        {!imgLoaded && !imgError && (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-50 animate-pulse" />
+        {/* Pulse skeleton — solo mientras carga la imagen */}
+        {!imgLoaded && !imgError && thumb && (
+          <div className="absolute inset-0 bg-gradient-to-br from-[var(--store-surface)] to-[var(--store-surface-hover)] animate-pulse" />
         )}
 
         {/* Sold-out overlay */}
@@ -167,7 +169,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
           </div>
         )}
 
-        {thumb && (
+        {thumb && !imgError ? (
           <img
             src={thumb}
             srcSet={`${thumb} 1x, ${thumb2x} 2x`}
@@ -182,6 +184,10 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
               group-hover:scale-[1.06]
               ${imgLoaded ? "opacity-100" : "opacity-0"}`}
           />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-[var(--store-surface)]">
+            <ShoppingBag size={40} className="text-[var(--store-text-muted)] opacity-25" strokeWidth={1} />
+          </div>
         )}
 
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/[0.04] transition-colors duration-500" />
@@ -191,6 +197,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
       {hasVariants ? (
         <Link
           to={`/productos/detalle/${p.id}`}
+          aria-label={isOut ? "Agotado" : "Ver opciones"}
           className={`absolute bottom-[7.5rem] right-5 z-20 p-4 rounded-full bg-white text-slate-900
             border border-slate-100 shadow-xl transition-all duration-300
             ${isOut
@@ -205,6 +212,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
         <button
           onClick={() => !isOut && onToggle({ ...p, cartKey: String(p.id) }, 1)}
           disabled={isOut}
+          aria-label={isOut ? "Agotado" : isInCart ? "Quitar del carrito" : "Agregar al carrito"}
           className={`absolute bottom-[7.5rem] right-5 z-20 p-4 rounded-full shadow-2xl
             transition-all duration-300
             ${isOut
@@ -225,32 +233,31 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
 
       {/* Info */}
       <div className="mt-5 px-1 space-y-1.5">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-tight
+        <p className="text-[10px] font-black text-[var(--store-text-secondary)] uppercase tracking-[0.2em] leading-tight
           group-hover:text-brand transition-colors duration-300 truncate">
           {p.name}
         </p>
         <div className="flex items-baseline gap-2.5">
-          <span className={`text-xl font-black tracking-tight ${isOut ? "text-slate-300" : "text-slate-900"}`}>
+          <span className={`text-xl font-black tracking-tight ${isOut ? "text-[var(--store-text-muted)]" : "text-[var(--store-text-primary)]"}`}>
             {hasVariants ? "Desde " : ""}${priceFinal.toLocaleString()}
           </span>
           {hasDiscount && (
-            <span className="text-sm text-slate-300 line-through font-medium">
+            <span className="text-sm text-[var(--store-text-muted)] line-through font-medium">
               ${priceOriginal.toLocaleString()}
             </span>
           )}
         </div>
         {isLow && (
           <span className="inline-flex items-center px-2 py-0.5
-            bg-amber-50 dark:bg-amber-500/10
-            border border-amber-200 dark:border-amber-500/20
-            text-[9px] font-black text-amber-700 dark:text-amber-400
+            bg-amber-500/15 border border-amber-500/30
+            text-[9px] font-black text-amber-600
             rounded-full uppercase tracking-wider">
             Últimas {p.stock}
           </span>
         )}
         {isOnDemand && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 border border-purple-200
-            text-[9px] font-black text-purple-700 rounded-full uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/15 border border-purple-500/30
+            text-[9px] font-black text-purple-600 rounded-full uppercase tracking-wider">
             Entrega en {p.supplier_lead_time_days ?? "?"} días
           </span>
         )}
@@ -271,19 +278,23 @@ function Pagination({ page, totalPages, onPrev, onNext }) {
     >
       <button
         onClick={onPrev} disabled={page === 1}
-        className="w-12 h-12 flex items-center justify-center rounded-full bg-slate-50
-          hover:bg-slate-100 disabled:opacity-25 disabled:cursor-not-allowed
+        aria-label="Página anterior"
+        className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--store-surface)]
+          hover:bg-[var(--store-surface-hover)] text-[var(--store-text-primary)]
+          disabled:opacity-25 disabled:cursor-not-allowed
           transition-all hover:scale-105 active:scale-95"
       >
         <ChevronLeft size={20} />
       </button>
-      <span className="font-black text-slate-900 tracking-widest text-xs">
+      <span className="font-black text-[var(--store-text-primary)] tracking-widest text-xs">
         {page} / {totalPages}
       </span>
       <button
         onClick={onNext} disabled={page === totalPages}
-        className="w-12 h-12 flex items-center justify-center rounded-full bg-slate-50
-          hover:bg-slate-100 disabled:opacity-25 disabled:cursor-not-allowed
+        aria-label="Página siguiente"
+        className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--store-surface)]
+          hover:bg-[var(--store-surface-hover)] text-[var(--store-text-primary)]
+          disabled:opacity-25 disabled:cursor-not-allowed
           transition-all hover:scale-105 active:scale-95"
       >
         <ChevronRight size={20} />
@@ -320,7 +331,7 @@ function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
 export default function Products() {
   const { slug }             = useParams();
   const navigate             = useNavigate();
-  const [searchParams]       = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { cart, toggleCart } = useCart();
   const { applyDiscount } = useDiscounts();
 
@@ -335,11 +346,15 @@ export default function Products() {
   const [categories,  setCategories] = useState([]);
   const searchRef = useRef(null);
 
-  // Debounce búsqueda
+  // Debounce búsqueda + sincronización bidireccional con URL
   useEffect(() => {
-    const t = setTimeout(() => { setDebSearch(search); setPage(1); }, 420);
+    const t = setTimeout(() => {
+      setDebSearch(search);
+      setPage(1);
+      setSearchParams(search ? { search } : {}, { replace: true });
+    }, 420);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [search, setSearchParams]);
 
   // Resetear página al cambiar de categoría
   useEffect(() => {
@@ -418,13 +433,21 @@ export default function Products() {
             <motion.nav
               variants={fadeUp} initial="hidden" animate="visible"
               className="flex items-center gap-2.5 text-[10px] font-black
-                text-slate-400 mb-10 uppercase tracking-[0.2em]"
+                text-[var(--store-text-secondary)] mb-10 uppercase tracking-[0.2em]"
             >
               <Link to="/" className="hover:text-brand transition-colors">Inicio</Link>
-              <ChevronRight size={10} className="text-slate-200" />
+              <ChevronRight size={10} className="text-[var(--store-border)]" />
               <Link to="/productos" className="hover:text-brand transition-colors">Tienda</Link>
-              <ChevronRight size={10} className="text-slate-200" />
-              <span className="text-slate-900">{catName || slug.replace(/-/g, " ")}</span>
+              <ChevronRight size={10} className="text-[var(--store-border)]" />
+              {activeCat && slug !== activeCat.slug && (
+                <>
+                  <Link to={`/productos/categoria/${activeCat.slug}`} className="hover:text-brand transition-colors">
+                    {activeCat.name}
+                  </Link>
+                  <ChevronRight size={10} className="text-[var(--store-border)]" />
+                </>
+              )}
+              <span className="text-[var(--store-text-primary)]">{catName || slug.replace(/-/g, " ")}</span>
             </motion.nav>
           )}
 
@@ -434,7 +457,7 @@ export default function Products() {
             className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-16"
           >
             <div className="space-y-5">
-              <h1 className="text-[clamp(3rem,10vw,7rem)] font-black text-slate-900
+              <h1 className="text-[clamp(3rem,10vw,7rem)] font-black text-[var(--store-text-primary)]
                 tracking-[-0.04em] leading-[0.85] italic whitespace-pre-line">
                 {slug
                   ? (catName || slug.replace(/-/g, " ")).toUpperCase()
@@ -443,7 +466,7 @@ export default function Products() {
               </h1>
               <div className="flex items-center gap-3">
                 <div className="h-1 w-14 bg-brand rounded-full" />
-                <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">
+                <p className="text-[var(--store-text-secondary)] font-bold uppercase tracking-[0.3em] text-[10px]">
                   {loading ? "Cargando…" : `${pagination.totalItems} productos`}
                 </p>
               </div>
@@ -452,7 +475,7 @@ export default function Products() {
             {/* Search */}
             <div className="relative group w-full lg:w-80 xl:w-96">
               <Search
-                className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300
+                className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--store-text-muted)]
                   group-focus-within:text-brand transition-colors duration-300"
                 size={18} strokeWidth={2.5}
               />
@@ -462,10 +485,10 @@ export default function Products() {
                 placeholder="Buscar…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full bg-slate-50 rounded-2xl py-4 pl-12 pr-10 outline-none border border-transparent
-                  focus:border-brand/30 focus:bg-white focus:ring-4 focus:ring-brand/8
-                  transition-all duration-300 font-semibold text-sm text-slate-800
-                  placeholder:text-slate-300 shadow-sm"
+                className="w-full bg-[var(--store-surface)] rounded-2xl py-4 pl-12 pr-10 outline-none border border-transparent
+                  focus:border-brand/30 focus:bg-[var(--store-surface-hover)] focus:ring-4 focus:ring-brand/8
+                  transition-all duration-300 font-semibold text-sm text-[var(--store-text-primary)]
+                  placeholder:text-[var(--store-text-muted)] shadow-sm"
               />
               <AnimatePresence>
                 {search && (
@@ -474,8 +497,10 @@ export default function Products() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.7 }}
                     onClick={() => setSearch("")}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-200
-                      hover:bg-slate-300 rounded-full flex items-center justify-center transition-colors"
+                    aria-label="Limpiar búsqueda"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 bg-[var(--store-surface-hover)]
+                      hover:bg-[var(--store-border)] text-[var(--store-text-muted)]
+                      rounded-full flex items-center justify-center transition-colors"
                   >
                     <X size={12} />
                   </motion.button>
@@ -491,10 +516,11 @@ export default function Products() {
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                 <button
                   onClick={() => navigate("/productos")}
-                  className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wider transition-all duration-200 ${
+                  className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wider
+                    transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
                     !slug
-                      ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20"
-                      : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                      ? "bg-brand text-white shadow-lg shadow-brand/20"
+                      : "bg-[var(--store-surface)] text-[var(--store-text-secondary)] hover:bg-[var(--store-surface-hover)] hover:text-[var(--store-text-primary)]"
                   }`}
                 >
                   Todos
@@ -505,10 +531,11 @@ export default function Products() {
                     <button
                       key={cat.id}
                       onClick={() => navigate(`/productos/categoria/${cat.slug}`)}
-                      className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wider transition-all duration-200 ${
+                      className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wider
+                        transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
                         isActive
-                          ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20"
-                          : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                          ? "bg-brand text-white shadow-lg shadow-brand/20"
+                          : "bg-[var(--store-surface)] text-[var(--store-text-secondary)] hover:bg-[var(--store-surface-hover)] hover:text-[var(--store-text-primary)]"
                       }`}
                     >
                       {cat.name}
@@ -527,10 +554,11 @@ export default function Products() {
                 >
                   <button
                     onClick={() => navigate(`/productos/categoria/${activeCat.slug}`)}
-                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all duration-200 ${
+                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border
+                      transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
                       slug === activeCat.slug
                         ? "bg-brand text-white border-brand"
-                        : "bg-white text-slate-400 border-slate-200 hover:border-slate-400 hover:text-slate-600"
+                        : "bg-[var(--store-surface)] text-[var(--store-text-muted)] border-[var(--store-border)] hover:border-[var(--store-text-muted)] hover:text-[var(--store-text-secondary)]"
                     }`}
                   >
                     Todo en {activeCat.name}
@@ -541,10 +569,11 @@ export default function Products() {
                       <button
                         key={sub.id}
                         onClick={() => navigate(`/productos/categoria/${sub.slug}`)}
-                        className={`shrink-0 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all duration-200 ${
+                        className={`shrink-0 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border
+                          transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
                           subActive
                             ? "bg-brand text-white border-brand"
-                            : "bg-white text-slate-400 border-slate-200 hover:border-slate-400 hover:text-slate-600"
+                            : "bg-[var(--store-surface)] text-[var(--store-text-muted)] border-[var(--store-border)] hover:border-[var(--store-text-muted)] hover:text-[var(--store-text-secondary)]"
                         }`}
                       >
                         {sub.name}
@@ -591,14 +620,14 @@ export default function Products() {
                 variants={fadeUp} initial="hidden" animate="visible"
                 className="col-span-full flex flex-col items-center justify-center py-36 text-center"
               >
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center
-                  justify-center text-slate-200 mb-6 border border-slate-100">
+                <div className="w-20 h-20 bg-[var(--store-surface)] rounded-full flex items-center
+                  justify-center text-[var(--store-text-muted)] mb-6 border border-[var(--store-border)]">
                   <Search size={36} strokeWidth={1.5} />
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tighter mb-2">
+                <h3 className="text-2xl font-black text-[var(--store-text-primary)] tracking-tighter mb-2">
                   SIN RESULTADOS
                 </h3>
-                <p className="text-sm text-slate-400 font-medium mb-8">
+                <p className="text-sm text-[var(--store-text-secondary)] font-medium mb-8">
                   Prueba con otro término o explora toda la colección
                 </p>
                 <Link

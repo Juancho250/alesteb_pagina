@@ -447,6 +447,7 @@ export default function Navbar() {
               </AnimatePresence>
               <button
                 onClick={() => { setSearchOpen(v => !v); setSearchQuery(""); }}
+                aria-label={searchOpen ? "Cerrar búsqueda" : "Abrir búsqueda"}
                 className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-xl transition-all ${iconCls}`}
               >
                 {searchOpen ? <X size={17} /> : <Search size={17} />}
@@ -494,6 +495,7 @@ export default function Navbar() {
 
             <Link
               to="/carrito"
+              aria-label={`Carrito${cartCount > 0 ? `, ${cartCount} ${cartCount === 1 ? "ítem" : "ítems"}` : ""}`}
               className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-all ${cartCls}`}
             >
               <ShoppingBag size={19} />
