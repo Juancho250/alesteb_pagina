@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import api from "../services/api";
+import { createContext, useContext, useEffect } from "react";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
 
 const AppearanceContext = createContext(null);
 
@@ -79,21 +79,12 @@ function applyGlobalStyles(data) {
 }
 
 export function AppearanceProvider({ children }) {
-  const [appearance, setAppearance] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { runtime, loading } = useSiteRuntime();
+  const appearance = runtime.compatibility.publicProfile;
 
   useEffect(() => {
-    api.get("/profile")
-      .then(res => {
-        const data = res.data?.data ?? res.data ?? null;
-        if (data) {
-          setAppearance(data);
-          applyGlobalStyles(data);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    applyGlobalStyles(appearance);
+  }, [appearance]);
 
   return (
     <AppearanceContext.Provider value={{ appearance, loading }}>
