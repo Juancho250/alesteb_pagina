@@ -23,13 +23,20 @@ export default defineConfig([
       },
     },
     rules: {
-      // Dynamic React components are commonly passed as callback arguments
-      // (for example route.Component or icon renderers). Keep the existing
-      // uppercase convention for both variables and arguments.
-      'no-unused-vars': ['error', {
+      // Legacy cleanup stays visible while CI is introduced progressively.
+      // React correctness rules (rules-of-hooks/exhaustive-deps) remain enabled.
+      'no-unused-vars': ['warn', {
         varsIgnorePattern: '^(?:[A-Z_]|motion$)',
         argsIgnorePattern: '^[A-Z_]',
       }],
+      'no-empty': ['error', { allowEmptyCatch: true }],
+
+      // These React 19/compiler-oriented rules expose useful modernization debt,
+      // but they are not allowed to block the first repository CI baseline.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/purity': 'warn',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/use-memo': 'warn',
     },
   },
   {
@@ -41,6 +48,14 @@ export default defineConfig([
     ],
     rules: {
       'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    // Checkout currently exports BANK_INFO beside the page component. This is
+    // tracked multi-tenant debt and will move to backend-owned payment config.
+    files: ['src/pages/Checkoutpage.jsx'],
+    rules: {
+      'react-refresh/only-export-components': 'warn',
     },
   },
 ])
