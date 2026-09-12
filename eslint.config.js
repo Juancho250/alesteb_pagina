@@ -23,7 +23,24 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Dynamic React components are commonly passed as callback arguments
+      // (for example route.Component or icon renderers). Keep the existing
+      // uppercase convention for both variables and arguments.
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^(?:[A-Z_]|motion$)',
+        argsIgnorePattern: '^[A-Z_]',
+      }],
+    },
+  },
+  {
+    // Context modules intentionally export both a Provider and its consumer hook.
+    // That module boundary is stable and should not be split only to satisfy HMR.
+    files: [
+      'src/context/**/*.{js,jsx}',
+      'src/platform/runtime/**/*Context.{js,jsx}',
+    ],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])
