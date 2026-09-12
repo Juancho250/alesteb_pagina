@@ -1,0 +1,50 @@
+name: Dependency Lock Fix Once
+
+on:
+  push:
+    branches:
+      - agent/storefront-hardening-v1
+    paths:
+      - .github/workflows/dependency-lock-fix-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-lock:
+    if: github.event.head_commit.message == 'chore(deps): bootstrap audit lock fix'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v7
+        with:
+          ref: agent/storefront-hardening-v1
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact lock
+        run: npm ci
+
+      - name: Apply audit-safe lock updates
+        run: npm audit fix --package-lock-only
+
+      - name: Verify production audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Commit lockfile if changed
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "No lockfile changes required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "fix(deps): resolve storefront runtime advisories"
+          git push origin HEAD:agent/storefront-hardening-v1
