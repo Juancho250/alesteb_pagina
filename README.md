@@ -1,16 +1,75 @@
-# React + Vite
+# ALESTEB Storefront
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Storefront público multi-tenant de ALESTEB. Este repositorio renderiza la experiencia de tienda de cada tenant consumiendo contratos públicos del backend; no es la fuente de autoridad de catálogo, inventario, ventas, descuentos, permisos ni pagos.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 19
+- Vite
+- React Router
+- Axios
+- Tailwind CSS
+- Framer Motion
+- Lenis
 
-## React Compiler
+## Arquitectura
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+La dirección actual es una migración progresiva hacia un único runtime multi-tenant:
 
-## Expanding the ESLint configuration
+`Tenant identity -> Branding -> Storefront presentation -> Site manifest -> Registered sections -> Domain data`
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+La base V1 ya incluye:
+
+- `SiteRuntimeProvider` como bootstrap único del perfil público;
+- `AppearanceProvider` como adaptador de compatibilidad;
+- registro central de rutas en `src/platform/routing`;
+- registro cerrado de secciones en `src/platform/sections`;
+- `manifest: null` hasta que exista un contrato backend publicado y versionado.
+
+La especificación está en `docs/ALESTEB_STOREFRONT_SITE_COMPOSITION_V1.md`.
+
+## Entorno
+
+Copia `.env.example` a un archivo local no versionado y configura:
+
+```bash
+VITE_API_BASE_URL=https://alesteb-back-1.onrender.com/public-api/v1
+VITE_API_KEY=ak_<prefix>_<secret>
+```
+
+### Seguridad de `VITE_API_KEY`
+
+Las variables `VITE_*` se incorporan al bundle del navegador. Por diseño, `VITE_API_KEY` debe tratarse como una credencial publicable del Storefront, nunca como una credencial administrativa o privada.
+
+El backend debe restringirla al mínimo conjunto de permisos necesario y a los orígenes exactos autorizados. La autorización real siempre pertenece al backend.
+
+## Desarrollo
+
+```bash
+npm ci
+npm run dev
+```
+
+Validación obligatoria antes de integrar:
+
+```bash
+npm run lint
+npm run build
+```
+
+## Flujo de integración
+
+Los cambios se trabajan en ramas y se integran mediante PR. `main` debe permanecer como línea estable. El CI del Storefront ejecuta instalación limpia, lint y build antes de considerar una rama certificada.
+
+## Límites de responsabilidad
+
+- Tenant Profile: identidad, contacto, ubicación y datos públicos del negocio.
+- Branding: logo, tagline y sistema visual publicado.
+- Storefront: navegación, presentación y composición del sitio.
+- Catalog: productos y categorías.
+- Inventory: disponibilidad y reservas.
+- Sales: pedidos y totales autoritativos.
+- Reviews: reseñas.
+- Discounts: reglas y descuentos autoritativos.
+
+El frontend puede calcular estados de presentación, pero no debe convertirse en autoridad de permisos, precios, descuentos, inventario ni pagos.
