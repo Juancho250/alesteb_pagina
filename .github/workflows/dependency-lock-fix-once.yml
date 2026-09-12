@@ -12,7 +12,6 @@ permissions:
 
 jobs:
   fix-lock:
-    if: ${{ github.event.head_commit.message == 'chore(deps): bootstrap audit lock fix' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
