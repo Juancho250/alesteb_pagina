@@ -77,7 +77,7 @@ export function useInventoryReservation(cartItems) {
       .finally(() => { if (alive) setReserving(false); });
 
     return () => { alive = false; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps — intentionally runs once
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Countdown ticker ──────────────────────────────────────────────────────
   useEffect(() => {
