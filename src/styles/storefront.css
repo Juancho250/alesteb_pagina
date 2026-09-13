@@ -1,0 +1,458 @@
+:root {
+  --store-brand: #111827;
+  --store-brand-contrast: #ffffff;
+  --store-secondary: #111827;
+  --store-accent: #111827;
+  --store-page-bg: #ffffff;
+  --store-surface: #f9fafb;
+  --store-surface-elevated: #f3f4f6;
+  --store-surface-hover: #f3f4f6;
+  --store-border: #e5e7eb;
+  --store-text-primary: #111827;
+  --store-text-secondary: #4b5563;
+  --store-text-muted: #6b7280;
+  --store-navbar-bg: #ffffff;
+  --store-navbar-text: #111827;
+  --store-content-width: 1440px;
+  --store-gutter: clamp(1rem, 3vw, 2.5rem);
+  --store-radius-sm: 14px;
+  --store-radius-md: 22px;
+  --store-radius-lg: 34px;
+  --store-shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.07);
+}
+
+html {
+  background: var(--store-page-bg);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--store-page-bg);
+  color: var(--store-text-primary);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgb(var(--brand-rgb, 17 24 39) / 0.16);
+}
+
+.storefront-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 0%, rgb(var(--brand-rgb, 17 24 39) / 0.055), transparent 34rem),
+    var(--store-page-bg);
+  color: var(--store-text-primary);
+}
+
+.storefront-container {
+  width: min(var(--store-content-width), calc(100% - (var(--store-gutter) * 2)));
+  margin-inline: auto;
+}
+
+.storefront-nav-wrap {
+  pointer-events: none;
+}
+
+.storefront-nav {
+  pointer-events: auto;
+  border: 1px solid color-mix(in srgb, var(--store-navbar-text) 12%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--store-navbar-bg) 92%, transparent);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+}
+
+.storefront-nav-link {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 0.9rem;
+  color: color-mix(in srgb, var(--store-navbar-text) 68%, transparent);
+  font-size: 0.78rem;
+  font-weight: 650;
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.storefront-nav-link:hover,
+.storefront-nav-link.is-active {
+  background: color-mix(in srgb, var(--store-navbar-text) 9%, transparent);
+  color: var(--store-navbar-text);
+}
+
+.storefront-nav-link:active,
+.storefront-nav-action:active {
+  transform: scale(0.97);
+}
+
+.storefront-nav-action {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--store-navbar-text);
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.storefront-nav-action:hover {
+  background: color-mix(in srgb, var(--store-navbar-text) 9%, transparent);
+}
+
+.storefront-nav-popover,
+.storefront-nav-search {
+  border: 1px solid var(--store-border);
+  background: color-mix(in srgb, var(--store-page-bg) 95%, var(--store-surface) 5%);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+  border-radius: 22px;
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+}
+
+.storefront-kicker {
+  color: var(--store-text-muted);
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.storefront-title {
+  color: var(--store-text-primary);
+  font-size: clamp(2.45rem, 7vw, 6.6rem);
+  font-weight: 700;
+  letter-spacing: -0.065em;
+  line-height: 0.92;
+  text-wrap: balance;
+}
+
+.storefront-section-title {
+  color: var(--store-text-primary);
+  font-size: clamp(1.75rem, 3.6vw, 3.2rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  text-wrap: balance;
+}
+
+.storefront-copy {
+  color: var(--store-text-secondary);
+  font-size: clamp(0.95rem, 1.3vw, 1.08rem);
+  line-height: 1.7;
+}
+
+.storefront-surface {
+  border: 1px solid var(--store-border);
+  background: color-mix(in srgb, var(--store-page-bg) 78%, var(--store-surface) 22%);
+  border-radius: var(--store-radius-md);
+}
+
+.storefront-elevated {
+  border: 1px solid var(--store-border);
+  background: color-mix(in srgb, var(--store-page-bg) 88%, var(--store-surface-elevated) 12%);
+  box-shadow: var(--store-shadow-soft);
+  border-radius: var(--store-radius-lg);
+}
+
+.storefront-brand-button {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border-radius: 999px;
+  background: var(--store-brand);
+  color: var(--store-brand-contrast);
+  padding: 0.75rem 1.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
+}
+
+.storefront-brand-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgb(var(--brand-rgb, 17 24 39) / 0.2);
+}
+
+.storefront-secondary-button {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 1px solid var(--store-border);
+  border-radius: 999px;
+  background: var(--store-surface);
+  color: var(--store-text-primary);
+  padding: 0.75rem 1.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.storefront-secondary-button:hover {
+  transform: translateY(-1px);
+  background: var(--store-surface-hover);
+}
+
+.storefront-product-card {
+  min-width: 0;
+}
+
+.storefront-product-media {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  border: 1px solid var(--store-border);
+  border-radius: clamp(18px, 2vw, 28px);
+  background: var(--store-surface);
+}
+
+.storefront-product-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.storefront-product-card:hover .storefront-product-media img {
+  transform: scale(1.025);
+}
+
+.storefront-category-chip {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  border: 1px solid var(--store-border);
+  border-radius: 999px;
+  background: var(--store-surface);
+  color: var(--store-text-secondary);
+  padding: 0.6rem 1rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  transition: border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.storefront-category-chip:hover {
+  border-color: var(--store-brand);
+  color: var(--store-text-primary);
+  transform: translateY(-1px);
+}
+
+.storefront-contact-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+/* Existing ProductDetail keeps stock/variant/cart authority untouched.
+   This route scope replaces only its legacy neutral presentation. */
+.storefront-shell[data-store-surface="product-detail"] .max-w-5xl {
+  width: min(1180px, calc(100% - (var(--store-gutter) * 2)));
+  max-width: none;
+  padding-inline: 0;
+}
+
+.storefront-shell[data-store-surface="product-detail"] h1 {
+  color: var(--store-text-primary) !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.05em !important;
+  line-height: 0.96 !important;
+  text-transform: none !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] .font-black {
+  font-weight: 700;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-900"],
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-800"],
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-700"] {
+  color: var(--store-text-primary) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-600"],
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-500"] {
+  color: var(--store-text-secondary) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-400"],
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-300"],
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-200"] {
+  color: var(--store-text-muted) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="bg-white"] {
+  background-color: var(--store-page-bg) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class*="bg-slate-50"],
+.storefront-shell[data-store-surface="product-detail"] [class~="bg-slate-100"],
+.storefront-shell[data-store-surface="product-detail"] [class~="bg-[#F5F5F7]"] {
+  background-color: var(--store-surface) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class*="border-slate-100"],
+.storefront-shell[data-store-surface="product-detail"] [class~="border-slate-200"] {
+  border-color: var(--store-border) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="bg-slate-900"] {
+  background-color: var(--store-brand) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="bg-slate-900"][class~="text-white"] {
+  color: var(--store-brand-contrast) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="shadow-slate-200/80"],
+.storefront-shell[data-store-surface="product-detail"] [class~="shadow-slate-900/10"] {
+  --tw-shadow-color: rgb(var(--brand-rgb, 17 24 39) / 0.1) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] button,
+.storefront-shell[data-store-surface="product-detail"] a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Cart and checkout share semantic storefront neutrals, but their pricing,
+   inventory, reservation and payment logic remain owned by their components. */
+.storefront-shell[data-store-surface="cart"] .max-w-5xl,
+.storefront-shell[data-store-surface="checkout"] .max-w-4xl {
+  width: min(1180px, calc(100% - (var(--store-gutter) * 2)));
+  max-width: none;
+  padding-inline: 0;
+}
+
+.storefront-shell[data-store-surface="cart"] h1,
+.storefront-shell[data-store-surface="checkout"] h1,
+.storefront-shell[data-store-surface="checkout"] h2 {
+  color: var(--store-text-primary) !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.045em !important;
+  text-transform: none !important;
+}
+
+.storefront-shell[data-store-surface="cart"] .font-black,
+.storefront-shell[data-store-surface="checkout"] .font-black {
+  font-weight: 700;
+}
+
+.storefront-shell[data-store-surface="cart"] [class~="text-slate-900"],
+.storefront-shell[data-store-surface="cart"] [class~="text-slate-800"],
+.storefront-shell[data-store-surface="cart"] [class~="text-slate-700"],
+.storefront-shell[data-store-surface="checkout"] [class~="text-slate-900"],
+.storefront-shell[data-store-surface="checkout"] [class~="text-slate-800"],
+.storefront-shell[data-store-surface="checkout"] [class~="text-slate-700"] {
+  color: var(--store-text-primary) !important;
+}
+
+.storefront-shell[data-store-surface="cart"] [class~="text-slate-600"],
+.storefront-shell[data-store-surface="cart"] [class~="text-slate-500"],
+.storefront-shell[data-store-surface="checkout"] [class~="text-slate-600"],
+.storefront-shell[data-store-surface="checkout"] [class~="text-slate-500"] {
+  color: var(--store-text-secondary) !important;
+}
+
+.storefront-shell[data-store-surface="cart"] [class~="text-slate-400"],
+.storefront-shell[data-store-surface="cart"] [class~="text-slate-300"],
+.storefront-shell[data-store-surface="cart"] [class~="text-slate-200"],
+.storefront-shell[data-store-surface="checkout"] [class~="text-slate-400"],
+.storefront-shell[data-store-surface="checkout"] [class~="text-slate-300"],
+.storefront-shell[data-store-surface="checkout"] [class~="text-slate-200"] {
+  color: var(--store-text-muted) !important;
+}
+
+.storefront-shell[data-store-surface="cart"] [class~="bg-white"],
+.storefront-shell[data-store-surface="checkout"] [class~="bg-white"] {
+  background-color: var(--store-page-bg) !important;
+}
+
+.storefront-shell[data-store-surface="cart"] [class*="bg-slate-50"],
+.storefront-shell[data-store-surface="cart"] [class~="bg-slate-100"],
+.storefront-shell[data-store-surface="checkout"] [class*="bg-slate-50"],
+.storefront-shell[data-store-surface="checkout"] [class~="bg-slate-100"],
+.storefront-shell[data-store-surface="checkout"] [class~="bg-[#F8FAFC]"] {
+  background-color: var(--store-surface) !important;
+}
+
+.storefront-shell[data-store-surface="cart"] [class*="border-slate-100"],
+.storefront-shell[data-store-surface="cart"] [class~="border-slate-200"],
+.storefront-shell[data-store-surface="checkout"] [class*="border-slate-100"],
+.storefront-shell[data-store-surface="checkout"] [class~="border-slate-200"] {
+  border-color: var(--store-border) !important;
+}
+
+.storefront-shell[data-store-surface="cart"] [class~="bg-slate-900"],
+.storefront-shell[data-store-surface="checkout"] [class~="bg-slate-900"] {
+  background-color: var(--store-brand) !important;
+}
+
+.storefront-shell[data-store-surface="cart"] [class~="bg-slate-900"][class~="text-white"],
+.storefront-shell[data-store-surface="checkout"] [class~="bg-slate-900"][class~="text-white"] {
+  color: var(--store-brand-contrast) !important;
+}
+
+.storefront-shell[data-store-surface="checkout"] .sticky.top-0 {
+  top: 82px;
+  border-color: var(--store-border) !important;
+  background: color-mix(in srgb, var(--store-page-bg) 94%, transparent) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+@media (max-width: 640px) {
+  :root {
+    --store-radius-lg: 26px;
+  }
+
+  .storefront-title {
+    font-size: clamp(2.7rem, 15vw, 4.6rem);
+  }
+
+  .storefront-nav {
+    border-radius: 18px;
+  }
+
+  .storefront-shell[data-store-surface="product-detail"] .max-w-5xl,
+  .storefront-shell[data-store-surface="cart"] .max-w-5xl,
+  .storefront-shell[data-store-surface="checkout"] .max-w-4xl {
+    width: min(100% - 2rem, 1180px);
+  }
+
+  .storefront-shell[data-store-surface="checkout"] .sticky.top-0 {
+    top: 78px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .storefront-nav,
+  .storefront-nav-popover,
+  .storefront-nav-search {
+    background: var(--store-navbar-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .storefront-shell[data-store-surface="checkout"] .sticky.top-0 {
+    background: var(--store-page-bg) !important;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

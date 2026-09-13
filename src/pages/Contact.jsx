@@ -1,81 +1,118 @@
-// src/pages/Contact.jsx
-import { motion } from "framer-motion";
-import { ReactLenis } from "lenis/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  Send,
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
   Instagram,
-  MessageCircle,
+  Loader2,
   Mail,
   MapPin,
-  Loader2,
-  CheckCircle,
-  AlertCircle,
+  MessageCircle,
+  Phone,
+  Send,
 } from "lucide-react";
-import api from "../services/api"; // axios instance
+import api from "../services/api";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 40 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] } },
-};
+function normalizeSocialUrl(key, value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (/^https?:\/\//i.test(text)) return text;
 
-const stagger = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.12 } },
-};
+  if (key === "whatsapp") {
+    const digits = text.replace(/\D/g, "");
+    return digits ? `https://wa.me/${digits}` : null;
+  }
 
-const channels = [
-  {
-    icon: <MessageCircle size={20} />,
-    label: "WhatsApp",
-    value: "+57 314 505 5073",
-    href: "https://wa.me/573145055073",
-    cta: "Iniciar chat",
-  },
-  {
-    icon: <Mail size={20} />,
-    label: "Email",
-    value: "web@alesteb.com",
-    href: "mailto:web@alesteb.com",
-    cta: "Enviar email",
-  },
-  {
-    icon: <Instagram size={20} />,
-    label: "Instagram",
-    value: "@alesteb",
-    href: "https://instagram.com/alesteb",
-    cta: "Seguirnos",
-  },
-  {
-    icon: <MapPin size={20} />,
-    label: "Ubicación",
-    value: "Colombia",
-    href: null,
-    cta: null,
-  },
-];
+  const handle = text.replace(/^@/, "");
+  if (!handle || handle.includes(" ")) return null;
+  if (key === "instagram") return `https://instagram.com/${handle}`;
+  if (key === "tiktok") return `https://tiktok.com/@${handle}`;
+  if (key === "x" || key === "twitter") return `https://x.com/${handle}`;
+  if (key === "facebook") return `https://facebook.com/${handle}`;
+  return null;
+}
+
+function ContactChannel({ icon: Icon, label, value, href }) {
+  const content = (
+    <>
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--store-surface-elevated)] text-[var(--store-text-primary)]">
+        <Icon size={17} strokeWidth={1.8} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="storefront-kicker !text-[0.61rem]">{label}</span>
+        <span className="mt-1 block truncate text-sm font-semibold text-[var(--store-text-primary)]">{value}</span>
+      </span>
+      {href ? <ExternalLink size={14} className="shrink-0 text-[var(--store-text-muted)]" /> : null}
+    </>
+  );
+
+  if (!href) return <div className="storefront-surface flex items-center gap-4 p-5">{content}</div>;
+
+  return (
+    <a
+      href={href}
+      target={href.startsWith("http") ? "_blank" : undefined}
+      rel={href.startsWith("http") ? "noreferrer" : undefined}
+      className="storefront-surface flex items-center gap-4 p-5 transition-transform hover:-translate-y-0.5"
+    >
+      {content}
+    </a>
+  );
+}
 
 export default function Contact() {
-  const [form, setForm]     = useState({ name: "", email: "", subject: "", message: "" });
-  const [status, setStatus] = useState("idle"); // idle | sending | sent | error
+  const { runtime } = useSiteRuntime();
+  const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
+  const [status, setStatus] = useState("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleChange = (e) =>
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const businessName = runtime.identity.businessName || "la tienda";
+  const email = runtime.identity.contact.email ? String(runtime.identity.contact.email) : "";
+  const phone = runtime.identity.contact.phone ? String(runtime.identity.contact.phone) : "";
+  const location = [
+    runtime.identity.location.address,
+    runtime.identity.location.city,
+    runtime.identity.location.department,
+    runtime.identity.location.country,
+  ].filter(Boolean).join(", ");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const channels = useMemo(() => {
+    const links = runtime.identity.socialLinks || {};
+    const values = [];
+
+    if (phone) {
+      const digits = phone.replace(/[^\d+]/g, "");
+      values.push({ key: "phone", icon: Phone, label: "Teléfono", value: phone, href: digits ? `tel:${digits}` : null });
+    }
+    if (email) values.push({ key: "email", icon: Mail, label: "Correo", value: email, href: `mailto:${email}` });
+    if (location) values.push({ key: "location", icon: MapPin, label: "Ubicación", value: location, href: null });
+
+    const whatsapp = normalizeSocialUrl("whatsapp", links.whatsapp);
+    if (whatsapp) values.push({ key: "whatsapp", icon: MessageCircle, label: "WhatsApp", value: "Abrir conversación", href: whatsapp });
+
+    const instagram = normalizeSocialUrl("instagram", links.instagram);
+    if (instagram) values.push({ key: "instagram", icon: Instagram, label: "Instagram", value: String(links.instagram), href: instagram });
+
+    return values;
+  }, [email, phone, location, runtime.identity.socialLinks]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((previous) => ({ ...previous, [name]: value }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setStatus("sending");
     setErrorMsg("");
 
     try {
       await api.post("/contact", form);
       setStatus("sent");
-    } catch (err) {
-      console.error("[Contact form]", err);
-      setErrorMsg(
-        err.response?.data?.message || "Error al enviar. Intenta de nuevo."
-      );
+    } catch (error) {
+      setErrorMsg(error.response?.data?.message || "No fue posible enviar el mensaje. Intenta de nuevo.");
       setStatus("error");
     }
   };
@@ -87,230 +124,89 @@ export default function Contact() {
   };
 
   return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
-      <div className="min-h-screen bg-white text-black font-sans antialiased">
-        <main className="pt-24">
+    <div className="storefront-container pb-24 pt-10 sm:pt-16">
+      <header className="max-w-3xl">
+        <p className="storefront-kicker">Contacto · {businessName}</p>
+        <h1 className="storefront-title mt-5 !text-[clamp(2.8rem,7vw,5.8rem)]">Hablemos.</h1>
+        <p className="storefront-copy mt-6 max-w-2xl">
+          Envíanos un mensaje o usa uno de los canales que {businessName} tenga publicados.
+        </p>
+      </header>
 
-          {/* ── HERO ───────────────────────────────── */}
-          <section className="max-w-5xl mx-auto px-6 py-20">
-            <motion.div initial="hidden" animate="visible" variants={stagger}>
-              <motion.p
-                variants={fadeInUp}
-                className="text-[10px] font-black tracking-[0.5em] uppercase text-neutral-400 mb-6"
-              >
-                Contacto · Alesteb
-              </motion.p>
-              <motion.h1
-                variants={fadeInUp}
-                className="text-6xl sm:text-8xl font-black tracking-tighter leading-[0.9] uppercase mb-8"
-              >
-                Hablemos
-                <br />
-                <span className="italic text-neutral-400">sin filtros.</span>
-              </motion.h1>
-              <motion.p
-                variants={fadeInUp}
-                className="text-[16px] text-neutral-500 max-w-md leading-relaxed"
-              >
-                Tienes una pregunta, una queja o simplemente quieres saludar.
-                Aquí estamos.
-              </motion.p>
-            </motion.div>
-          </section>
-
-          {/* ── CONTENIDO PRINCIPAL ─────────────────── */}
-          <section className="pb-32 px-6">
-            <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-10">
-
-              {/* Canales */}
-              <motion.div
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={stagger}
-                className="lg:col-span-2 flex flex-col gap-4"
-              >
-                <motion.div variants={fadeInUp}>
-                  <div className="h-1 w-10 bg-black rounded-full mb-4" />
-                  <h2 className="text-2xl font-black tracking-tighter uppercase italic mb-6">
-                    Canales directos
-                  </h2>
-                </motion.div>
-
-                {channels.map(({ icon, label, value, href, cta }) => (
-                  <motion.div
-                    key={label}
-                    variants={fadeInUp}
-                    className="bg-[#f5f5f7] rounded-2xl p-5 flex items-center justify-between group hover:bg-neutral-900 hover:text-white transition-all duration-300"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="text-blue-600 group-hover:text-blue-400 transition-colors">
-                        {icon}
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-black tracking-[0.3em] uppercase text-neutral-400 group-hover:text-neutral-500">
-                          {label}
-                        </p>
-                        <p className="font-bold text-[14px] mt-0.5">{value}</p>
-                      </div>
-                    </div>
-                    {href && cta && (
-                      <a
-                        href={href}
-                        target={href.startsWith("http") ? "_blank" : undefined}
-                        rel="noreferrer"
-                        className="text-[10px] font-black tracking-widest uppercase text-blue-600 group-hover:text-blue-400 whitespace-nowrap"
-                      >
-                        {cta} →
-                      </a>
-                    )}
-                  </motion.div>
-                ))}
-
-                {/* Horario */}
-                <motion.div
-                  variants={fadeInUp}
-                  className="mt-4 border border-neutral-100 rounded-2xl p-5"
-                >
-                  <p className="text-[9px] font-black tracking-[0.3em] uppercase text-neutral-400 mb-3">
-                    Horario de atención
-                  </p>
-                  <div className="space-y-1.5 text-[13px]">
-                    <div className="flex justify-between">
-                      <span className="text-neutral-500">Lun – Vie</span>
-                      <span className="font-bold">8:00 am – 7:00 pm</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-500">Sábado</span>
-                      <span className="font-bold">9:00 am – 4:00 pm</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-500">Domingo</span>
-                      <span className="font-bold text-neutral-300">Cerrado</span>
-                    </div>
-                  </div>
-                </motion.div>
-              </motion.div>
-
-              {/* Formulario */}
-              <motion.div
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={fadeInUp}
-                className="lg:col-span-3"
-              >
-                <div className="bg-[#f5f5f7] rounded-3xl p-8 md:p-10">
-
-                  {/* ── ENVIADO ── */}
-                  {status === "sent" && (
-                    <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
-                      <CheckCircle size={48} className="text-green-500" />
-                      <h3 className="text-2xl font-black tracking-tighter">
-                        ¡Mensaje enviado!
-                      </h3>
-                      <p className="text-neutral-500 text-[14px] max-w-xs">
-                        Te respondemos en menos de 24 horas hábiles.
-                      </p>
-                      <button
-                        onClick={handleReset}
-                        className="mt-4 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors"
-                      >
-                        Enviar otro mensaje
-                      </button>
-                    </div>
-                  )}
-
-                  {/* ── FORMULARIO ── */}
-                  {status !== "sent" && (
-                    <>
-                      <h2 className="text-2xl font-black tracking-tighter uppercase italic mb-8">
-                        Formulario directo
-                      </h2>
-
-                      {/* Error banner */}
-                      {status === "error" && (
-                        <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 mb-6 text-[13px] font-medium">
-                          <AlertCircle size={16} className="shrink-0" />
-                          {errorMsg}
-                        </div>
-                      )}
-
-                      <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <ContactInput
-                            label="Nombre"
-                            name="name"
-                            placeholder="Tu nombre"
-                            value={form.name}
-                            onChange={handleChange}
-                            required
-                          />
-                          <ContactInput
-                            label="Email"
-                            name="email"
-                            type="email"
-                            placeholder="tu@email.com"
-                            value={form.email}
-                            onChange={handleChange}
-                            required
-                          />
-                        </div>
-                        <ContactInput
-                          label="Asunto"
-                          name="subject"
-                          placeholder="¿En qué podemos ayudarte?"
-                          value={form.subject}
-                          onChange={handleChange}
-                        />
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[9px] font-black uppercase tracking-[0.3em] text-neutral-400">
-                            Mensaje
-                          </label>
-                          <textarea
-                            name="message"
-                            placeholder="Cuéntanos con detalle..."
-                            value={form.message}
-                            onChange={handleChange}
-                            required
-                            rows={5}
-                            className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-[13px] font-medium outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-400 transition-all resize-none placeholder:text-neutral-300"
-                          />
-                        </div>
-                        <button
-                          type="submit"
-                          disabled={status === "sending"}
-                          className="w-full flex items-center justify-center gap-2 bg-neutral-900 text-white py-4 rounded-xl font-black text-[10px] tracking-[0.25em] uppercase hover:bg-blue-600 transition-colors disabled:opacity-60"
-                        >
-                          {status === "sending" ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <>
-                              <Send size={14} /> Enviar mensaje
-                            </>
-                          )}
-                        </button>
-                      </form>
-                    </>
-                  )}
-                </div>
-              </motion.div>
-
+      <div className="mt-14 grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-start">
+        <aside>
+          <p className="storefront-kicker">Canales disponibles</p>
+          {channels.length > 0 ? (
+            <div className="mt-4 space-y-3">
+              {channels.map((channel) => <ContactChannel key={channel.key} {...channel} />)}
             </div>
-          </section>
+          ) : (
+            <div className="storefront-surface mt-4 p-5">
+              <p className="text-sm leading-6 text-[var(--store-text-muted)]">
+                La tienda no ha publicado canales adicionales. Puedes utilizar el formulario de contacto.
+              </p>
+            </div>
+          )}
+        </aside>
 
-        </main>
+        <section className="storefront-elevated p-6 sm:p-9 lg:p-10">
+          {status === "sent" ? (
+            <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
+              <span className="grid h-14 w-14 place-items-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+                <CheckCircle2 size={25} strokeWidth={1.7} />
+              </span>
+              <h2 className="mt-6 text-2xl font-semibold tracking-[-0.035em] text-[var(--store-text-primary)]">Mensaje enviado</h2>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--store-text-muted)]">Tu mensaje fue recibido por el canal de contacto de la tienda.</p>
+              <button type="button" onClick={handleReset} className="storefront-secondary-button mt-6">Enviar otro mensaje</button>
+            </div>
+          ) : (
+            <>
+              <div className="mb-7">
+                <p className="storefront-kicker">Formulario</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-[var(--store-text-primary)]">Escríbenos</h2>
+              </div>
+
+              {status === "error" ? (
+                <div className="mb-5 flex items-start gap-3 rounded-[var(--store-radius-sm)] border border-red-500/20 bg-red-500/8 p-4 text-sm text-red-700 dark:text-red-300">
+                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              ) : null}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ContactInput label="Nombre" name="name" placeholder="Tu nombre" value={form.name} onChange={handleChange} required />
+                  <ContactInput label="Correo" name="email" type="email" placeholder="tu@email.com" value={form.email} onChange={handleChange} required />
+                </div>
+                <ContactInput label="Asunto" name="subject" placeholder="¿En qué podemos ayudarte?" value={form.subject} onChange={handleChange} />
+                <label className="block">
+                  <span className="storefront-kicker !text-[0.61rem]">Mensaje</span>
+                  <textarea
+                    name="message"
+                    placeholder="Cuéntanos con detalle"
+                    value={form.message}
+                    onChange={handleChange}
+                    required
+                    rows={6}
+                    className="storefront-surface mt-2 w-full resize-none bg-[var(--store-surface)] px-4 py-3 text-sm text-[var(--store-text-primary)] outline-none placeholder:text-[var(--store-text-muted)] focus:border-[var(--store-brand)]"
+                  />
+                </label>
+                <button type="submit" disabled={status === "sending"} className="storefront-brand-button w-full disabled:cursor-not-allowed disabled:opacity-60">
+                  {status === "sending" ? <Loader2 size={16} className="animate-spin" /> : <><Send size={15} /> Enviar mensaje</>}
+                </button>
+              </form>
+            </>
+          )}
+        </section>
       </div>
-    </ReactLenis>
+    </div>
   );
 }
 
 function ContactInput({ label, name, type = "text", placeholder, value, onChange, required }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[9px] font-black uppercase tracking-[0.3em] text-neutral-400">
-        {label}
-      </label>
+    <label className="block">
+      <span className="storefront-kicker !text-[0.61rem]">{label}</span>
       <input
         type={type}
         name={name}
@@ -318,8 +214,8 @@ function ContactInput({ label, name, type = "text", placeholder, value, onChange
         value={value}
         onChange={onChange}
         required={required}
-        className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-[13px] font-medium outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-400 transition-all placeholder:text-neutral-300"
+        className="storefront-surface mt-2 min-h-12 w-full bg-[var(--store-surface)] px-4 py-3 text-sm text-[var(--store-text-primary)] outline-none placeholder:text-[var(--store-text-muted)] focus:border-[var(--store-brand)]"
       />
-    </div>
+    </label>
   );
 }

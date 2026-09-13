@@ -1,210 +1,164 @@
-// src/pages/FavoritesPage.jsx
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Heart, ArrowLeft, Percent, Plus, ShoppingBag } from "lucide-react";
-import { motion } from "framer-motion";
+import { ArrowLeft, Heart, Percent, Plus, ShoppingBag } from "lucide-react";
 import { useFavorites } from "../context/FavoritesContext";
 import { useCart } from "../context/CartContext";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
 
-const imgUrl = (url, w = 600) => {
+const imgUrl = (url, width = 600) => {
   if (!url) return null;
   return url.includes("/upload/")
-    ? url.replace("/upload/", `/upload/f_webp,q_auto:good,w_${w},c_fill,dpr_auto/`)
+    ? url.replace("/upload/", `/upload/f_webp,q_auto:good,w_${width},c_fill,dpr_auto/`)
     : url;
 };
 
-const fadeUp = {
-  hidden:  { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
-};
+function createCurrencyFormatter(currency) {
+  try {
+    return new Intl.NumberFormat("es-CO", { style: "currency", currency: currency || "COP", maximumFractionDigits: 0 });
+  } catch {
+    return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+  }
+}
 
-const cardVariants = {
-  hidden:  { opacity: 0, y: 28 },
-  visible: (i) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.55, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
-
-const FavCard = memo(({ p, index, isInCart, onToggle }) => {
+const FavCard = memo(function FavCard({ product, isInCart, onToggle, currencyFormatter }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const { toggleFavorite, isFavorite } = useFavorites();
-  const fav = isFavorite(p.id);
+  const favorite = isFavorite(product.id);
 
-  const priceOriginal = Number(p.sale_price) || 0;
-  const priceFinalRaw = Number(p.final_price) || 0;
-  const hasDiscount   = priceFinalRaw > 0 && priceFinalRaw < priceOriginal;
-  const priceFinal    = hasDiscount ? priceFinalRaw : priceOriginal;
-  const discountPct   = hasDiscount
-    ? Math.round(((priceOriginal - priceFinal) / priceOriginal) * 100) : 0;
-  const hasVariants   = Boolean(p.has_variants);
-  const thumb         = imgUrl(p.main_image, 600);
-  const thumb2x       = imgUrl(p.main_image, 1200);
+  const priceOriginal = Number(product.sale_price) || 0;
+  const priceFinalRaw = Number(product.final_price) || 0;
+  const hasDiscount = priceFinalRaw > 0 && priceFinalRaw < priceOriginal;
+  const priceFinal = hasDiscount ? priceFinalRaw : priceOriginal;
+  const discountPct = hasDiscount && priceOriginal > 0
+    ? Math.round(((priceOriginal - priceFinal) / priceOriginal) * 100)
+    : 0;
+  const hasVariants = Boolean(product.has_variants);
+  const thumb = imgUrl(product.main_image, 600);
+  const thumb2x = imgUrl(product.main_image, 1200);
 
   return (
-    <motion.div
-      custom={index} variants={cardVariants} initial="hidden" animate="visible"
-      className="group relative flex flex-col"
-    >
-      {hasDiscount && (
-        <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-white/90
-          backdrop-blur-md text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black
-          shadow-sm border border-slate-100">
-          <Percent size={9} className="text-blue-600" strokeWidth={3} />
-          {discountPct}% OFF
-        </div>
-      )}
-
-      {hasVariants && (
-        <div className="absolute top-4 right-4 z-20 bg-slate-900/70 backdrop-blur-md
-          text-white px-2.5 py-1 rounded-xl text-[9px] font-black tracking-wider">
-          + opciones
-        </div>
-      )}
-
-      {/* Botón favorito */}
-      <button
-        onClick={(e) => { e.preventDefault(); toggleFavorite(p); }}
-        className={`absolute z-20 p-2.5 rounded-full bg-white/90 backdrop-blur-md
-          border border-slate-100 shadow-sm transition-all duration-300
-          hover:scale-110 active:scale-95
-          ${hasVariants ? "top-12 right-4 mt-1" : "top-4 right-4"}
-          ${fav ? "text-red-500" : "text-slate-300 hover:text-red-400"}`}
-      >
-        <Heart size={15} fill={fav ? "currentColor" : "none"} strokeWidth={2} />
-      </button>
-
-      {/* Imagen */}
-      <Link
-        to={`/productos/detalle/${p.id}`}
-        className="relative block overflow-hidden rounded-[2.5rem] bg-[#F5F5F7] aspect-[4/5]
-          transition-shadow duration-500 group-hover:shadow-2xl group-hover:shadow-slate-200/80"
-      >
-        {!imgLoaded && (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-50 animate-pulse" />
-        )}
-        {thumb && (
-          <img
-            src={thumb} srcSet={`${thumb} 1x, ${thumb2x} 2x`} alt={p.name}
-            loading="lazy" decoding="async" width={600} height={750}
-            onLoad={() => setImgLoaded(true)}
-            className={`w-full h-full object-cover transition-all duration-700
-              group-hover:scale-[1.06] ${imgLoaded ? "opacity-100" : "opacity-0"}`}
-          />
-        )}
-      </Link>
-
-      {/* Botón carrito */}
-      {hasVariants ? (
-        <Link
-          to={`/productos/detalle/${p.id}`}
-          className="absolute bottom-[7.5rem] right-5 z-20 p-4 rounded-full bg-white
-            text-slate-900 border border-slate-100 shadow-xl hover:bg-blue-600
-            hover:text-white hover:border-blue-600 transition-all duration-300
-            hover:scale-105 active:scale-95"
-        >
-          <ShoppingBag size={19} strokeWidth={2} />
-        </Link>
-      ) : (
-        <button
-          onClick={() => onToggle({ ...p, cartKey: String(p.id) }, 1)}
-          className={`absolute bottom-[7.5rem] right-5 z-20 p-4 rounded-full shadow-2xl
-            transition-all duration-300 hover:scale-105 active:scale-95
-            ${isInCart
-              ? "bg-blue-600 text-white shadow-blue-500/30 border border-blue-500"
-              : "bg-white text-slate-900 border border-slate-100 shadow-slate-200/80"
-            }`}
-        >
-          {isInCart
-            ? <ShoppingBag size={19} strokeWidth={2} />
-            : <Plus size={19} strokeWidth={2} />
-          }
-        </button>
-      )}
-
-      {/* Info */}
-      <div className="mt-5 px-1 space-y-1.5">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]
-          leading-tight group-hover:text-blue-600 transition-colors truncate">
-          {p.name}
-        </p>
-        <div className="flex items-baseline gap-2.5">
-          <span className="text-xl font-black text-slate-900 tracking-tight">
-            {hasVariants ? "Desde " : ""}${priceFinal.toLocaleString()}
+    <article className="storefront-product-card group relative">
+      <div className="storefront-product-media">
+        {hasDiscount ? (
+          <span className="absolute left-3 top-3 z-20 inline-flex items-center gap-1 rounded-full border border-[var(--store-border)] bg-[var(--store-page-bg)]/90 px-2.5 py-1 text-[9px] font-semibold text-[var(--store-text-primary)] backdrop-blur-md">
+            <Percent size={9} /> {discountPct}%
           </span>
-          {hasDiscount && (
-            <span className="text-sm text-slate-300 line-through font-medium">
-              ${priceOriginal.toLocaleString()}
-            </span>
+        ) : null}
+
+        {hasVariants ? (
+          <span className="absolute bottom-3 left-3 z-20 rounded-full bg-[var(--store-brand)] px-2.5 py-1 text-[9px] font-semibold text-[var(--store-brand-contrast)]">
+            Opciones
+          </span>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            toggleFavorite(product);
+          }}
+          className={`absolute right-3 top-3 z-20 grid h-9 w-9 place-items-center rounded-full border border-[var(--store-border)] bg-[var(--store-page-bg)]/90 backdrop-blur-md transition-transform hover:scale-105 ${favorite ? "text-rose-500" : "text-[var(--store-text-muted)]"}`}
+          aria-label={favorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+        >
+          <Heart size={15} fill={favorite ? "currentColor" : "none"} />
+        </button>
+
+        <Link to={`/productos/detalle/${product.id}`} className="absolute inset-0">
+          {!imgLoaded && thumb ? <span className="absolute inset-0 animate-pulse bg-[var(--store-surface)]" /> : null}
+          {thumb ? (
+            <img
+              src={thumb}
+              srcSet={`${thumb} 1x, ${thumb2x} 2x`}
+              alt={product.name || "Producto"}
+              loading="lazy"
+              decoding="async"
+              width={600}
+              height={750}
+              onLoad={() => setImgLoaded(true)}
+              className={imgLoaded ? "opacity-100" : "opacity-0"}
+            />
+          ) : (
+            <span className="absolute inset-0 grid place-items-center text-[var(--store-text-muted)]"><ShoppingBag size={28} strokeWidth={1.4} /></span>
           )}
-        </div>
+        </Link>
+
+        {hasVariants ? (
+          <Link
+            to={`/productos/detalle/${product.id}`}
+            className="absolute bottom-3 right-3 z-20 grid h-10 w-10 place-items-center rounded-full border border-[var(--store-border)] bg-[var(--store-page-bg)] text-[var(--store-text-primary)] shadow-sm transition-transform hover:scale-105"
+            aria-label="Ver opciones"
+          >
+            <ShoppingBag size={17} />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onToggle({ ...product, cartKey: String(product.id) }, 1)}
+            className={`absolute bottom-3 right-3 z-20 grid h-10 w-10 place-items-center rounded-full border shadow-sm transition-transform hover:scale-105 ${isInCart ? "border-[var(--store-brand)] bg-[var(--store-brand)] text-[var(--store-brand-contrast)]" : "border-[var(--store-border)] bg-[var(--store-page-bg)] text-[var(--store-text-primary)]"}`}
+            aria-label={isInCart ? "Quitar del carrito" : "Agregar al carrito"}
+          >
+            {isInCart ? <ShoppingBag size={17} /> : <Plus size={17} />}
+          </button>
+        )}
       </div>
-    </motion.div>
+
+      <div className="px-1 pt-4">
+        <Link to={`/productos/detalle/${product.id}`}>
+          <h2 className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--store-text-secondary)] group-hover:text-[var(--store-text-primary)]">
+            {product.name || "Producto"}
+          </h2>
+          <div className="mt-1 flex flex-wrap items-baseline gap-2">
+            <span className="text-lg font-semibold tracking-[-0.035em] text-[var(--store-text-primary)]">
+              {hasVariants ? "Desde " : ""}{currencyFormatter.format(priceFinal)}
+            </span>
+            {hasDiscount ? <span className="text-xs text-[var(--store-text-muted)] line-through">{currencyFormatter.format(priceOriginal)}</span> : null}
+          </div>
+        </Link>
+      </div>
+    </article>
   );
 });
-FavCard.displayName = "FavCard";
 
 export default function FavoritesPage() {
   const { favorites } = useFavorites();
   const { cart, toggleCart } = useCart();
+  const { runtime } = useSiteRuntime();
   const handleToggle = useCallback(toggleCart, [toggleCart]);
+  const currencyFormatter = useMemo(() => createCurrencyFormatter(runtime.locale.currency), [runtime.locale.currency]);
 
   return (
-    <div className="bg-white min-h-screen font-sans pb-32">
-      <main className="pt-24 md:pt-32 max-w-7xl mx-auto px-5 sm:px-8">
+    <div className="storefront-container pb-24 pt-10 sm:pt-16">
+      <header className="mb-12 border-b border-[var(--store-border)] pb-8">
+        <Link to="/productos" className="inline-flex items-center gap-2 text-xs font-semibold text-[var(--store-text-muted)] hover:text-[var(--store-text-primary)]">
+          <ArrowLeft size={14} /> Volver al catálogo
+        </Link>
+        <p className="storefront-kicker mt-8">Guardados</p>
+        <h1 className="storefront-section-title mt-3">Favoritos</h1>
+        <p className="mt-3 text-sm text-[var(--store-text-muted)]">{favorites.length} {favorites.length === 1 ? "producto" : "productos"}</p>
+      </header>
 
-        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-16 space-y-5">
-          <Link
-            to="/productos"
-            className="inline-flex items-center gap-2 text-[10px] font-black tracking-widest
-              text-slate-400 uppercase hover:text-blue-600 transition-colors mb-6"
-          >
-            <ArrowLeft size={12} /> Volver a la tienda
-          </Link>
-          <h1 className="text-[clamp(3rem,10vw,7rem)] font-black text-slate-900
-            tracking-[-0.04em] leading-[0.85] italic">
-            FAVORITOS
-          </h1>
-          <div className="flex items-center gap-3">
-            <div className="h-1 w-14 bg-red-400 rounded-full" />
-            <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">
-              {favorites.length} {favorites.length === 1 ? "producto" : "productos"}
-            </p>
-          </div>
-        </motion.div>
-
-        {favorites.length === 0 ? (
-          <motion.div
-            variants={fadeUp} initial="hidden" animate="visible"
-            className="flex flex-col items-center justify-center py-36 gap-5"
-          >
-            <div className="w-20 h-20 rounded-full bg-slate-50 border border-slate-100
-              flex items-center justify-center text-slate-200">
-              <Heart size={36} strokeWidth={1.5} />
-            </div>
-            <p className="text-2xl font-black text-slate-900 italic uppercase tracking-tighter">
-              Aún no tienes favoritos
-            </p>
-            <Link
-              to="/productos"
-              className="flex items-center gap-2 text-xs font-black tracking-widest
-                text-blue-600 uppercase hover:text-blue-700 transition-colors"
-            >
-              <ArrowLeft size={14} /> Explorar productos
-            </Link>
-          </motion.div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14">
-            {favorites.map((p, i) => (
-              <FavCard
-                key={p.id} p={p} index={i}
-                onToggle={handleToggle}
-                isInCart={cart.some(item => item.cartKey === String(p.id))}
-              />
-            ))}
-          </div>
-        )}
-      </main>
+      {favorites.length === 0 ? (
+        <div className="storefront-surface flex min-h-[360px] flex-col items-center justify-center px-6 text-center">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-[var(--store-surface-elevated)] text-[var(--store-text-muted)]">
+            <Heart size={22} strokeWidth={1.5} />
+          </span>
+          <h2 className="mt-5 text-xl font-semibold tracking-[-0.03em] text-[var(--store-text-primary)]">Aún no tienes favoritos</h2>
+          <p className="mt-2 max-w-md text-sm text-[var(--store-text-muted)]">Guarda productos para encontrarlos rápidamente más adelante.</p>
+          <Link to="/productos" className="storefront-brand-button mt-6">Explorar productos</Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-12">
+          {favorites.map((product) => (
+            <FavCard
+              key={product.id}
+              product={product}
+              onToggle={handleToggle}
+              isInCart={cart.some((item) => item.cartKey === String(product.id))}
+              currencyFormatter={currencyFormatter}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
