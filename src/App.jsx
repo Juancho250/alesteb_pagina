@@ -10,6 +10,7 @@ import { SiteRuntimeProvider } from "./platform/runtime/SiteRuntimeContext";
 import { storefrontRouteRegistry } from "./platform/routing/routeRegistry";
 import "./styles/storefront.css";
 import "./styles/legacyAdaptiveSurfaces.css";
+import "./styles/storefrontPolish.css";
 
 import Footer           from "./components/Footer";
 import Navbar           from "./components/Navbar";
