@@ -1,61 +1,126 @@
-// src/components/Footer.jsx
 import { Link } from "react-router-dom";
-import { Instagram, Twitter, MessageCircle } from "lucide-react";
+import { ExternalLink, Instagram, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
+
+function normalizeUrl(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const trimmed = value.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+function SocialLinks({ links }) {
+  if (!links || typeof links !== "object" || Array.isArray(links)) return null;
+
+  const candidates = [
+    { key: "instagram", label: "Instagram", icon: Instagram },
+    { key: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+    { key: "facebook", label: "Facebook", icon: ExternalLink },
+    { key: "tiktok", label: "TikTok", icon: ExternalLink },
+    { key: "x", label: "X", icon: ExternalLink },
+    { key: "twitter", label: "X", icon: ExternalLink },
+  ];
+
+  const available = candidates
+    .map((item) => ({ ...item, href: normalizeUrl(links[item.key]) }))
+    .filter((item, index, array) => item.href && array.findIndex((candidate) => candidate.href === item.href) === index);
+
+  if (!available.length) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {available.map(({ key, label, icon: Icon, href }) => (
+        <a
+          key={`${key}-${href}`}
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={label}
+          className="grid h-10 w-10 place-items-center rounded-full border border-[var(--store-border)] bg-[var(--store-surface)] text-[var(--store-text-secondary)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--store-brand)] hover:text-[var(--store-text-primary)]"
+        >
+          <Icon size={16} strokeWidth={1.8} />
+        </a>
+      ))}
+    </div>
+  );
+}
 
 export default function Footer() {
+  const { runtime } = useSiteRuntime();
+  const businessName = runtime.identity.businessName || "Tienda";
+  const description = runtime.identity.description || runtime.brand.tagline || "";
+  const phone = runtime.identity.contact.phone;
+  const email = runtime.identity.contact.email;
+  const location = [runtime.identity.location.city, runtime.identity.location.department, runtime.identity.location.country]
+    .filter(Boolean)
+    .join(", ");
+
   return (
-    <footer className="bg-[#f5f5f7] border-t border-[#d2d2d7] pt-16 pb-12 font-sans">
-      <div className="max-w-5xl mx-auto px-6">
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 mb-16">
-          
-          <div className="sm:col-span-2 md:col-span-1">
-            <Link to="/" className="text-lg font-black tracking-tighter mb-4 block text-[#1d1d1f] italic uppercase">
-              ALESTEB
+    <footer className="mt-12 border-t border-[var(--store-border)] bg-[var(--store-page-bg)]">
+      <div className="storefront-container py-12 sm:py-16">
+        <div className="grid gap-10 lg:grid-cols-[1.35fr_0.65fr_0.65fr]">
+          <div className="max-w-xl">
+            <Link to="/" className="inline-flex items-center gap-3">
+              {runtime.brand.assets.logoUrl ? (
+                <img
+                  src={runtime.brand.assets.logoUrl}
+                  alt={businessName}
+                  className="h-10 w-10 rounded-xl object-contain"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--store-brand)] text-sm font-bold text-[var(--store-brand-contrast)]">
+                  {businessName.charAt(0).toUpperCase() || "T"}
+                </span>
+              )}
+              <span className="text-lg font-semibold tracking-[-0.035em] text-[var(--store-text-primary)]">{businessName}</span>
             </Link>
-            <p className="text-[#6e6e73] text-[13px] leading-relaxed max-w-xs font-medium">
-              Tecnología de vanguardia con un diseño minimalista. Curamos lo mejor para tu estilo de vida digital.
-            </p>
+
+            {description ? (
+              <p className="mt-5 max-w-lg text-sm leading-6 text-[var(--store-text-secondary)]">{description}</p>
+            ) : null}
+
+            <div className="mt-6">
+              <SocialLinks links={runtime.identity.socialLinks} />
+            </div>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <h4 className="font-bold text-[10px] text-[#1d1d1f] uppercase tracking-[0.2em]">Tienda</h4>
-            <ul className="space-y-3 text-[13px] text-[#424245] font-medium">
-              <li><Link to="/productos" className="hover:text-brand transition-colors">Catálogo Completo</Link></li>
-              <li><Link to="/productos" className="hover:text-brand transition-colors">Novedades</Link></li>
-              <li><Link to="/productos" className="hover:text-brand transition-colors">Ofertas</Link></li>
-            </ul>
+          <div>
+            <p className="storefront-kicker">Explorar</p>
+            <nav className="mt-4 flex flex-col items-start gap-3 text-sm font-medium text-[var(--store-text-secondary)]">
+              <Link to="/productos" className="hover:text-[var(--store-text-primary)]">Productos</Link>
+              <Link to="/support" className="hover:text-[var(--store-text-primary)]">Soporte</Link>
+              <Link to="/contact" className="hover:text-[var(--store-text-primary)]">Contacto</Link>
+            </nav>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <h4 className="font-bold text-[10px] text-[#1d1d1f] uppercase tracking-[0.2em]">Soporte</h4>
-            <ul className="space-y-3 text-[13px] text-[#424245] font-medium">
-              <li><Link to="/contact"  className="hover:text-brand transition-colors">Contacto Directo</Link></li>
-            </ul>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <h4 className="font-bold text-[10px] text-[#1d1d1f] uppercase tracking-[0.2em]">Social</h4>
-            <div className="flex gap-5 text-[#424245]">
-              <a href="https://instagram.com/alesteb" target="_blank" rel="noreferrer" className="hover:text-brand transition-all hover:scale-110"><Instagram size={18} /></a>
-              <a href="#" className="hover:text-brand transition-all hover:scale-110"><Twitter size={18} /></a>
-              <a href="https://wa.me/573145055073" target="_blank" rel="noreferrer" className="hover:text-brand transition-all hover:scale-110"><MessageCircle size={18} /></a>
+          <div>
+            <p className="storefront-kicker">Información</p>
+            <div className="mt-4 space-y-3 text-sm text-[var(--store-text-secondary)]">
+              {phone ? (
+                <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-2 hover:text-[var(--store-text-primary)]">
+                  <Phone size={14} /> <span className="truncate">{phone}</span>
+                </a>
+              ) : null}
+              {email ? (
+                <a href={`mailto:${email}`} className="flex items-center gap-2 hover:text-[var(--store-text-primary)]">
+                  <Mail size={14} /> <span className="truncate">{email}</span>
+                </a>
+              ) : null}
+              {location ? (
+                <p className="flex items-start gap-2">
+                  <MapPin size={14} className="mt-0.5 shrink-0" /> <span>{location}</span>
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
 
-        <div className="border-t border-[#d2d2d7] pt-8">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 text-[11px] text-[#86868b] font-medium">
-              <p>© 2026 ALESTEB STORE.</p>
-              <span className="hidden sm:block text-[#d2d2d7]">|</span>
-              <div className="flex gap-4">
-                <Link to="/privacidad" className="hover:text-brand">Privacidad</Link>
-                <Link to="/legal"      className="hover:text-brand">Legal</Link>
-                <Link to="/support"    className="hover:text-brand">Mapa del sitio</Link>
-              </div>
-            </div>
-            <p className="text-[#86868b] text-[9px] font-black tracking-[0.2em] uppercase">COLOMBIA / GLOBAL</p>
+        <div className="mt-12 flex flex-col gap-5 border-t border-[var(--store-border)] pt-7 text-xs text-[var(--store-text-muted)] sm:flex-row sm:items-center sm:justify-between">
+          <p>© {new Date().getFullYear()} {businessName}. Todos los derechos reservados.</p>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <Link to="/privacidad" className="hover:text-[var(--store-text-primary)]">Privacidad</Link>
+            <Link to="/legal" className="hover:text-[var(--store-text-primary)]">Legal</Link>
           </div>
         </div>
       </div>
