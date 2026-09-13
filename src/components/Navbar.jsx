@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronDown,
@@ -31,13 +31,17 @@ function Brand({ appearance, loading = false }) {
   return (
     <span className="flex min-w-0 items-center gap-2.5">
       {logo ? (
-        <img src={logo} alt="" className="h-9 w-9 shrink-0 rounded-xl object-contain" />
+        <img
+          src={logo}
+          alt=""
+          className="h-9 w-9 shrink-0 rounded-xl object-contain"
+        />
       ) : (
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--store-brand)] text-xs font-bold text-[var(--store-brand-contrast)]">
           {name.charAt(0).toUpperCase() || "T"}
         </span>
       )}
-      <span className="max-w-[170px] truncate text-[15px] font-semibold tracking-[-0.035em] text-[var(--store-navbar-text)] sm:max-w-[240px] sm:text-[16px]">
+      <span className="max-w-[150px] truncate text-[15px] font-semibold tracking-[-0.035em] text-[var(--store-navbar-text)] sm:max-w-[220px] lg:max-w-[260px] lg:text-[16px]">
         {name}
       </span>
     </span>
@@ -48,25 +52,28 @@ function CategoryMenu({ categories, onNavigate }) {
   if (!categories.length) return null;
 
   return (
-    <div className="storefront-nav-popover absolute left-1/2 top-[calc(100%+12px)] z-50 w-[min(760px,calc(100vw-2rem))] -translate-x-1/2 p-3">
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+    <div
+      className="storefront-mega-menu absolute left-3 right-3 top-[calc(100%+10px)] z-50 p-3 sm:left-4 sm:right-4 sm:p-4"
+      aria-label="Categorías"
+    >
+      <div className="storefront-mega-menu-grid">
         {categories.map((category) => (
-          <div key={category.id} className="rounded-[18px] p-2 hover:bg-[var(--store-surface-hover)]">
+          <div key={category.id} className="storefront-mega-menu-group">
             <Link
               to={`/productos/categoria/${category.slug}`}
               onClick={onNavigate}
-              className="block rounded-xl px-3 py-2 text-sm font-semibold text-[var(--store-text-primary)]"
+              className="storefront-mega-menu-title"
             >
               {category.name}
             </Link>
             {category.children?.length ? (
-              <div className="px-3 pb-2">
-                {category.children.slice(0, 4).map((child) => (
+              <div className="mt-1.5 grid gap-0.5">
+                {category.children.slice(0, 5).map((child) => (
                   <Link
                     key={child.id}
                     to={`/productos/categoria/${child.slug}`}
                     onClick={onNavigate}
-                    className="block py-1.5 text-xs text-[var(--store-text-muted)] hover:text-[var(--store-text-primary)]"
+                    className="storefront-mega-menu-child"
                   >
                     {child.name}
                   </Link>
@@ -118,6 +125,7 @@ export default function Navbar() {
   const { appearance, loading } = useAppearance();
   const location = useLocation();
   const navigate = useNavigate();
+  const navRef = useRef(null);
 
   const [categories, setCategories] = useState([]);
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -161,9 +169,19 @@ export default function Navbar() {
       setMobileOpen(false);
       setSearchOpen(false);
     }
+
+    function onPointerDown(event) {
+      if (!categoryOpen || navRef.current?.contains(event.target)) return;
+      setCategoryOpen(false);
+    }
+
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [categoryOpen]);
 
   const cartCount = useMemo(
     () => cart.reduce((total, item) => total + Number(item.quantity || 1), 0),
@@ -189,12 +207,15 @@ export default function Navbar() {
   return (
     <>
       <header className="storefront-nav-wrap fixed inset-x-0 top-0 z-[200] px-3 pt-3 sm:px-5 sm:pt-4">
-        <div className="storefront-nav mx-auto flex h-[58px] w-full max-w-[var(--store-content-width)] items-center gap-2 px-3 sm:h-[62px] sm:px-4">
+        <div
+          ref={navRef}
+          className="storefront-nav mx-auto flex h-[58px] w-full max-w-[var(--store-content-width)] items-center gap-2 px-3 sm:h-[62px] sm:px-4"
+        >
           <Link to="/" onClick={closeAll} className="min-w-0 shrink-0">
             <Brand appearance={appearance} loading={loading} />
           </Link>
 
-          <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Navegación principal">
+          <nav className="ml-4 hidden items-center gap-1 lg:flex" aria-label="Navegación principal">
             <Link
               to="/productos"
               className={`storefront-nav-link ${location.pathname.startsWith("/productos") ? "is-active" : ""}`}
@@ -202,32 +223,44 @@ export default function Navbar() {
               Productos
             </Link>
             {categories.length ? (
-              <div className="relative">
+              <div>
                 <button
                   type="button"
                   onClick={() => setCategoryOpen((current) => !current)}
                   className={`storefront-nav-link inline-flex items-center gap-1.5 ${categoryOpen ? "is-active" : ""}`}
                   aria-expanded={categoryOpen}
+                  aria-haspopup="true"
                 >
-                  Categorías <ChevronDown size={13} className={categoryOpen ? "rotate-180" : ""} />
+                  Categorías
+                  <ChevronDown
+                    size={13}
+                    className={`transition-transform duration-150 ${categoryOpen ? "rotate-180" : ""}`}
+                  />
                 </button>
-                {categoryOpen ? <CategoryMenu categories={categories} onNavigate={closeAll} /> : null}
+                {categoryOpen ? (
+                  <CategoryMenu categories={categories} onNavigate={closeAll} />
+                ) : null}
               </div>
             ) : null}
-            <Link to="/support" className="storefront-nav-link">Soporte</Link>
+            <Link to="/support" className="storefront-nav-link">
+              Soporte
+            </Link>
           </nav>
 
           <div className="ml-auto flex items-center gap-1">
-            <div className="relative hidden sm:block">
+            <div className="relative hidden lg:block">
               {searchOpen ? (
-                <form onSubmit={submitSearch} className="storefront-nav-search absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-1 p-1.5 pr-11">
+                <form
+                  onSubmit={submitSearch}
+                  className="storefront-nav-search absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-1 p-1.5 pr-11"
+                >
                   <Search size={14} className="ml-2 shrink-0 text-[var(--store-text-muted)]" />
                   <input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     autoFocus
                     placeholder="Buscar productos"
-                    className="w-[min(260px,42vw)] bg-transparent px-1 py-1.5 text-sm text-[var(--store-text-primary)] outline-none placeholder:text-[var(--store-text-muted)]"
+                    className="w-[min(280px,34vw)] bg-transparent px-1 py-1.5 text-sm text-[var(--store-text-primary)] outline-none placeholder:text-[var(--store-text-muted)]"
                   />
                 </form>
               ) : null}
@@ -242,16 +275,20 @@ export default function Navbar() {
             </div>
 
             {isAuthenticated && user ? (
-              <Link to="/perfil" className="storefront-nav-action hidden md:grid" aria-label="Mi cuenta">
+              <Link to="/perfil" className="storefront-nav-action hidden lg:grid" aria-label="Mi cuenta">
                 <User size={17} />
               </Link>
             ) : (
-              <Link to="/auth" className="storefront-nav-action hidden md:grid" aria-label="Ingresar">
+              <Link to="/auth" className="storefront-nav-action hidden lg:grid" aria-label="Ingresar">
                 <User size={17} />
               </Link>
             )}
 
-            <Link to="/carrito" className="storefront-nav-action relative" aria-label={`Carrito${cartCount ? `, ${cartCount} productos` : ""}`}>
+            <Link
+              to="/carrito"
+              className="storefront-nav-action relative"
+              aria-label={`Carrito${cartCount ? `, ${cartCount} productos` : ""}`}
+            >
               <ShoppingBag size={18} />
               {cartCount > 0 ? (
                 <span className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[var(--store-brand)] px-1 text-[9px] font-bold text-[var(--store-brand-contrast)]">
@@ -263,23 +300,37 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="storefront-nav-action md:hidden"
+              className="storefront-nav-action lg:hidden"
               aria-label="Abrir menú"
             >
               <Menu size={19} />
             </button>
           </div>
+
+          {categoryOpen ? (
+            <CategoryMenu categories={categories} onNavigate={closeAll} />
+          ) : null}
         </div>
       </header>
 
       {mobileOpen ? (
-        <div className="fixed inset-0 z-[250] bg-[var(--store-page-bg)] md:hidden" role="dialog" aria-modal="true" aria-label="Menú">
+        <div
+          className="fixed inset-0 z-[250] bg-[var(--store-page-bg)] lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menú"
+        >
           <div className="flex h-full flex-col">
             <div className="flex h-[70px] shrink-0 items-center justify-between border-b border-[var(--store-border)] px-4">
               <Link to="/" onClick={closeAll}>
                 <Brand appearance={appearance} loading={loading} />
               </Link>
-              <button type="button" onClick={() => setMobileOpen(false)} className="storefront-secondary-button !h-10 !min-h-10 !w-10 !p-0" aria-label="Cerrar menú">
+              <button
+                type="button"
+                onClick={() => setMobileOpen(false)}
+                className="storefront-secondary-button !h-10 !min-h-10 !w-10 !p-0"
+                aria-label="Cerrar menú"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -296,14 +347,24 @@ export default function Navbar() {
               </form>
 
               <nav className="mt-6 grid grid-cols-2 gap-2" aria-label="Navegación móvil">
-                <Link to="/productos" onClick={closeAll} className="storefront-secondary-button">Productos</Link>
-                <Link to="/support" onClick={closeAll} className="storefront-secondary-button">Soporte</Link>
+                <Link to="/productos" onClick={closeAll} className="storefront-secondary-button">
+                  Productos
+                </Link>
+                <Link to="/support" onClick={closeAll} className="storefront-secondary-button">
+                  Soporte
+                </Link>
                 {isAuthenticated && user ? (
-                  <Link to="/perfil" onClick={closeAll} className="storefront-secondary-button">Mi cuenta</Link>
+                  <Link to="/perfil" onClick={closeAll} className="storefront-secondary-button">
+                    Mi cuenta
+                  </Link>
                 ) : (
-                  <Link to="/auth" onClick={closeAll} className="storefront-secondary-button">Ingresar</Link>
+                  <Link to="/auth" onClick={closeAll} className="storefront-secondary-button">
+                    Ingresar
+                  </Link>
                 )}
-                <Link to="/carrito" onClick={closeAll} className="storefront-secondary-button">Carrito {cartCount ? `(${cartCount})` : ""}</Link>
+                <Link to="/carrito" onClick={closeAll} className="storefront-secondary-button">
+                  Carrito {cartCount ? `(${cartCount})` : ""}
+                </Link>
               </nav>
 
               {categories.length ? (
