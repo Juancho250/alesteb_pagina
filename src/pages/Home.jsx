@@ -1,522 +1,256 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ArrowRight, Mail, MapPin, Phone, ShoppingBag } from "lucide-react";
 import api from "../services/api";
 import BannerCarousel from "../components/BannerCarousel";
-import { ArrowRight, Loader2 } from "lucide-react";
-import { extractBanners, extractProducts } from "../utils/apiResponse";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
+import { extractBanners, extractCategories, extractProducts } from "../utils/apiResponse";
 
-import { motion } from "framer-motion";
-import { ReactLenis } from "lenis/react";
-const Motion = motion;
+const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 1000'%3E%3Crect width='800' height='1000' fill='%23f3f4f6'/%3E%3C/svg%3E";
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 40 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
-  },
-};
-
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
-};
-
-const getOptimizedImageUrl = (url, width = 600) => {
-  if (!url) return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'%3E%3Crect width='400' height='500' fill='%23F5F5F7'/%3E%3C/svg%3E";
+function getOptimizedImageUrl(url, width = 760) {
+  if (!url) return PLACEHOLDER_IMAGE;
   if (url.includes("/upload/")) {
     return url.replace("/upload/", `/upload/f_auto,q_auto,w_${width},c_scale/`);
   }
   return url;
-};
+}
 
-// ─── Datos estáticos ──────────────────────────────────────────────
-const TICKER_ITEMS = [
-  "Envío gratis en pedidos +$200.000",
-  "Devolución sin preguntas · 30 días",
-  "Garantía 12 meses",
-  "Pago seguro · SSL",
-];
-
-const FEATURES = [
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5 12h14M12 5l7 7-7 7"/>
-      </svg>
-    ),
-    title: "Envío gratis",
-    desc: "En pedidos superiores a $200.000",
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/>
-      </svg>
-    ),
-    title: "Devolución fácil",
-    desc: "30 días sin preguntas",
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      </svg>
-    ),
-    title: "Garantía total",
-    desc: "12 meses en todos los productos",
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-      </svg>
-    ),
-    title: "Pago seguro",
-    desc: "Encriptación SSL en cada compra",
-  },
-];
-
-const REVIEWS = [
-  {
-    name: "Sara M.",
-    text: "La calidad superó mis expectativas. Lo recomiendo a cualquiera.",
-    stars: 5,
-  },
-  {
-    name: "Carlos R.",
-    text: "Llegó rápido y empaquetado perfecto. Sin duda volvería a comprar.",
-    stars: 5,
-  },
-  {
-    name: "Valentina L.",
-    text: "Exactamente como en las fotos. Atención al cliente impecable.",
-    stars: 5,
-  },
-];
-
-// ─── Componentes auxiliares ───────────────────────────────────────
-function TickerStrip() {
-  const repeated = [...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS];
+function HomeSkeleton() {
   return (
-    <div className="overflow-hidden border-y border-neutral-100 py-4 bg-white">
-      <Motion.div
-        className="flex gap-16 whitespace-nowrap"
-        animate={{ x: ["0%", "-50%"] }}
-        transition={{ duration: 22, ease: "linear", repeat: Infinity }}
-      >
-        {repeated.map((item, i) => (
-          <span
-            key={i}
-            className="inline-flex items-center gap-8 text-[10px] font-black uppercase tracking-[0.28em] text-neutral-400 shrink-0"
-          >
-            {item}
-            <span className="text-black text-base leading-none select-none">·</span>
-          </span>
-        ))}
-      </Motion.div>
+    <div className="storefront-container py-10" aria-label="Cargando tienda" aria-live="polite">
+      <div className="h-[52vh] min-h-[360px] animate-pulse rounded-[var(--store-radius-lg)] bg-[var(--store-surface)]" />
+      <div className="mx-auto mt-14 max-w-3xl text-center">
+        <div className="mx-auto h-3 w-28 animate-pulse rounded-full bg-[var(--store-surface)]" />
+        <div className="mx-auto mt-5 h-14 w-3/4 animate-pulse rounded-2xl bg-[var(--store-surface)]" />
+        <div className="mx-auto mt-4 h-5 w-2/3 animate-pulse rounded-xl bg-[var(--store-surface)]" />
+      </div>
     </div>
   );
 }
 
-function FeaturesStrip() {
-  return (
-    <section className="py-16 px-6 border-t border-neutral-100">
-      <Motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-60px" }}
-        variants={staggerContainer}
-        className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-10"
-      >
-        {FEATURES.map((f, i) => (
-          <Motion.div
-            key={i}
-            variants={fadeInUp}
-            className="flex flex-col items-center text-center gap-4"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-[#f5f5f7] flex items-center justify-center text-black">
-              {f.icon}
-            </div>
-            <div>
-              <p className="font-black text-[11px] uppercase tracking-[0.18em] mb-1">
-                {f.title}
-              </p>
-              <p className="text-[11px] text-neutral-500 leading-relaxed">{f.desc}</p>
-            </div>
-          </Motion.div>
-        ))}
-      </Motion.div>
-    </section>
-  );
-}
-
-function TestimonialsSection() {
-  return (
-    <section className="py-20 px-6 bg-black text-white">
-      <div className="max-w-6xl mx-auto">
-        <Motion.h3
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeInUp}
-          className="text-3xl md:text-4xl font-black tracking-tighter uppercase italic mb-12"
-        >
-          Lo que dicen
-        </Motion.h3>
-
-        <Motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-60px" }}
-          variants={staggerContainer}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6"
-        >
-          {REVIEWS.map((r, i) => (
-            <Motion.div
-              key={i}
-              variants={fadeInUp}
-              className="border border-white/10 rounded-2xl p-7 flex flex-col gap-5 hover:border-white/20 transition-colors"
-            >
-              <div className="flex gap-0.5">
-                {[...Array(r.stars)].map((_, j) => (
-                  <span key={j} className="text-white text-sm leading-none">
-                    ★
-                  </span>
-                ))}
-              </div>
-              <p className="text-white/65 text-sm leading-relaxed flex-1">
-                "{r.text}"
-              </p>
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
-                — {r.name}
-              </p>
-            </Motion.div>
-          ))}
-        </Motion.div>
-      </div>
-    </section>
-  );
-}
-
-function NewsletterSection() {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState("idle"); // idle | loading | done | error
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setStatus("loading");
-    try {
-      await api.post("/newsletter", { email });
-      setStatus("done");
-    } catch {
-      // Si el endpoint no existe todavía, igual mostramos confirmación
-      setStatus("done");
-    }
-  };
+function ProductCard({ product, currencyFormatter }) {
+  const rawPrice = product.final_price ?? product.sale_price ?? product.price;
+  const price = Number(rawPrice);
+  const hasPrice = Number.isFinite(price);
 
   return (
-    <section className="py-24 px-6 bg-[#f5f5f7]">
-      <div className="max-w-xl mx-auto text-center">
-        <Motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={staggerContainer}
-        >
-          <Motion.h3
-            variants={fadeInUp}
-            className="text-4xl md:text-5xl font-black tracking-tighter leading-[0.9] mb-4"
-          >
-            Sé el primero
-            <br />
-            <span className="italic text-neutral-400">en enterarte.</span>
-          </Motion.h3>
-
-          <Motion.p
-            variants={fadeInUp}
-            className="text-sm text-neutral-500 mb-8"
-          >
-            Lanzamientos, drops exclusivos y descuentos solo para suscriptores.
-          </Motion.p>
-
-          <Motion.div variants={fadeInUp}>
-            {status === "done" ? (
-              <p className="text-sm font-black uppercase tracking-widest text-black">
-                ¡Listo! Te tendremos en cuenta.
-              </p>
-            ) : (
-              <form
-                onSubmit={handleSubmit}
-                className="flex gap-2 max-w-sm mx-auto"
-              >
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu@correo.com"
-                  required
-                  className="flex-1 px-5 py-3.5 rounded-full border border-neutral-200 text-sm outline-none focus:border-black bg-white transition-colors"
-                />
-                <button
-                  type="submit"
-                  disabled={status === "loading"}
-                  className="px-6 py-3.5 bg-brand text-white rounded-full text-sm font-bold hover:bg-[var(--brand-hover)] transition-all disabled:opacity-50 shrink-0"
-                >
-                  {status === "loading" ? "..." : "Suscribirse"}
-                </button>
-              </form>
-            )}
-          </Motion.div>
-        </Motion.div>
-      </div>
-    </section>
-  );
-}
-
-function PromoCard({ title, subtitle, img, dark = false, link }) {
-  return (
-    <Motion.div
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-100px" }}
-      variants={fadeInUp}
-      className="w-full"
+    <Link
+      to={`/productos/detalle/${product.id}`}
+      className="storefront-product-card group block"
+      aria-label={`Ver ${product.name || "producto"}`}
     >
-      <Link
-        to={link}
-        className="relative h-[400px] md:h-[500px] rounded-[2rem] md:rounded-[3rem] overflow-hidden group block shadow-sm hover:shadow-2xl transition-all duration-500"
-      >
-        <Motion.div
-          className="absolute inset-0 w-full h-full"
-          whileHover={{ scale: 1.05 }}
-          transition={{ duration: 1.2, ease: "easeOut" }}
-        >
-          <img
-            src={img}
-            loading="lazy"
-            className="w-full h-full object-cover"
-            alt={title}
-          />
-        </Motion.div>
-
-        <div
-          className={`absolute inset-0 p-8 md:p-12 flex flex-col justify-end ${
-            dark
-              ? "bg-gradient-to-t from-black/70 to-transparent text-white"
-              : "bg-gradient-to-t from-white/70 to-transparent text-black"
-          }`}
-        >
-          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] mb-2 opacity-80">
-            {title}
-          </h4>
-          <p className="text-4xl md:text-6xl font-black tracking-tighter leading-[0.9]">
-            {subtitle}
+      <div className="storefront-product-media">
+        <img
+          src={getOptimizedImageUrl(product.main_image)}
+          alt={product.name || "Producto"}
+          loading="lazy"
+        />
+      </div>
+      <div className="px-1 pt-4">
+        <p className="truncate text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--store-text-muted)]">
+          {product.name || "Producto"}
+        </p>
+        {hasPrice ? (
+          <p className="mt-1 text-lg font-semibold tracking-[-0.03em] text-[var(--store-text-primary)]">
+            {currencyFormatter.format(price)}
           </p>
-        </div>
-      </Link>
-    </Motion.div>
+        ) : null}
+      </div>
+    </Link>
   );
 }
 
-// ─── Página principal ─────────────────────────────────────────────
+function ContactItem({ icon: Icon, label, value, href }) {
+  const content = (
+    <>
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--store-surface-elevated)] text-[var(--store-text-primary)]">
+        <Icon size={16} strokeWidth={1.8} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-[var(--store-text-muted)]">{label}</span>
+        <span className="mt-1 block truncate text-sm font-semibold text-[var(--store-text-primary)]">{value}</span>
+      </span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <a href={href} className="storefront-surface flex min-w-0 items-center gap-3 p-4 transition-transform duration-150 hover:-translate-y-0.5">
+        {content}
+      </a>
+    );
+  }
+
+  return <div className="storefront-surface flex min-w-0 items-center gap-3 p-4">{content}</div>;
+}
+
 export default function Home() {
+  const { runtime } = useSiteRuntime();
   const [banners, setBanners] = useState([]);
-  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadHomeData = async () => {
+    const controller = new AbortController();
+
+    async function loadHomeData() {
       try {
-        const [bannersRes, productsRes] = await Promise.all([
-          api.get("/banners"),
-          api.get("/products?limit=4"),
+        const [bannersResult, productsResult, categoriesResult] = await Promise.allSettled([
+          api.get("/banners", { signal: controller.signal }),
+          api.get("/products?limit=8", { signal: controller.signal }),
+          api.get("/categories", { signal: controller.signal }),
         ]);
 
-        const bannersData = extractBanners(bannersRes.data);
-        setBanners(
-          Array.isArray(bannersData) ? bannersData.filter((b) => b.is_active) : []
-        );
+        if (bannersResult.status === "fulfilled") {
+          const data = extractBanners(bannersResult.value.data);
+          setBanners(Array.isArray(data) ? data.filter((banner) => banner.is_active) : []);
+        }
 
-        const productsData = extractProducts(productsRes.data);
-        setFeaturedProducts(Array.isArray(productsData) ? productsData : []);
-      } catch (err) {
-        console.error("Error loading home data", err);
+        if (productsResult.status === "fulfilled") {
+          const data = extractProducts(productsResult.value.data);
+          setProducts(Array.isArray(data) ? data.slice(0, 8) : []);
+        }
+
+        if (categoriesResult.status === "fulfilled") {
+          const data = extractCategories(categoriesResult.value.data);
+          setCategories(Array.isArray(data) ? data.filter((category) => category?.id && category?.name).slice(0, 8) : []);
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
-    };
-    loadHomeData();
+    }
+
+    void loadHomeData();
+    return () => controller.abort();
   }, []);
 
-  if (loading)
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--store-page-bg,#ffffff)]">
-        <Loader2 className="animate-spin text-black mb-4" size={40} />
-      </div>
-    );
+  const businessName = runtime.identity.businessName || "Tienda";
+  const heading = runtime.brand.tagline || businessName;
+  const description = runtime.identity.description || "Explora los productos disponibles y encuentra lo que mejor se adapta a ti.";
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: runtime.locale.currency || "COP",
+      maximumFractionDigits: 0,
+    }),
+    [runtime.locale.currency]
+  );
+
+  const contactItems = useMemo(() => {
+    const items = [];
+    const phone = runtime.identity.contact.phone;
+    const email = runtime.identity.contact.email;
+    const location = [runtime.identity.location.city, runtime.identity.location.department]
+      .filter(Boolean)
+      .join(", ");
+
+    if (phone) {
+      const digits = phone.replace(/[^\d+]/g, "");
+      items.push({ icon: Phone, label: "Teléfono", value: phone, href: digits ? `tel:${digits}` : null });
+    }
+    if (email) items.push({ icon: Mail, label: "Correo", value: email, href: `mailto:${email}` });
+    if (location) items.push({ icon: MapPin, label: "Ubicación", value: location, href: null });
+    return items;
+  }, [runtime]);
+
+  if (loading) return <HomeSkeleton />;
 
   return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
-      <div className="min-h-screen text-black font-sans antialiased selection:bg-neutral-200 bg-[var(--store-page-bg,#ffffff)]">
-        <main className="pt-20 md:pt-24">
+    <div className="pb-24">
+      {banners.length > 0 ? (
+        <section className="storefront-container pt-3 sm:pt-5">
+          <div className="h-[clamp(390px,66vh,760px)] overflow-hidden rounded-[var(--store-radius-lg)] border border-[var(--store-border)] bg-[var(--store-surface)]">
+            <BannerCarousel banners={banners} />
+          </div>
+        </section>
+      ) : null}
 
-          {/* ── BANNER CAROUSEL ── */}
-          {banners.length > 0 && (
-            <Motion.section
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1, ease: "easeOut" }}
-              className="max-w-[1540px] mx-auto h-[90vh] sm:h-[80vh] bg-[#f5f5f7] overflow-hidden relative md:rounded-3xl shadow-sm md:-mt-16"
-            >
-              <BannerCarousel banners={banners} />
-            </Motion.section>
-          )}
+      <section className="storefront-container py-16 text-center sm:py-24 lg:py-32">
+        <div className="mx-auto max-w-5xl">
+          <p className="storefront-kicker">{businessName}</p>
+          <h1 className="storefront-title mt-5">{heading}</h1>
+          <p className="storefront-copy mx-auto mt-7 max-w-2xl">{description}</p>
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+            <Link to="/productos" className="storefront-brand-button">
+              Explorar catálogo <ArrowRight size={15} />
+            </Link>
+            {contactItems.length > 0 ? (
+              <Link to="/contact" className="storefront-secondary-button">
+                Contacto
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      </section>
 
-          {/* ── TICKER ── */}
-          <TickerStrip />
-
-          {/* ── HERO TEXT ── */}
-          <section className="text-center py-10 md:py-20 px-6 max-w-5xl mx-auto">
-            <Motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={staggerContainer}
-            >
-              <Motion.h2
-                variants={fadeInUp}
-                className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter mb-8 leading-[0.9]"
-              >
-                Redefiniendo <br />
-                <span className="text-neutral-400 italic">lo cotidiano.</span>
-              </Motion.h2>
-
-              <Motion.div variants={fadeInUp}>
-                <Link
-                  to="/productos"
-                  className="inline-block px-10 py-4 bg-brand text-white font-bold rounded-full text-sm transition-all hover:scale-105 hover:bg-[var(--brand-hover)] hover:shadow-xl"
-                >
-                  Ver colección
-                </Link>
-              </Motion.div>
-            </Motion.div>
-          </section>
-
-          {/* ── PRODUCTOS ── */}
-          <section className="py-20 px-6 bg-white">
-            <div className="max-w-6xl mx-auto">
-              <Motion.div
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: "-100px" }}
-                variants={fadeInUp}
-                className="flex flex-col sm:flex-row justify-between items-end gap-4 mb-12"
-              >
-                <div className="space-y-1">
-                  <div className="h-1 w-10 bg-black rounded-full mb-3" />
-                  <h3 className="text-3xl md:text-4xl font-black tracking-tighter uppercase italic">
-                    Lo último
-                  </h3>
-                </div>
-                <Link
-                  to="/productos"
-                  className="group text-black font-bold flex items-center gap-2 text-xs tracking-widest uppercase"
-                >
-                  Explorar{" "}
-                  <ArrowRight
-                    size={16}
-                    className="transition-transform group-hover:translate-x-1"
-                  />
-                </Link>
-              </Motion.div>
-
-              <Motion.div
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: "-50px" }}
-                variants={staggerContainer}
-                className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-8"
-              >
-                {featuredProducts.map((p) => {
-                  const price = Number(p.final_price || p.price);
-                  return (
-                    <Link
-                      key={p.id}
-                      to={`/productos/detalle/${p.id}`}
-                      className="group block cursor-pointer"
-                    >
-                      <Motion.div variants={fadeInUp}>
-                        <div className="aspect-[4/5] bg-[#f5f5f7] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden mb-5 relative">
-                          <img
-                            src={getOptimizedImageUrl(p.main_image)}
-                            alt={p.name}
-                            loading="lazy"
-                            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="font-bold text-[9px] md:text-[10px] uppercase tracking-[0.2em] text-neutral-500 truncate">
-                            {p.name}
-                          </h4>
-                          <p className="font-black text-lg md:text-xl tracking-tight text-neutral-900">
-                            ${price.toLocaleString()}
-                          </p>
-                        </div>
-                      </Motion.div>
-                    </Link>
-                  );
-                })}
-              </Motion.div>
+      {categories.length > 0 ? (
+        <section className="storefront-container pb-14 sm:pb-20">
+          <div className="flex flex-col gap-5 border-y border-[var(--store-border)] py-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="storefront-kicker">Explorar</p>
+              <h2 className="mt-1 text-lg font-semibold tracking-[-0.03em] text-[var(--store-text-primary)]">Categorías</h2>
             </div>
-          </section>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((category) => (
+                <Link
+                  key={category.id}
+                  to={`/productos/categoria/${category.slug}`}
+                  className="storefront-category-chip"
+                >
+                  {category.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
-          {/* ── PROPUESTAS DE VALOR ── */}
-          <FeaturesStrip />
+      <section className="storefront-container py-12 sm:py-18">
+        <div className="mb-9 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="storefront-kicker">Catálogo</p>
+            <h2 className="storefront-section-title mt-3">Productos disponibles</h2>
+          </div>
+          <Link to="/productos" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--store-text-secondary)] hover:text-[var(--store-text-primary)]">
+            Ver todo <ArrowRight size={15} />
+          </Link>
+        </div>
 
-          {/* ── COLECCIONES ── */}
-          <section className="py-20 px-6 border-t border-neutral-100">
-            <div className="max-w-6xl mx-auto">
-              <Motion.h3
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={fadeInUp}
-                className="text-center text-3xl md:text-4xl font-black mb-16 uppercase tracking-tighter"
-              >
-                Colecciones
-              </Motion.h3>
+        {products.length > 0 ? (
+          <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-12">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} currencyFormatter={currencyFormatter} />
+            ))}
+          </div>
+        ) : (
+          <div className="storefront-surface flex min-h-52 flex-col items-center justify-center px-6 text-center">
+            <ShoppingBag size={22} strokeWidth={1.6} className="text-[var(--store-text-muted)]" />
+            <p className="mt-4 text-sm font-semibold text-[var(--store-text-primary)]">No hay productos disponibles en este momento.</p>
+            <p className="mt-1 max-w-md text-xs leading-5 text-[var(--store-text-muted)]">Cuando el catálogo publique nuevos productos, aparecerán aquí automáticamente.</p>
+          </div>
+        )}
+      </section>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
-                <PromoCard
-                  title="Audio Pro"
-                  subtitle="Inmersión"
-                  img="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1000"
-                  dark
-                  link="/productos?categoria=audio"
-                />
-                <PromoCard
-                  title="Workspace"
-                  subtitle="Focus"
-                  img="https://images.unsplash.com/photo-1493934558415-9d19f0b2b4d2?q=80&w=1000"
-                  link="/productos?categoria=desktop"
-                />
+      {contactItems.length > 0 ? (
+        <section className="storefront-container pt-16 sm:pt-24">
+          <div className="storefront-elevated overflow-hidden p-6 sm:p-9 lg:p-12">
+            <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+              <div>
+                <p className="storefront-kicker">{businessName}</p>
+                <h2 className="storefront-section-title mt-3">¿Necesitas ayuda?</h2>
+                <p className="storefront-copy mt-4 max-w-lg">Usa los canales publicados por la tienda para resolver dudas sobre productos, pedidos o disponibilidad.</p>
+              </div>
+              <div className="storefront-contact-grid">
+                {contactItems.map((item) => (
+                  <ContactItem key={`${item.label}-${item.value}`} {...item} />
+                ))}
               </div>
             </div>
-          </section>
-
-          {/* ── TESTIMONIOS ── */}
-          <TestimonialsSection />
-
-          {/* ── NEWSLETTER ── */}
-          <NewsletterSection />
-
-        </main>
-      </div>
-    </ReactLenis>
+          </div>
+        </section>
+      ) : null}
+    </div>
   );
 }
