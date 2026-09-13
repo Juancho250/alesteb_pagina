@@ -223,24 +223,19 @@ export default function Navbar() {
               Productos
             </Link>
             {categories.length ? (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setCategoryOpen((current) => !current)}
-                  className={`storefront-nav-link inline-flex items-center gap-1.5 ${categoryOpen ? "is-active" : ""}`}
-                  aria-expanded={categoryOpen}
-                  aria-haspopup="true"
-                >
-                  Categorías
-                  <ChevronDown
-                    size={13}
-                    className={`transition-transform duration-150 ${categoryOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {categoryOpen ? (
-                  <CategoryMenu categories={categories} onNavigate={closeAll} />
-                ) : null}
-              </div>
+              <button
+                type="button"
+                onClick={() => setCategoryOpen((current) => !current)}
+                className={`storefront-nav-link inline-flex items-center gap-1.5 ${categoryOpen ? "is-active" : ""}`}
+                aria-expanded={categoryOpen}
+                aria-haspopup="true"
+              >
+                Categorías
+                <ChevronDown
+                  size={13}
+                  className={`transition-transform duration-150 ${categoryOpen ? "rotate-180" : ""}`}
+                />
+              </button>
             ) : null}
             <Link to="/support" className="storefront-nav-link">
               Soporte
