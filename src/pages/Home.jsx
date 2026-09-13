@@ -34,12 +34,11 @@ function createCurrencyFormatter(currency) {
 
 function HomeSkeleton() {
   return (
-    <div className="storefront-container py-10" aria-label="Cargando tienda" aria-live="polite">
-      <div className="h-[52vh] min-h-[360px] animate-pulse rounded-[var(--store-radius-lg)] bg-[var(--store-surface)]" />
-      <div className="mx-auto mt-14 max-w-3xl text-center">
-        <div className="mx-auto h-3 w-28 animate-pulse rounded-full bg-[var(--store-surface)]" />
-        <div className="mx-auto mt-5 h-14 w-3/4 animate-pulse rounded-2xl bg-[var(--store-surface)]" />
-        <div className="mx-auto mt-4 h-5 w-2/3 animate-pulse rounded-xl bg-[var(--store-surface)]" />
+    <div className="storefront-container py-8" aria-label="Cargando tienda" aria-live="polite">
+      <div className="h-[clamp(420px,58vh,620px)] animate-pulse rounded-[var(--store-radius-lg)] bg-[var(--store-surface)]" />
+      <div className="mt-12 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+        <div className="h-20 animate-pulse rounded-2xl bg-[var(--store-surface)]" />
+        <div className="h-20 animate-pulse rounded-2xl bg-[var(--store-surface)]" />
       </div>
     </div>
   );
@@ -170,42 +169,51 @@ export default function Home() {
 
   if (loading) return <HomeSkeleton />;
 
+  const hasHero = banners.length > 0;
+
   return (
-    <div className="pb-24">
-      {banners.length > 0 ? (
-        <section className="storefront-container pt-3 sm:pt-5">
-          <div className="h-[clamp(390px,66vh,760px)] overflow-hidden rounded-[var(--store-radius-lg)] border border-[var(--store-border)] bg-[var(--store-surface)]">
+    <div className="storefront-home pb-20 sm:pb-24">
+      {hasHero ? (
+        <section className="storefront-container pt-2 sm:pt-4">
+          <div className="storefront-home-hero-frame">
             <BannerCarousel banners={banners} />
           </div>
         </section>
       ) : null}
 
-      <section className="storefront-container py-16 text-center sm:py-24 lg:py-32">
-        <div className="mx-auto max-w-5xl">
-          <p className="storefront-kicker">{businessName}</p>
-          <h1 className="storefront-title mt-5">{heading}</h1>
-          <p className="storefront-copy mx-auto mt-7 max-w-2xl">{description}</p>
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            <Link to="/productos" className="storefront-brand-button">
-              Explorar catálogo <ArrowRight size={15} />
-            </Link>
-            {contactItems.length > 0 ? (
-              <Link to="/contact" className="storefront-secondary-button">
-                Contacto
+      <section className={`storefront-container ${hasHero ? "pt-10 sm:pt-14" : "pt-14 sm:pt-20"}`}>
+        <div className={`storefront-home-intro ${hasHero ? "is-compact" : "is-primary"}`}>
+          <div>
+            <p className="storefront-kicker">{businessName}</p>
+            <h1 className={hasHero ? "storefront-home-heading" : "storefront-title mt-4"}>
+              {heading}
+            </h1>
+          </div>
+
+          <div className="storefront-home-intro-copy">
+            <p className="storefront-copy">{description}</p>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link to="/productos" className="storefront-brand-button">
+                Explorar catálogo <ArrowRight size={15} />
               </Link>
-            ) : null}
+              {contactItems.length > 0 ? (
+                <Link to="/contact" className="storefront-secondary-button">
+                  Contacto
+                </Link>
+              ) : null}
+            </div>
           </div>
         </div>
       </section>
 
       {categories.length > 0 ? (
-        <section className="storefront-container pb-14 sm:pb-20">
-          <div className="flex flex-col gap-5 border-y border-[var(--store-border)] py-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+        <section className="storefront-container pt-12 sm:pt-16">
+          <div className="storefront-category-rail">
+            <div className="shrink-0">
               <p className="storefront-kicker">Explorar</p>
               <h2 className="mt-1 text-lg font-semibold tracking-[-0.03em] text-[var(--store-text-primary)]">Categorías</h2>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 lg:justify-end">
               {categories.map((category) => (
                 <Link
                   key={category.id}
@@ -220,25 +228,25 @@ export default function Home() {
         </section>
       ) : null}
 
-      <section className="storefront-container py-12 sm:py-20">
-        <div className="mb-9 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <section className="storefront-container pt-16 sm:pt-20 lg:pt-24">
+        <div className="storefront-section-header">
           <div>
             <p className="storefront-kicker">Catálogo</p>
             <h2 className="storefront-section-title mt-3">Productos disponibles</h2>
           </div>
-          <Link to="/productos" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--store-text-secondary)] hover:text-[var(--store-text-primary)]">
+          <Link to="/productos" className="storefront-inline-link">
             Ver todo <ArrowRight size={15} />
           </Link>
         </div>
 
         {products.length > 0 ? (
-          <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-12">
+          <div className="mt-8 grid grid-cols-2 gap-x-3 gap-y-8 sm:mt-10 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-12">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} currencyFormatter={currencyFormatter} />
             ))}
           </div>
         ) : (
-          <div className="storefront-surface flex min-h-52 flex-col items-center justify-center px-6 text-center">
+          <div className="storefront-surface mt-8 flex min-h-52 flex-col items-center justify-center px-6 text-center sm:mt-10">
             <ShoppingBag size={22} strokeWidth={1.6} className="text-[var(--store-text-muted)]" />
             <p className="mt-4 text-sm font-semibold text-[var(--store-text-primary)]">No hay productos disponibles en este momento.</p>
             <p className="mt-1 max-w-md text-xs leading-5 text-[var(--store-text-muted)]">Cuando el catálogo publique nuevos productos, aparecerán aquí automáticamente.</p>
@@ -247,7 +255,7 @@ export default function Home() {
       </section>
 
       {contactItems.length > 0 ? (
-        <section className="storefront-container pt-16 sm:pt-24">
+        <section className="storefront-container pt-20 sm:pt-24 lg:pt-28">
           <div className="storefront-elevated overflow-hidden p-6 sm:p-9 lg:p-12">
             <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
               <div>
