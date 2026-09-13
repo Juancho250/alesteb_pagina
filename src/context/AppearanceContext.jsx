@@ -62,10 +62,13 @@ function contrastText(background) {
   return getLuminance(background) < 0.42 ? "#ffffff" : "#111827";
 }
 
+function resolveNavbarMode(mode, background) {
+  if (mode === "light" || mode === "dark") return mode;
+  return getLuminance(background) < 0.42 ? "light" : "dark";
+}
+
 function resolveNavbarText(mode, background) {
-  if (mode === "light") return "#ffffff";
-  if (mode === "dark") return "#111827";
-  return contrastText(background);
+  return resolveNavbarMode(mode, background) === "light" ? "#ffffff" : "#111827";
 }
 
 function setCssVariable(root, name, value) {
@@ -111,6 +114,7 @@ function normalizeAppearance(runtime) {
   const accent = safeHex(runtime.brand.colors.accent, primary);
   const pageBackground = safeHex(runtime.site.presentation.pageBackground, DEFAULT_PAGE_BG);
   const navbarBackground = safeHex(runtime.site.presentation.navbarBackground, DEFAULT_NAV_BG);
+  const navbarTextMode = resolveNavbarMode(runtime.site.presentation.navbarText, navbarBackground);
 
   return {
     business_name: runtime.identity.businessName || "",
@@ -130,7 +134,7 @@ function normalizeAppearance(runtime) {
     secondary_color: secondary,
     accent_color: accent,
     store_navbar_bg: navbarBackground,
-    store_navbar_text: runtime.site.presentation.navbarText || "auto",
+    store_navbar_text: navbarTextMode,
     store_page_bg: pageBackground,
     store_font: ALLOWED_FONTS.has(runtime.site.presentation.fontFamily)
       ? runtime.site.presentation.fontFamily
