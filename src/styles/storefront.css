@@ -248,6 +248,77 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
+/* Existing ProductDetail keeps stock/variant/cart authority untouched.
+   This route scope replaces only its legacy neutral presentation. */
+.storefront-shell[data-store-surface="product-detail"] .max-w-5xl {
+  width: min(1180px, calc(100% - (var(--store-gutter) * 2)));
+  max-width: none;
+  padding-inline: 0;
+}
+
+.storefront-shell[data-store-surface="product-detail"] h1 {
+  color: var(--store-text-primary) !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.05em !important;
+  line-height: 0.96 !important;
+  text-transform: none !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] .font-black {
+  font-weight: 700;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-900"],
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-800"],
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-700"] {
+  color: var(--store-text-primary) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-600"],
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-500"] {
+  color: var(--store-text-secondary) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-400"],
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-300"],
+.storefront-shell[data-store-surface="product-detail"] [class~="text-slate-200"] {
+  color: var(--store-text-muted) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="bg-white"] {
+  background-color: var(--store-page-bg) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class*="bg-slate-50"],
+.storefront-shell[data-store-surface="product-detail"] [class~="bg-slate-100"],
+.storefront-shell[data-store-surface="product-detail"] [class~="bg-[#F5F5F7]"] {
+  background-color: var(--store-surface) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class*="border-slate-100"],
+.storefront-shell[data-store-surface="product-detail"] [class~="border-slate-200"] {
+  border-color: var(--store-border) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="bg-slate-900"] {
+  background-color: var(--store-brand) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="bg-slate-900"][class~="text-white"] {
+  color: var(--store-brand-contrast) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] [class~="shadow-slate-200/80"],
+.storefront-shell[data-store-surface="product-detail"] [class~="shadow-slate-900/10"] {
+  --tw-shadow-color: rgb(var(--brand-rgb, 17 24 39) / 0.1) !important;
+}
+
+.storefront-shell[data-store-surface="product-detail"] button,
+.storefront-shell[data-store-surface="product-detail"] a {
+  -webkit-tap-highlight-color: transparent;
+}
+
 @media (max-width: 640px) {
   :root {
     --store-radius-lg: 26px;
@@ -259,6 +330,10 @@ body {
 
   .storefront-nav {
     border-radius: 18px;
+  }
+
+  .storefront-shell[data-store-surface="product-detail"] .max-w-5xl {
+    width: min(100% - 2rem, 1180px);
   }
 }
 
