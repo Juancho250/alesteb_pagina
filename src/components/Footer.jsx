@@ -2,11 +2,25 @@ import { Link } from "react-router-dom";
 import { ExternalLink, Instagram, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
 
-function normalizeUrl(value) {
-  if (typeof value !== "string" || !value.trim()) return null;
-  const trimmed = value.trim();
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
+function normalizeSocialUrl(key, value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (/^https?:\/\//i.test(text)) return text;
+
+  if (key === "whatsapp") {
+    const digits = text.replace(/\D/g, "");
+    return digits ? `https://wa.me/${digits}` : null;
+  }
+
+  const handle = text.replace(/^@/, "");
+  if (!handle || handle.includes(" ")) return null;
+  if (key === "instagram") return `https://instagram.com/${handle}`;
+  if (key === "tiktok") return `https://tiktok.com/@${handle}`;
+  if (key === "x" || key === "twitter") return `https://x.com/${handle}`;
+  if (key === "facebook") return `https://facebook.com/${handle}`;
+
+  return null;
 }
 
 function SocialLinks({ links }) {
@@ -22,7 +36,7 @@ function SocialLinks({ links }) {
   ];
 
   const available = candidates
-    .map((item) => ({ ...item, href: normalizeUrl(links[item.key]) }))
+    .map((item) => ({ ...item, href: normalizeSocialUrl(item.key, links[item.key]) }))
     .filter((item, index, array) => item.href && array.findIndex((candidate) => candidate.href === item.href) === index);
 
   if (!available.length) return null;
@@ -49,11 +63,12 @@ export default function Footer() {
   const { runtime } = useSiteRuntime();
   const businessName = runtime.identity.businessName || "Tienda";
   const description = runtime.identity.description || runtime.brand.tagline || "";
-  const phone = runtime.identity.contact.phone;
-  const email = runtime.identity.contact.email;
+  const phone = runtime.identity.contact.phone ? String(runtime.identity.contact.phone) : "";
+  const email = runtime.identity.contact.email ? String(runtime.identity.contact.email) : "";
   const location = [runtime.identity.location.city, runtime.identity.location.department, runtime.identity.location.country]
     .filter(Boolean)
     .join(", ");
+  const phoneHref = phone ? phone.replace(/[^\d+]/g, "") : "";
 
   return (
     <footer className="mt-12 border-t border-[var(--store-border)] bg-[var(--store-page-bg)]">
@@ -97,8 +112,8 @@ export default function Footer() {
           <div>
             <p className="storefront-kicker">Información</p>
             <div className="mt-4 space-y-3 text-sm text-[var(--store-text-secondary)]">
-              {phone ? (
-                <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-2 hover:text-[var(--store-text-primary)]">
+              {phone && phoneHref ? (
+                <a href={`tel:${phoneHref}`} className="flex items-center gap-2 hover:text-[var(--store-text-primary)]">
                   <Phone size={14} /> <span className="truncate">{phone}</span>
                 </a>
               ) : null}
