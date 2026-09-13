@@ -8,19 +8,19 @@ import { DiscountsProvider }  from "./context/DiscountsContext";
 import { usePageTracking }   from "./hooks/usePageTracking";
 import { SiteRuntimeProvider } from "./platform/runtime/SiteRuntimeContext";
 import { storefrontRouteRegistry } from "./platform/routing/routeRegistry";
+import "./styles/storefront.css";
 
 import Footer           from "./components/Footer";
 import Navbar           from "./components/Navbar";
 import CartFloating     from "./components/CartFloating";
 import ScrollToTop      from "./components/ScrollToTop";
 
-// ─── Componente interno que activa el tracker ─────────────────────────────────
-// Debe vivir DENTRO de <BrowserRouter> porque usePageTracking usa useLocation.
+// Debe vivir dentro de BrowserRouter porque usePageTracking consume useLocation.
 function AppContent() {
-  usePageTracking(); // ← registra cada cambio de página automáticamente
+  usePageTracking();
 
   return (
-    <>
+    <div className="storefront-shell">
       <ScrollToTop />
       <Navbar />
 
@@ -34,7 +34,7 @@ function AppContent() {
 
       <Footer />
       <CartFloating />
-    </>
+    </div>
   );
 }
 
