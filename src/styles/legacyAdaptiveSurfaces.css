@@ -1,0 +1,112 @@
+/* Transitional visual adapter for large legacy routes.
+   Business logic stays inside the existing React components; this file only
+   remaps their neutral presentation to the semantic storefront tokens. */
+
+.storefront-shell[data-store-surface="profile"] .max-w-5xl,
+.storefront-shell[data-store-surface="profile"] .max-w-6xl,
+.storefront-shell[data-store-surface="profile"] .max-w-7xl,
+.storefront-shell[data-store-surface="order-success"] .max-w-lg {
+  width: min(1180px, calc(100% - (var(--store-gutter) * 2)));
+  max-width: none;
+  padding-inline: 0;
+}
+
+.storefront-shell[data-store-surface="order-success"] .max-w-lg {
+  width: min(620px, calc(100% - (var(--store-gutter) * 2)));
+}
+
+.storefront-shell[data-store-surface="profile"] h1,
+.storefront-shell[data-store-surface="profile"] h2,
+.storefront-shell[data-store-surface="order-success"] h1,
+.storefront-shell[data-store-surface="order-success"] h2 {
+  color: var(--store-text-primary) !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.04em !important;
+  text-transform: none !important;
+}
+
+.storefront-shell[data-store-surface="profile"] .font-black,
+.storefront-shell[data-store-surface="order-success"] .font-black {
+  font-weight: 700;
+}
+
+.storefront-shell[data-store-surface="profile"] [class~="text-slate-900"],
+.storefront-shell[data-store-surface="profile"] [class~="text-slate-800"],
+.storefront-shell[data-store-surface="profile"] [class~="text-slate-700"],
+.storefront-shell[data-store-surface="order-success"] [class~="text-slate-900"],
+.storefront-shell[data-store-surface="order-success"] [class~="text-slate-800"],
+.storefront-shell[data-store-surface="order-success"] [class~="text-slate-700"] {
+  color: var(--store-text-primary) !important;
+}
+
+.storefront-shell[data-store-surface="profile"] [class~="text-slate-600"],
+.storefront-shell[data-store-surface="profile"] [class~="text-slate-500"],
+.storefront-shell[data-store-surface="order-success"] [class~="text-slate-600"],
+.storefront-shell[data-store-surface="order-success"] [class~="text-slate-500"] {
+  color: var(--store-text-secondary) !important;
+}
+
+.storefront-shell[data-store-surface="profile"] [class~="text-slate-400"],
+.storefront-shell[data-store-surface="profile"] [class~="text-slate-300"],
+.storefront-shell[data-store-surface="profile"] [class~="text-slate-200"],
+.storefront-shell[data-store-surface="order-success"] [class~="text-slate-400"],
+.storefront-shell[data-store-surface="order-success"] [class~="text-slate-300"],
+.storefront-shell[data-store-surface="order-success"] [class~="text-slate-200"] {
+  color: var(--store-text-muted) !important;
+}
+
+.storefront-shell[data-store-surface="profile"] [class~="bg-white"],
+.storefront-shell[data-store-surface="order-success"] [class~="bg-white"] {
+  background-color: var(--store-page-bg) !important;
+}
+
+.storefront-shell[data-store-surface="profile"] [class*="bg-slate-50"],
+.storefront-shell[data-store-surface="profile"] [class~="bg-slate-100"],
+.storefront-shell[data-store-surface="order-success"] [class*="bg-slate-50"],
+.storefront-shell[data-store-surface="order-success"] [class~="bg-slate-100"],
+.storefront-shell[data-store-surface="order-success"] [class~="bg-[#F8FAFC]"] {
+  background-color: var(--store-surface) !important;
+}
+
+.storefront-shell[data-store-surface="profile"] [class*="border-slate-100"],
+.storefront-shell[data-store-surface="profile"] [class~="border-slate-200"],
+.storefront-shell[data-store-surface="order-success"] [class*="border-slate-100"],
+.storefront-shell[data-store-surface="order-success"] [class~="border-slate-200"] {
+  border-color: var(--store-border) !important;
+}
+
+.storefront-shell[data-store-surface="profile"] [class~="bg-slate-900"],
+.storefront-shell[data-store-surface="order-success"] [class~="bg-slate-900"] {
+  background-color: var(--store-brand) !important;
+}
+
+.storefront-shell[data-store-surface="profile"] [class~="bg-slate-900"][class~="text-white"],
+.storefront-shell[data-store-surface="order-success"] [class~="bg-slate-900"][class~="text-white"] {
+  color: var(--store-brand-contrast) !important;
+}
+
+.storefront-shell[data-store-surface="profile"] input,
+.storefront-shell[data-store-surface="profile"] select,
+.storefront-shell[data-store-surface="profile"] textarea {
+  border-color: var(--store-border) !important;
+  background: var(--store-surface) !important;
+  color: var(--store-text-primary) !important;
+}
+
+.storefront-shell[data-store-surface="profile"] input::placeholder,
+.storefront-shell[data-store-surface="profile"] textarea::placeholder {
+  color: var(--store-text-muted) !important;
+}
+
+/* Preserve semantic status colours (success/warning/error) on Profile and
+   OrderSuccess; only legacy neutral slate surfaces are remapped above. */
+
+@media (max-width: 640px) {
+  .storefront-shell[data-store-surface="profile"] .max-w-5xl,
+  .storefront-shell[data-store-surface="profile"] .max-w-6xl,
+  .storefront-shell[data-store-surface="profile"] .max-w-7xl,
+  .storefront-shell[data-store-surface="order-success"] .max-w-lg {
+    width: min(100% - 2rem, 1180px);
+  }
+}
