@@ -1,325 +1,249 @@
-// src/pages/Products.jsx
-import React, { useEffect, useState, useRef, memo, useCallback } from "react";
-import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Percent,
+  Plus,
+  Search,
+  ShoppingBag,
+  X,
+} from "lucide-react";
 import api from "../services/api";
-import { extractPagination, extractProducts, extractCategories } from "../utils/apiResponse";
+import { extractCategories, extractPagination, extractProducts } from "../utils/apiResponse";
 import { useCart } from "../context/CartContext";
 import { useDiscounts } from "../context/DiscountsContext";
-import { motion, AnimatePresence } from "framer-motion";
-import { ReactLenis } from "lenis/react";
-import {
-  ShoppingBag, Percent, Search, X,
-  ChevronRight, ArrowLeft, Plus, ChevronLeft, Heart,
-} from "lucide-react";
 import { useFavorites } from "../context/FavoritesContext";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
 import ProductReviewSummary from "../components/reviews/ProductReviewSummary";
 
-// ─── Cache en memoria (vive mientras la SPA esté abierta) ─────────────────────
 const cache = new Map();
-const CACHE_TTL = 60_000; // 1 minuto
+const CACHE_TTL = 60_000;
 
 function cacheGet(key) {
   const entry = cache.get(key);
   if (!entry) return null;
-  if (Date.now() - entry.ts > CACHE_TTL) { cache.delete(key); return null; }
+  if (Date.now() - entry.ts > CACHE_TTL) {
+    cache.delete(key);
+    return null;
+  }
   return entry.data;
 }
+
 function cacheSet(key, data) {
   cache.set(key, { data, ts: Date.now() });
 }
 
-// ─── Optimización de imagen Cloudinary ───────────────────────────────────────
-// Las imágenes ya llegan como WebP desde el uploader, solo ajustamos tamaño
-function imgUrl(url, w = 600) {
+function imgUrl(url, width = 720) {
   if (!url) return null;
-  if (url.includes("/upload/"))
-    return url.replace("/upload/", `/upload/f_webp,q_auto:good,w_${w},c_fill,dpr_auto/`);
+  if (url.includes("/upload/")) {
+    return url.replace("/upload/", `/upload/f_auto,q_auto,w_${width},c_fill,dpr_auto/`);
+  }
   return url;
 }
 
-// ─── Skeleton card ────────────────────────────────────────────────────────────
-const SkeletonCard = () => (
-  <div className="flex flex-col animate-pulse">
-    <div className="aspect-[4/5] rounded-[2rem] bg-[var(--store-surface)]" />
-    <div className="mt-5 px-1 space-y-2">
-      <div className="h-2 w-24 bg-[var(--store-surface)] rounded-full" />
-      <div className="h-5 w-32 bg-[var(--store-surface)] rounded-full" />
+function SkeletonCard() {
+  return (
+    <div className="animate-pulse">
+      <div className="aspect-[4/5] rounded-[var(--store-radius-md)] bg-[var(--store-surface)]" />
+      <div className="mt-4 space-y-2 px-1">
+        <div className="h-2.5 w-2/3 rounded-full bg-[var(--store-surface)]" />
+        <div className="h-4 w-1/2 rounded-full bg-[var(--store-surface)]" />
+      </div>
     </div>
-  </div>
-);
+  );
+}
 
-// ─── Variantes de animación ───────────────────────────────────────────────────
-const cardVariants = {
-  hidden:  { opacity: 0, y: 28 },
-  visible: (i) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.55, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
-
-const fadeUp = {
-  hidden:  { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } },
-};
-
-// ─── ProductCard ──────────────────────────────────────────────────────────────
-const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const [imgError, setImgError]   = useState(false);
-  // Dentro de ProductCard:
+const ProductCard = memo(function ProductCard({ product, isInCart, onToggle, currencyFormatter }) {
   const { toggleFavorite, isFavorite } = useFavorites();
-  const fav = isFavorite(p.id);
-  const priceOriginal   = Number(p.sale_price || p.price) || 0;
-  const priceFinalRaw   = Number(p.final_price) || 0;
-  const hasDiscount     = priceFinalRaw > 0 && priceFinalRaw < priceOriginal;
-  const priceFinal      = hasDiscount ? priceFinalRaw : priceOriginal;
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  const favorite = isFavorite(product.id);
+  const priceOriginal = Number(product.sale_price || product.price) || 0;
+  const priceFinalRaw = Number(product.final_price) || 0;
+  const hasDiscount = priceFinalRaw > 0 && priceFinalRaw < priceOriginal;
+  const priceFinal = hasDiscount ? priceFinalRaw : priceOriginal;
   const discountPercent = hasDiscount
-    ? Math.round(((priceOriginal - priceFinal) / priceOriginal) * 100) : 0;
-  const hasVariants     = Boolean(p.has_variants);
+    ? Math.round(((priceOriginal - priceFinal) / priceOriginal) * 100)
+    : 0;
+  const hasVariants = Boolean(product.has_variants);
+  const isOnDemand = product.fulfillment_mode === "on_demand";
+  const isHybrid = product.fulfillment_mode === "hybrid";
+  const isOut = product.stock <= 0 && !isOnDemand;
+  const isLow = !isOut && product.stock_status === "low" && !hasVariants && !isOnDemand;
 
-  // Disponibilidad desde los campos del listado (sin llamada extra por card)
-  const isOnDemand = p.fulfillment_mode === "on_demand";
-  const isHybrid   = p.fulfillment_mode === "hybrid";
-  const isOut = p.stock <= 0 && !isOnDemand;
-  const isLow = !isOut && p.stock_status === "low" && !hasVariants && !isOnDemand;
-
-  // Thumb pequeño para grid. Si el producto no tiene main_image (productos con
-  // variantes), usa la imagen del primer swatch de color disponible.
   const rawThumb =
-    p.main_image ||
-    p.images?.[0]?.url ||
-    p.variant_swatches?.find(s => s.attribute_slug === "color")?.main_image ||
-    p.variant_swatches?.[0]?.main_image ||
+    product.main_image ||
+    product.images?.[0]?.url ||
+    product.variant_swatches?.find((swatch) => swatch.attribute_slug === "color")?.main_image ||
+    product.variant_swatches?.[0]?.main_image ||
     null;
-  const thumb   = imgUrl(rawThumb, 600);
-  const thumb2x = imgUrl(rawThumb, 1200);
+  const thumb = imgUrl(rawThumb, 720);
+  const thumb2x = imgUrl(rawThumb, 1280);
 
   return (
-    <motion.div
-      custom={index}
-      variants={cardVariants}
-      initial="hidden"
-      animate="visible"
-      className="group relative flex flex-col"
-    >
-      {/* Badge fulfillment_mode */}
-      {!isOut && (
-        <div className={`absolute top-4 left-4 z-20 flex items-center gap-1 backdrop-blur-md
-          px-3 py-1 rounded-2xl text-[10px] font-black shadow-sm border
-          ${isOnDemand
-            ? "bg-purple-600/90 text-white border-purple-500"
-            : isHybrid
-              ? "bg-brand/90 text-white border-brand"
-              : "bg-emerald-600/90 text-white border-emerald-500"
+    <article className="storefront-product-card group relative">
+      <div className="storefront-product-media">
+        {!isOut ? (
+          <span className={`absolute left-3 top-3 z-20 rounded-full border px-2.5 py-1 text-[9px] font-semibold backdrop-blur-md ${
+            isOnDemand
+              ? "border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300"
+              : isHybrid
+                ? "border-[var(--store-brand)]/25 bg-[var(--store-brand)] text-[var(--store-brand-contrast)]"
+                : "border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
           }`}>
-          {isOnDemand ? "Bajo pedido" : isHybrid ? "Disponible / Pedido" : "Entrega inmediata"}
-        </div>
-      )}
-
-      {/* Badge descuento */}
-      {hasDiscount && (
-        <div className={`absolute z-20 flex items-center gap-1 bg-white/90 backdrop-blur-md
-          text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black shadow-sm border border-slate-100
-          ${!isOut ? "top-11 left-4" : "top-4 left-4"}`}>
-          <Percent size={9} className="text-brand" strokeWidth={3} />
-          {discountPercent}% OFF
-        </div>
-      )}
-
-      {/* Badge variantes + Favorito */}
-      {hasVariants && (
-        <div className={`absolute z-20 bg-slate-900/70 backdrop-blur-md
-          text-white px-2.5 py-1 rounded-xl text-[9px] font-black tracking-wider
-          ${(isOnDemand || isHybrid) ? "top-11 right-4" : "top-4 right-4"}`}>
-          + opciones
-        </div>
-      )}
-
-      <button
-        onClick={(e) => { e.preventDefault(); toggleFavorite(p); }}
-        aria-label={fav ? "Quitar de favoritos" : "Agregar a favoritos"}
-        className={`absolute z-20 p-2.5 rounded-full bg-white/90 backdrop-blur-md
-          border border-slate-100 shadow-sm transition-all duration-300
-          hover:scale-110 active:scale-95
-          ${hasVariants ? "top-12 right-4 mt-1" : "top-4 right-4"}
-          ${fav ? "text-red-500" : "text-slate-300 hover:text-red-400"}`}
-      >
-        <Heart size={15} fill={fav ? "currentColor" : "none"} strokeWidth={2} />
-      </button>
-      
-
-      {/* Imagen */}
-      <Link
-        to={`/productos/detalle/${p.id}`}
-        className="relative block overflow-hidden rounded-[2.5rem] bg-[#F5F5F7] aspect-[4/5]
-          transition-shadow duration-500 group-hover:shadow-2xl group-hover:shadow-slate-200/80"
-      >
-        {/* Pulse skeleton — solo mientras carga la imagen */}
-        {!imgLoaded && !imgError && thumb && (
-          <div className="absolute inset-0 bg-gradient-to-br from-[var(--store-surface)] to-[var(--store-surface-hover)] animate-pulse" />
-        )}
-
-        {/* Sold-out overlay */}
-        {isOut && (
-          <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10 rounded-[2.5rem]">
-            <span className="px-4 py-1.5 bg-white rounded-full text-[10px] font-black uppercase
-              tracking-widest text-slate-400 border border-slate-200 shadow-sm">
-              Agotado
-            </span>
-          </div>
-        )}
-
-        {thumb && !imgError ? (
-          <img
-            src={thumb}
-            srcSet={`${thumb} 1x, ${thumb2x} 2x`}
-            alt={p.name}
-            loading="lazy"
-            decoding="async"
-            width={600}
-            height={750}
-            onLoad={() => setImgLoaded(true)}
-            onError={() => { setImgError(true); setImgLoaded(true); }}
-            className={`w-full h-full object-cover transition-all duration-700
-              group-hover:scale-[1.06]
-              ${imgLoaded ? "opacity-100" : "opacity-0"}`}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-[var(--store-surface)]">
-            <ShoppingBag size={40} className="text-[var(--store-text-muted)] opacity-25" strokeWidth={1} />
-          </div>
-        )}
-
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/[0.04] transition-colors duration-500" />
-      </Link>
-
-      {/* Botón carrito */}
-      {hasVariants ? (
-        <Link
-          to={`/productos/detalle/${p.id}`}
-          aria-label={isOut ? "Agotado" : "Ver opciones"}
-          className={`absolute bottom-[7.5rem] right-5 z-20 p-4 rounded-full bg-white text-slate-900
-            border border-slate-100 shadow-xl transition-all duration-300
-            ${isOut
-              ? "opacity-40 cursor-not-allowed"
-              : "hover:bg-brand hover:text-white hover:border-brand hover:scale-105 active:scale-95"
-            }`}
-          onClick={isOut ? e => e.preventDefault() : undefined}
-        >
-          <ShoppingBag size={19} strokeWidth={2} />
-        </Link>
-      ) : (
-        <button
-          onClick={() => !isOut && onToggle({ ...p, cartKey: String(p.id) }, 1)}
-          disabled={isOut}
-          aria-label={isOut ? "Agotado" : isInCart ? "Quitar del carrito" : "Agregar al carrito"}
-          className={`absolute bottom-[7.5rem] right-5 z-20 p-4 rounded-full shadow-2xl
-            transition-all duration-300
-            ${isOut
-              ? "bg-slate-100 text-slate-300 cursor-not-allowed border border-slate-100"
-              : isInCart
-                ? "bg-brand text-white shadow-brand/30 border border-brand hover:scale-105 active:scale-95"
-                : "bg-white text-slate-900 border border-slate-100 shadow-slate-200/80 hover:scale-105 active:scale-95"
-            }`}
-        >
-          {isOut
-            ? <X size={19} strokeWidth={2} />
-            : isInCart
-              ? <ShoppingBag size={19} strokeWidth={2} />
-              : <Plus size={19} strokeWidth={2} />
-          }
-        </button>
-      )}
-
-      {/* Info */}
-      <div className="mt-5 px-1 space-y-1.5">
-        <p className="text-[10px] font-black text-[var(--store-text-secondary)] uppercase tracking-[0.2em] leading-tight
-          group-hover:text-brand transition-colors duration-300 truncate">
-          {p.name}
-        </p>
-        <div className="flex items-baseline gap-2.5">
-          <span className={`text-xl font-black tracking-tight ${isOut ? "text-[var(--store-text-muted)]" : "text-[var(--store-text-primary)]"}`}>
-            {hasVariants ? "Desde " : ""}${priceFinal.toLocaleString()}
+            {isOnDemand ? "Bajo pedido" : isHybrid ? "Disponible / pedido" : "Entrega inmediata"}
           </span>
-          {hasDiscount && (
-            <span className="text-sm text-[var(--store-text-muted)] line-through font-medium">
-              ${priceOriginal.toLocaleString()}
+        ) : null}
+
+        {hasDiscount ? (
+          <span className="absolute bottom-3 left-3 z-20 inline-flex items-center gap-1 rounded-full border border-[var(--store-border)] bg-[var(--store-page-bg)]/90 px-2.5 py-1 text-[9px] font-semibold text-[var(--store-text-primary)] backdrop-blur-md">
+            <Percent size={9} /> {discountPercent}%
+          </span>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            toggleFavorite(product);
+          }}
+          aria-label={favorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+          className={`absolute right-3 top-3 z-20 grid h-9 w-9 place-items-center rounded-full border border-[var(--store-border)] bg-[var(--store-page-bg)]/90 backdrop-blur-md transition-transform hover:scale-105 ${favorite ? "text-rose-500" : "text-[var(--store-text-muted)]"}`}
+        >
+          <Heart size={15} fill={favorite ? "currentColor" : "none"} />
+        </button>
+
+        <Link to={`/productos/detalle/${product.id}`} className="absolute inset-0">
+          {!imgLoaded && !imgError && thumb ? (
+            <span className="absolute inset-0 animate-pulse bg-[var(--store-surface)]" />
+          ) : null}
+
+          {thumb && !imgError ? (
+            <img
+              src={thumb}
+              srcSet={`${thumb} 1x, ${thumb2x} 2x`}
+              alt={product.name || "Producto"}
+              loading="lazy"
+              decoding="async"
+              width={720}
+              height={900}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => {
+                setImgError(true);
+                setImgLoaded(true);
+              }}
+              className={imgLoaded ? "opacity-100" : "opacity-0"}
+            />
+          ) : (
+            <span className="absolute inset-0 grid place-items-center text-[var(--store-text-muted)]">
+              <ShoppingBag size={30} strokeWidth={1.4} />
             </span>
           )}
-        </div>
-        {isLow && (
-          <span className="inline-flex items-center px-2 py-0.5
-            bg-amber-500/15 border border-amber-500/30
-            text-[9px] font-black text-amber-600
-            rounded-full uppercase tracking-wider">
-            Últimas {p.stock}
-          </span>
+
+          {isOut ? (
+            <span className="absolute inset-0 z-10 grid place-items-center bg-[var(--store-page-bg)]/72 backdrop-blur-[1px]">
+              <span className="rounded-full border border-[var(--store-border)] bg-[var(--store-page-bg)] px-3 py-1.5 text-[10px] font-semibold text-[var(--store-text-muted)]">Agotado</span>
+            </span>
+          ) : null}
+        </Link>
+
+        {hasVariants ? (
+          <Link
+            to={`/productos/detalle/${product.id}`}
+            aria-label="Ver opciones"
+            onClick={isOut ? (event) => event.preventDefault() : undefined}
+            className={`absolute bottom-3 right-3 z-20 grid h-10 w-10 place-items-center rounded-full border border-[var(--store-border)] bg-[var(--store-page-bg)] text-[var(--store-text-primary)] shadow-sm ${isOut ? "pointer-events-none opacity-40" : "hover:border-[var(--store-brand)]"}`}
+          >
+            <ShoppingBag size={17} />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => !isOut && onToggle({ ...product, cartKey: String(product.id) }, 1)}
+            disabled={isOut}
+            aria-label={isOut ? "Agotado" : isInCart ? "Quitar del carrito" : "Agregar al carrito"}
+            className={`absolute bottom-3 right-3 z-20 grid h-10 w-10 place-items-center rounded-full border shadow-sm transition-transform hover:scale-105 ${
+              isOut
+                ? "cursor-not-allowed border-[var(--store-border)] bg-[var(--store-surface)] text-[var(--store-text-muted)]"
+                : isInCart
+                  ? "border-[var(--store-brand)] bg-[var(--store-brand)] text-[var(--store-brand-contrast)]"
+                  : "border-[var(--store-border)] bg-[var(--store-page-bg)] text-[var(--store-text-primary)]"
+            }`}
+          >
+            {isOut ? <X size={16} /> : isInCart ? <ShoppingBag size={16} /> : <Plus size={16} />}
+          </button>
         )}
-        {isOnDemand && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/15 border border-purple-500/30
-            text-[9px] font-black text-purple-600 rounded-full uppercase tracking-wider">
-            Entrega en {p.supplier_lead_time_days ?? "?"} días
-          </span>
-        )}
-        <ProductReviewSummary productId={p.id} compact />
       </div>
-    </motion.div>
+
+      <div className="px-1 pt-4">
+        <Link to={`/productos/detalle/${product.id}`} className="block">
+          <h2 className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--store-text-secondary)] transition-colors group-hover:text-[var(--store-text-primary)]">
+            {product.name}
+          </h2>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className={`text-lg font-semibold tracking-[-0.035em] ${isOut ? "text-[var(--store-text-muted)]" : "text-[var(--store-text-primary)]"}`}>
+              {hasVariants ? "Desde " : ""}{currencyFormatter.format(priceFinal)}
+            </span>
+            {hasDiscount ? (
+              <span className="text-xs text-[var(--store-text-muted)] line-through">{currencyFormatter.format(priceOriginal)}</span>
+            ) : null}
+          </div>
+        </Link>
+
+        <div className="mt-2 min-h-5">
+          {isLow ? (
+            <span className="text-[10px] font-medium text-amber-600 dark:text-amber-300">Últimas {product.stock}</span>
+          ) : isOnDemand ? (
+            <span className="text-[10px] font-medium text-violet-600 dark:text-violet-300">
+              Entrega en {product.supplier_lead_time_days ?? "?"} días
+            </span>
+          ) : hasVariants ? (
+            <span className="text-[10px] text-[var(--store-text-muted)]">Opciones disponibles</span>
+          ) : null}
+        </div>
+
+        <div className="mt-1">
+          <ProductReviewSummary productId={product.id} compact />
+        </div>
+      </div>
+    </article>
   );
 });
-ProductCard.displayName = "ProductCard";
 
-// ─── Paginación ───────────────────────────────────────────────────────────────
 function Pagination({ page, totalPages, onPrev, onNext }) {
   if (totalPages <= 1) return null;
   return (
-    <motion.div
-      variants={fadeUp} initial="hidden" animate="visible"
-      className="flex justify-center items-center gap-5 mt-24 mb-4"
-    >
-      <button
-        onClick={onPrev} disabled={page === 1}
-        aria-label="Página anterior"
-        className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--store-surface)]
-          hover:bg-[var(--store-surface-hover)] text-[var(--store-text-primary)]
-          disabled:opacity-25 disabled:cursor-not-allowed
-          transition-all hover:scale-105 active:scale-95"
-      >
-        <ChevronLeft size={20} />
+    <nav className="mt-16 flex items-center justify-center gap-3" aria-label="Paginación">
+      <button type="button" onClick={onPrev} disabled={page === 1} className="storefront-secondary-button !h-11 !min-h-11 !w-11 !p-0 disabled:cursor-not-allowed disabled:opacity-35" aria-label="Página anterior">
+        <ChevronLeft size={18} />
       </button>
-      <span className="font-black text-[var(--store-text-primary)] tracking-widest text-xs">
-        {page} / {totalPages}
-      </span>
-      <button
-        onClick={onNext} disabled={page === totalPages}
-        aria-label="Página siguiente"
-        className="w-12 h-12 flex items-center justify-center rounded-full bg-[var(--store-surface)]
-          hover:bg-[var(--store-surface-hover)] text-[var(--store-text-primary)]
-          disabled:opacity-25 disabled:cursor-not-allowed
-          transition-all hover:scale-105 active:scale-95"
-      >
-        <ChevronRight size={20} />
+      <span className="min-w-20 text-center text-xs font-semibold text-[var(--store-text-muted)]">{page} / {totalPages}</span>
+      <button type="button" onClick={onNext} disabled={page === totalPages} className="storefront-secondary-button !h-11 !min-h-11 !w-11 !p-0 disabled:cursor-not-allowed disabled:opacity-35" aria-label="Página siguiente">
+        <ChevronRight size={18} />
       </button>
-    </motion.div>
+    </nav>
   );
 }
 
-// ─── Detecta si un slug es descendiente de una categoría (recursivo) ─────────
-function isDescendantOf(cat, slug) {
-  if (cat.slug === slug) return true;
-  return cat.children?.some(c => isDescendantOf(c, slug)) ?? false;
+function isDescendantOf(category, slug) {
+  if (category.slug === slug) return true;
+  return category.children?.some((child) => isDescendantOf(child, slug)) ?? false;
 }
 
-// ─── Prefetch del siguiente bloque de productos ───────────────────────────────
 function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
   useEffect(() => {
     if (page >= totalPages) return;
     const nextPage = page + 1;
     const key = `${slug ?? ""}-${debSearch}-${nextPage}`;
-    if (cacheGet(key)) return; // ya está en cache
+    if (cacheGet(key)) return;
 
     const params = new URLSearchParams({ page: nextPage, limit: 200 });
     if (debSearch) params.append("search", debSearch);
-    if (slug)      params.append("category", slug);
+    if (slug) params.append("category", slug);
 
     api.get(`/products?${params}`)
       .then(({ data }) => cacheSet(key, data))
@@ -327,82 +251,94 @@ function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
   }, [slug, debSearch, page, totalPages]);
 }
 
-// ─── Página principal ─────────────────────────────────────────────────────────
 export default function Products() {
-  const { slug }             = useParams();
-  const navigate             = useNavigate();
+  const { slug } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { cart, toggleCart } = useCart();
   const { applyDiscount } = useDiscounts();
+  const { runtime } = useSiteRuntime();
 
-  const [products,    setProducts]   = useState([]);
-  const [loading,     setLoading]    = useState(true);
-  const [firstLoad,   setFirstLoad]  = useState(true);
-  const [search,      setSearch]     = useState(() => searchParams.get("search") || "");
-  const [debSearch,   setDebSearch]  = useState("");
-  const [page,        setPage]       = useState(1);
-  const [pagination,  setPagination] = useState({ totalPages: 1, totalItems: 0 });
-  const [catName,     setCatName]    = useState("");
-  const [categories,  setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [firstLoad, setFirstLoad] = useState(true);
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
+  const [debSearch, setDebSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ totalPages: 1, totalItems: 0 });
+  const [catName, setCatName] = useState("");
+  const [categories, setCategories] = useState([]);
   const searchRef = useRef(null);
 
-  // Debounce búsqueda + sincronización bidireccional con URL
+  const currencyFormatter = useMemo(() => {
+    try {
+      return new Intl.NumberFormat("es-CO", {
+        style: "currency",
+        currency: runtime.locale.currency || "COP",
+        maximumFractionDigits: 0,
+      });
+    } catch {
+      return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+    }
+  }, [runtime.locale.currency]);
+
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       setDebSearch(search);
       setPage(1);
       setSearchParams(search ? { search } : {}, { replace: true });
     }, 420);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [search, setSearchParams]);
 
-  // Resetear página al cambiar de categoría
   useEffect(() => {
     setPage(1);
   }, [slug]);
 
-  // Carga de categorías para el filtro
   useEffect(() => {
-    api.get("/categories")
-      .then(res => setCategories(extractCategories(res.data)))
-      .catch(() => {});
+    const controller = new AbortController();
+    api.get("/categories", { signal: controller.signal })
+      .then((response) => setCategories(extractCategories(response.data)))
+      .catch((error) => {
+        if (error?.code !== "ERR_CANCELED") setCategories([]);
+      });
+    return () => controller.abort();
   }, []);
 
-  // Fetch con cache
   useEffect(() => {
     let active = true;
     const cacheKey = `${slug ?? ""}-${debSearch}-${page}`;
-    const cached   = cacheGet(cacheKey);
+    const cached = cacheGet(cacheKey);
 
     if (cached) {
-      // Render inmediato desde cache
       const items = extractProducts(cached);
-      const pag   = extractPagination(cached);
+      const pag = extractPagination(cached);
       setProducts(items.map(applyDiscount));
       setPagination(pag);
       if (slug && items[0]?.category_name) setCatName(items[0].category_name);
       setLoading(false);
       setFirstLoad(false);
-      return;
+      return undefined;
     }
 
     setLoading(true);
-
     const params = new URLSearchParams({ page, limit: 200 });
     if (debSearch) params.append("search", debSearch);
-    if (slug)      params.append("category", slug);
+    if (slug) params.append("category", slug);
 
     api.get(`/products?${params}`)
       .then(({ data }) => {
         if (!active) return;
         cacheSet(cacheKey, data);
         const items = extractProducts(data);
-        const pag   = extractPagination(data);
-        setProducts(items.map(applyDiscount));   // ← agregar .map(applyDiscount)
+        const pag = extractPagination(data);
+        setProducts(items.map(applyDiscount));
         setPagination(pag);
         if (slug && items[0]?.category_name) setCatName(items[0].category_name);
       })
-      .catch(console.error)
+      .catch(() => {
+        if (active) setProducts([]);
+      })
       .finally(() => {
         if (!active) return;
         setLoading(false);
@@ -410,251 +346,126 @@ export default function Products() {
         if (page > 1) window.scrollTo({ top: 0, behavior: "smooth" });
       });
 
-    return () => { active = false; };
-  }, [slug, debSearch, page, applyDiscount]);   // ← agregar applyDiscount
+    return () => {
+      active = false;
+    };
+  }, [slug, debSearch, page, applyDiscount]);
 
-  // Prefetch de la página siguiente en background
   usePrefetchNextPage({ slug, debSearch, page, totalPages: pagination.totalPages });
 
   const handleToggle = useCallback(toggleCart, [toggleCart]);
-
-  // Categoría activa en el filtro (la que contiene el slug actual)
-  const activeCat = slug ? categories.find(cat => isDescendantOf(cat, slug)) : null;
-
-  const SKELETONS = 12;
+  const activeCat = slug ? categories.find((category) => isDescendantOf(category, slug)) : null;
+  const currentTitle = slug ? (catName || slug.replace(/-/g, " ")) : "Todos los productos";
 
   return (
-    <ReactLenis root options={{ lerp: 0.08, duration: 1.8, smoothTouch: false }}>
-      <div className="min-h-screen font-sans selection:bg-brand/15 bg-[var(--store-page-bg,#ffffff)]">
-        <main className="pt-24 md:pt-32 max-w-7xl mx-auto px-5 sm:px-8 pb-32">
+    <div className="storefront-container pb-24 pt-8 sm:pt-12">
+      {slug ? (
+        <nav className="mb-8 flex flex-wrap items-center gap-2 text-xs text-[var(--store-text-muted)]" aria-label="Breadcrumb">
+          <Link to="/" className="hover:text-[var(--store-text-primary)]">Inicio</Link>
+          <ChevronRight size={12} />
+          <Link to="/productos" className="hover:text-[var(--store-text-primary)]">Productos</Link>
+          {activeCat && slug !== activeCat.slug ? (
+            <>
+              <ChevronRight size={12} />
+              <Link to={`/productos/categoria/${activeCat.slug}`} className="hover:text-[var(--store-text-primary)]">{activeCat.name}</Link>
+            </>
+          ) : null}
+          <ChevronRight size={12} />
+          <span className="text-[var(--store-text-primary)]">{currentTitle}</span>
+        </nav>
+      ) : null}
 
-          {/* ── Breadcrumb ──────────────────────────────────────────── */}
-          {slug && (
-            <motion.nav
-              variants={fadeUp} initial="hidden" animate="visible"
-              className="flex items-center gap-2.5 text-[10px] font-black
-                text-[var(--store-text-secondary)] mb-10 uppercase tracking-[0.2em]"
-            >
-              <Link to="/" className="hover:text-brand transition-colors">Inicio</Link>
-              <ChevronRight size={10} className="text-[var(--store-border)]" />
-              <Link to="/productos" className="hover:text-brand transition-colors">Tienda</Link>
-              <ChevronRight size={10} className="text-[var(--store-border)]" />
-              {activeCat && slug !== activeCat.slug && (
-                <>
-                  <Link to={`/productos/categoria/${activeCat.slug}`} className="hover:text-brand transition-colors">
-                    {activeCat.name}
-                  </Link>
-                  <ChevronRight size={10} className="text-[var(--store-border)]" />
-                </>
-              )}
-              <span className="text-[var(--store-text-primary)]">{catName || slug.replace(/-/g, " ")}</span>
-            </motion.nav>
-          )}
+      <header className="grid gap-8 border-b border-[var(--store-border)] pb-8 lg:grid-cols-[1fr_360px] lg:items-end">
+        <div>
+          <p className="storefront-kicker">Catálogo</p>
+          <h1 className="storefront-section-title mt-3">{currentTitle}</h1>
+          <p className="mt-3 text-sm text-[var(--store-text-muted)]">
+            {loading ? "Actualizando catálogo…" : `${pagination.totalItems} ${pagination.totalItems === 1 ? "producto" : "productos"}`}
+          </p>
+        </div>
 
-          {/* ── Header ──────────────────────────────────────────────── */}
-          <motion.div
-            variants={fadeUp} initial="hidden" animate="visible"
-            className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-16"
-          >
-            <div className="space-y-5">
-              <h1 className="text-[clamp(3rem,10vw,7rem)] font-black text-[var(--store-text-primary)]
-                tracking-[-0.04em] leading-[0.85] italic whitespace-pre-line">
-                {slug
-                  ? (catName || slug.replace(/-/g, " ")).toUpperCase()
-                  : "EXPLORA\nLO NUEVO"
-                }
-              </h1>
-              <div className="flex items-center gap-3">
-                <div className="h-1 w-14 bg-brand rounded-full" />
-                <p className="text-[var(--store-text-secondary)] font-bold uppercase tracking-[0.3em] text-[10px]">
-                  {loading ? "Cargando…" : `${pagination.totalItems} productos`}
-                </p>
-              </div>
-            </div>
+        <div className="relative">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--store-text-muted)]" />
+          <input
+            ref={searchRef}
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar productos"
+            className="storefront-surface min-h-12 w-full bg-[var(--store-surface)] py-3 pl-11 pr-11 text-sm text-[var(--store-text-primary)] outline-none transition-colors placeholder:text-[var(--store-text-muted)] focus:border-[var(--store-brand)]"
+          />
+          {search ? (
+            <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-[var(--store-text-muted)] hover:bg-[var(--store-surface-hover)]" aria-label="Limpiar búsqueda">
+              <X size={14} />
+            </button>
+          ) : null}
+        </div>
+      </header>
 
-            {/* Search */}
-            <div className="relative group w-full lg:w-80 xl:w-96">
-              <Search
-                className="absolute left-5 top-1/2 -translate-y-1/2 text-[var(--store-text-muted)]
-                  group-focus-within:text-brand transition-colors duration-300"
-                size={18} strokeWidth={2.5}
-              />
-              <input
-                ref={searchRef}
-                type="text"
-                placeholder="Buscar…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full bg-[var(--store-surface)] rounded-2xl py-4 pl-12 pr-10 outline-none border border-transparent
-                  focus:border-brand/30 focus:bg-[var(--store-surface-hover)] focus:ring-4 focus:ring-brand/8
-                  transition-all duration-300 font-semibold text-sm text-[var(--store-text-primary)]
-                  placeholder:text-[var(--store-text-muted)] shadow-sm"
-              />
-              <AnimatePresence>
-                {search && (
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0.7 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.7 }}
-                    onClick={() => setSearch("")}
-                    aria-label="Limpiar búsqueda"
-                    className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 bg-[var(--store-surface-hover)]
-                      hover:bg-[var(--store-border)] text-[var(--store-text-muted)]
-                      rounded-full flex items-center justify-center transition-colors"
-                  >
-                    <X size={12} />
-                  </motion.button>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-
-          {/* ── Filtro de categorías ────────────────────────────────── */}
-          {categories.length > 0 && (
-            <div className="mb-10 space-y-3">
-              {/* Fila 1: categorías principales */}
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                <button
-                  onClick={() => navigate("/productos")}
-                  className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wider
-                    transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
-                    !slug
-                      ? "bg-brand text-white shadow-lg shadow-brand/20"
-                      : "bg-[var(--store-surface)] text-[var(--store-text-secondary)] hover:bg-[var(--store-surface-hover)] hover:text-[var(--store-text-primary)]"
-                  }`}
-                >
-                  Todos
+      {categories.length > 0 ? (
+        <section className="py-6">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <button type="button" onClick={() => navigate("/productos")} className={!slug ? "storefront-brand-button !min-h-10 !px-4 !py-2" : "storefront-category-chip !min-h-10"}>Todos</button>
+            {categories.map((category) => {
+              const active = activeCat?.id === category.id;
+              return (
+                <button key={category.id} type="button" onClick={() => navigate(`/productos/categoria/${category.slug}`)} className={active ? "storefront-brand-button !min-h-10 !px-4 !py-2" : "storefront-category-chip !min-h-10"}>
+                  {category.name}
                 </button>
-                {categories.map(cat => {
-                  const isActive = activeCat?.id === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
-                      onClick={() => navigate(`/productos/categoria/${cat.slug}`)}
-                      className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wider
-                        transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
-                        isActive
-                          ? "bg-brand text-white shadow-lg shadow-brand/20"
-                          : "bg-[var(--store-surface)] text-[var(--store-text-secondary)] hover:bg-[var(--store-surface-hover)] hover:text-[var(--store-text-primary)]"
-                      }`}
-                    >
-                      {cat.name}
-                    </button>
-                  );
-                })}
-              </div>
+              );
+            })}
+          </div>
 
-              {/* Fila 2: subcategorías de la categoría activa */}
-              {activeCat?.children?.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
-                >
-                  <button
-                    onClick={() => navigate(`/productos/categoria/${activeCat.slug}`)}
-                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border
-                      transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
-                      slug === activeCat.slug
-                        ? "bg-brand text-white border-brand"
-                        : "bg-[var(--store-surface)] text-[var(--store-text-muted)] border-[var(--store-border)] hover:border-[var(--store-text-muted)] hover:text-[var(--store-text-secondary)]"
-                    }`}
-                  >
-                    Todo en {activeCat.name}
-                  </button>
-                  {activeCat.children.map(sub => {
-                    const subActive = slug === sub.slug;
-                    return (
-                      <button
-                        key={sub.id}
-                        onClick={() => navigate(`/productos/categoria/${sub.slug}`)}
-                        className={`shrink-0 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border
-                          transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
-                          subActive
-                            ? "bg-brand text-white border-brand"
-                            : "bg-[var(--store-surface)] text-[var(--store-text-muted)] border-[var(--store-border)] hover:border-[var(--store-text-muted)] hover:text-[var(--store-text-secondary)]"
-                        }`}
-                      >
-                        {sub.name}
-                      </button>
-                    );
-                  })}
-                </motion.div>
-              )}
+          {activeCat?.children?.length ? (
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <button type="button" onClick={() => navigate(`/productos/categoria/${activeCat.slug}`)} className={slug === activeCat.slug ? "storefront-brand-button !min-h-9 !px-3.5 !py-1.5 !text-[11px]" : "storefront-category-chip !min-h-9 !px-3.5 !py-1.5 !text-[11px]"}>
+                Todo en {activeCat.name}
+              </button>
+              {activeCat.children.map((child) => (
+                <button key={child.id} type="button" onClick={() => navigate(`/productos/categoria/${child.slug}`)} className={slug === child.slug ? "storefront-brand-button !min-h-9 !px-3.5 !py-1.5 !text-[11px]" : "storefront-category-chip !min-h-9 !px-3.5 !py-1.5 !text-[11px]"}>
+                  {child.name}
+                </button>
+              ))}
             </div>
-          )}
+          ) : null}
+        </section>
+      ) : null}
 
-          {/* ── Grid ────────────────────────────────────────────────── */}
-          <AnimatePresence mode="wait">
-            {(loading && firstLoad) ? (
-              <motion.div
-                key="skeletons"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14"
-              >
-                {Array.from({ length: SKELETONS }).map((_, i) => <SkeletonCard key={i} />)}
-              </motion.div>
-            ) : products.length > 0 ? (
-              <motion.div
-                key={`${debSearch}-${page}-${slug}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14"
-              >
-                {products.map((p, i) => (
-                  <ProductCard
-                    key={p.id}
-                    p={p}
-                    index={i}
-                    onToggle={handleToggle}
-                    isInCart={cart.some(item => item.cartKey === String(p.id))}
-                  />
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="empty"
-                variants={fadeUp} initial="hidden" animate="visible"
-                className="col-span-full flex flex-col items-center justify-center py-36 text-center"
-              >
-                <div className="w-20 h-20 bg-[var(--store-surface)] rounded-full flex items-center
-                  justify-center text-[var(--store-text-muted)] mb-6 border border-[var(--store-border)]">
-                  <Search size={36} strokeWidth={1.5} />
-                </div>
-                <h3 className="text-2xl font-black text-[var(--store-text-primary)] tracking-tighter mb-2">
-                  SIN RESULTADOS
-                </h3>
-                <p className="text-sm text-[var(--store-text-secondary)] font-medium mb-8">
-                  Prueba con otro término o explora toda la colección
-                </p>
-                <Link
-                  to="/productos"
-                  onClick={() => setSearch("")}
-                  className="flex items-center gap-2 bg-slate-900 text-white px-8 py-4
-                    rounded-full font-bold text-sm hover:bg-[var(--brand-hover)]
-                    transition-all duration-300 hover:scale-105 active:scale-95 shadow-xl shadow-slate-900/10"
-                >
-                  <ArrowLeft size={16} /> Limpiar filtros
-                </Link>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* ── Paginación ──────────────────────────────────────────── */}
-          {!loading && (
-            <Pagination
-              page={page}
-              totalPages={pagination.totalPages}
-              onPrev={() => setPage(p => Math.max(1, p - 1))}
-              onNext={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+      {loading && firstLoad ? (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-12">
+          {Array.from({ length: 12 }, (_, index) => <SkeletonCard key={index} />)}
+        </div>
+      ) : products.length > 0 ? (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-12">
+          {products.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onToggle={handleToggle}
+              isInCart={cart.some((item) => item.cartKey === String(product.id))}
+              currencyFormatter={currencyFormatter}
             />
-          )}
+          ))}
+        </div>
+      ) : (
+        <div className="storefront-surface flex min-h-[360px] flex-col items-center justify-center px-6 text-center">
+          <Search size={28} strokeWidth={1.5} className="text-[var(--store-text-muted)]" />
+          <h2 className="mt-5 text-xl font-semibold tracking-[-0.03em] text-[var(--store-text-primary)]">No encontramos productos</h2>
+          <p className="mt-2 max-w-md text-sm leading-6 text-[var(--store-text-muted)]">Prueba otro término o vuelve al catálogo completo.</p>
+          <Link to="/productos" onClick={() => setSearch("")} className="storefront-secondary-button mt-6">
+            <ArrowLeft size={15} /> Limpiar filtros
+          </Link>
+        </div>
+      )}
 
-        </main>
-      </div>
-    </ReactLenis>
+      {!loading ? (
+        <Pagination
+          page={page}
+          totalPages={pagination.totalPages}
+          onPrev={() => setPage((current) => Math.max(1, current - 1))}
+          onNext={() => setPage((current) => Math.min(pagination.totalPages, current + 1))}
+        />
+      ) : null}
+    </div>
   );
 }
