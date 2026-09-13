@@ -16,6 +16,22 @@ function getOptimizedImageUrl(url, width = 760) {
   return url;
 }
 
+function createCurrencyFormatter(currency) {
+  try {
+    return new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: currency || "COP",
+      maximumFractionDigits: 0,
+    });
+  } catch {
+    return new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: "COP",
+      maximumFractionDigits: 0,
+    });
+  }
+}
+
 function HomeSkeleton() {
   return (
     <div className="storefront-container py-10" aria-label="Cargando tienda" aria-live="polite">
@@ -130,11 +146,7 @@ export default function Home() {
   const heading = runtime.brand.tagline || businessName;
   const description = runtime.identity.description || "Explora los productos disponibles y encuentra lo que mejor se adapta a ti.";
   const currencyFormatter = useMemo(
-    () => new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: runtime.locale.currency || "COP",
-      maximumFractionDigits: 0,
-    }),
+    () => createCurrencyFormatter(runtime.locale.currency),
     [runtime.locale.currency]
   );
 
@@ -147,10 +159,11 @@ export default function Home() {
       .join(", ");
 
     if (phone) {
-      const digits = phone.replace(/[^\d+]/g, "");
-      items.push({ icon: Phone, label: "Teléfono", value: phone, href: digits ? `tel:${digits}` : null });
+      const phoneText = String(phone);
+      const digits = phoneText.replace(/[^\d+]/g, "");
+      items.push({ icon: Phone, label: "Teléfono", value: phoneText, href: digits ? `tel:${digits}` : null });
     }
-    if (email) items.push({ icon: Mail, label: "Correo", value: email, href: `mailto:${email}` });
+    if (email) items.push({ icon: Mail, label: "Correo", value: String(email), href: `mailto:${String(email)}` });
     if (location) items.push({ icon: MapPin, label: "Ubicación", value: location, href: null });
     return items;
   }, [runtime]);
@@ -207,7 +220,7 @@ export default function Home() {
         </section>
       ) : null}
 
-      <section className="storefront-container py-12 sm:py-18">
+      <section className="storefront-container py-12 sm:py-20">
         <div className="mb-9 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="storefront-kicker">Catálogo</p>
