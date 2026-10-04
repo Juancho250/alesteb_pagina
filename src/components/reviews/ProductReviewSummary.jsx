@@ -4,27 +4,29 @@ import api from "../../services/api";
 import ReviewStars from "./ReviewStars";
 
 function extractSummary(payload) {
-  const d = payload?.data ?? payload;
+  const body = payload?.success !== undefined ? payload : (payload?.data ?? payload);
   return {
     average:
-      d?.summary?.average ??
-      d?.average_rating ??
-      d?.average ??
-      d?.rating_average ??
+      body?.stats?.avg_rating ??
+      body?.summary?.average ??
+      body?.average_rating ??
+      body?.average ??
       null,
     total:
-      d?.summary?.total ??
-      d?.pagination?.total ??
-      d?.pagination?.totalItems ??
-      d?.total ??
-      d?.count ??
+      body?.stats?.review_count ??
+      body?.meta?.total ??
+      body?.summary?.total ??
+      body?.total ??
       null,
     verifiedCount:
-      d?.summary?.verified_count ?? d?.verified_count ?? null,
+      body?.stats?.verified_count ??
+      body?.summary?.verified_count ??
+      body?.verified_count ??
+      null,
     distribution:
-      d?.summary?.distribution ??
-      d?.distribution ??
-      d?.rating_distribution ??
+      body?.stats?.distribution ??
+      body?.summary?.distribution ??
+      body?.distribution ??
       null,
   };
 }
