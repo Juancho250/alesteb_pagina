@@ -44,12 +44,13 @@ export default function Auth() {
         if (isLogin) {
           const userToLogin = data.user;
           const tokenToLogin = data.token;
+          const refreshTokenToLogin = data.refreshToken;
 
-          if (!userToLogin || !tokenToLogin) {
+          if (!userToLogin || !tokenToLogin || !refreshTokenToLogin) {
             throw new Error("Respuesta del servidor incompleta");
           }
 
-          loginWithToken(userToLogin, tokenToLogin);
+          loginWithToken(userToLogin, tokenToLogin, refreshTokenToLogin);
           setLoggedUser(userToLogin);
           setStep("success");
           
