@@ -203,81 +203,6 @@ function TestimonialsSection() {
   );
 }
 
-function NewsletterSection() {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState("idle"); // idle | loading | done | error
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setStatus("loading");
-    try {
-      await api.post("/newsletter", { email });
-      setStatus("done");
-    } catch {
-      // Si el endpoint no existe todavía, igual mostramos confirmación
-      setStatus("done");
-    }
-  };
-
-  return (
-    <section className="py-24 px-6 bg-[#f5f5f7]">
-      <div className="max-w-xl mx-auto text-center">
-        <Motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={staggerContainer}
-        >
-          <Motion.h3
-            variants={fadeInUp}
-            className="text-4xl md:text-5xl font-black tracking-tighter leading-[0.9] mb-4"
-          >
-            Sé el primero
-            <br />
-            <span className="italic text-neutral-400">en enterarte.</span>
-          </Motion.h3>
-
-          <Motion.p
-            variants={fadeInUp}
-            className="text-sm text-neutral-500 mb-8"
-          >
-            Lanzamientos, drops exclusivos y descuentos solo para suscriptores.
-          </Motion.p>
-
-          <Motion.div variants={fadeInUp}>
-            {status === "done" ? (
-              <p className="text-sm font-black uppercase tracking-widest text-black">
-                ¡Listo! Te tendremos en cuenta.
-              </p>
-            ) : (
-              <form
-                onSubmit={handleSubmit}
-                className="flex gap-2 max-w-sm mx-auto"
-              >
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu@correo.com"
-                  required
-                  className="flex-1 px-5 py-3.5 rounded-full border border-neutral-200 text-sm outline-none focus:border-black bg-white transition-colors"
-                />
-                <button
-                  type="submit"
-                  disabled={status === "loading"}
-                  className="px-6 py-3.5 bg-brand text-white rounded-full text-sm font-bold hover:bg-[var(--brand-hover)] transition-all disabled:opacity-50 shrink-0"
-                >
-                  {status === "loading" ? "..." : "Suscribirse"}
-                </button>
-              </form>
-            )}
-          </Motion.div>
-        </Motion.div>
-      </div>
-    </section>
-  );
-}
-
 function PromoCard({ title, subtitle, img, dark = false, link }) {
   return (
     <Motion.div
@@ -511,9 +436,6 @@ export default function Home() {
 
           {/* ── TESTIMONIOS ── */}
           <TestimonialsSection />
-
-          {/* ── NEWSLETTER ── */}
-          <NewsletterSection />
 
         </main>
       </div>
