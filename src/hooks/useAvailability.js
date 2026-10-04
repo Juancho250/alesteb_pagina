@@ -5,11 +5,6 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "../services/api";
 
-// Derive the public-api base from the same env variable used by api.js.
-// baseURL ends in /api; replace that suffix to get the public API root.
-const rawBase = import.meta.env.VITE_API_BASE_URL?.trim() ?? "https://alesteb-back-1.onrender.com/api";
-const PUBLIC_API_BASE = rawBase.replace(/\/api\/?$/, "/public-api/v1");
-
 /**
  * @param {number|null} productId
  * @param {number|null} variantId   — pass null for product-level availability
@@ -26,9 +21,7 @@ export function useAvailability(productId, variantId = null) {
     const params = new URLSearchParams({ productId });
     if (variantId != null) params.append("variantId", variantId);
 
-    // Use absolute URL so it bypasses api.js baseURL and hits the public-api path.
-    // The api interceptor still attaches X-API-Key automatically.
-    api.get(`${PUBLIC_API_BASE}/inventory/availability?${params}`)
+    api.get(`/inventory/availability?${params}`)
       .then(({ data }) => {
         // View column is `disponible`, not `available`
         setAvailable(data?.data?.disponible ?? null);
