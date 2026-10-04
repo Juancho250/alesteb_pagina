@@ -1,7 +1,7 @@
 // src/pages/Contact.jsx
 import { motion } from "framer-motion";
 import { ReactLenis } from "lenis/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Send,
   Instagram,
@@ -55,13 +55,21 @@ const channels = [
   },
 ];
 
+function createIdempotencyKey() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `contact-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export default function Contact() {
   const [form, setForm]     = useState({ name: "", email: "", subject: "", message: "" });
   const [status, setStatus] = useState("idle"); // idle | sending | sent | error
   const [errorMsg, setErrorMsg] = useState("");
+  const idempotencyKeyRef = useRef(null);
 
-  const handleChange = (e) =>
+  const handleChange = (e) => {
+    idempotencyKeyRef.current = null;
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -69,7 +77,13 @@ export default function Contact() {
     setErrorMsg("");
 
     try {
-      await api.post("/contact", form);
+      if (!idempotencyKeyRef.current) {
+        idempotencyKeyRef.current = createIdempotencyKey();
+      }
+
+      await api.post("/contact", form, {
+        headers: { "Idempotency-Key": idempotencyKeyRef.current },
+      });
       setStatus("sent");
     } catch (err) {
       console.error("[Contact form]", err);
@@ -81,6 +95,7 @@ export default function Contact() {
   };
 
   const handleReset = () => {
+    idempotencyKeyRef.current = null;
     setStatus("idle");
     setErrorMsg("");
     setForm({ name: "", email: "", subject: "", message: "" });
