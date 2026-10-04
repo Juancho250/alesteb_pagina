@@ -1,10 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-
-// ⚠️ Usa el cliente público (API Key), NO el api.js de admin (JWT)
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://alesteb-back-1.onrender.com/public-api/v1")
-  .replace(/\/+$/, "");
-const API_KEY = import.meta.env.VITE_API_KEY || "";
+import api from "../services/api";
 
 const DiscountsContext = createContext({ discounts: [], applyDiscount: (p) => p });
 
@@ -12,11 +8,8 @@ export function DiscountsProvider({ children }) {
   const [discounts, setDiscounts] = useState([]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/discounts`, {
-      headers: { "X-API-Key": API_KEY },
-    })
-      .then(r => r.json())
-      .then(({ data }) => setDiscounts(Array.isArray(data) ? data : []))
+    api.get("/discounts")
+      .then(({ data }) => setDiscounts(Array.isArray(data?.data) ? data.data : []))
       .catch(() => setDiscounts([]));
   }, []);
 
