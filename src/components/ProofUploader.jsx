@@ -47,9 +47,7 @@ export default function ProofUploader({ order, onUploaded, compact = false }) {
     try {
       const fd = new FormData();
       fd.append("proof", file);
-      await api.post(`/sales/${order.id}/upload-proof`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await api.post(`/sales/${order.id}/upload-proof`, fd);
       setDone(true);
       setPreview(null);
       setFile(null);
