@@ -122,31 +122,33 @@ export default function CheckoutPage() {
   const handleSubmit = async () => {
     setIsProcessing(true);
     setErrors({});
+    let createdSaleId = null;
+
     try {
       const { data: saleResp } = await api.post("/sales", {
-        customer_id:      user.id,
-        reservation_ids:  reserv.reservationIds.length ? reserv.reservationIds : undefined,
+        session_id: reserv.sessionId,
         items: cart.map(i => ({
           product_id: i.id,
-          quantity:   i.quantity || 1,
-          unit_price: getItemPrice(i),
+          quantity: i.quantity || 1,
           ...(i.variantId && { variant_id: i.variantId }),
         })),
-        discount_id:      appliedDiscountId  || undefined,
-        discount_amount:  discountAmount     || undefined,
-        payment_method:   paymentMethod === "online" ? "credit" : "transfer",
-        sale_type:        "web",
+        discount_id: appliedDiscountId || undefined,
+        payment_method: paymentMethod === "online" ? "credit" : "transfer",
         shipping_address: form.shipping_address,
-        shipping_city:    form.shipping_city,
-        shipping_notes:   form.shipping_notes,
+        shipping_city: form.shipping_city,
+        shipping_notes: form.shipping_notes,
+        customer_phone: user?.phone || undefined,
       });
 
       if (!saleResp.success) throw new Error(saleResp.message || "Error al crear el pedido");
 
       const saleId     = saleResp.data?.sale_id ?? saleResp.data?.id;
       const saleNumber = saleResp.data?.sale_number ?? saleResp.data?.code ?? String(saleId);
+      createdSaleId = saleId;
 
-      reserv.markPaid();
+      // The backend consumes this session's reservation transactionally when
+      // the sale is created. From here the sale owns the stock lifecycle.
+      reserv.markCommitted();
 
       if (paymentMethod === "online") {
         // Obtener parámetros de Wompi desde el backend
@@ -187,6 +189,17 @@ export default function CheckoutPage() {
       }
 
     } catch (err) {
+      // If online-payment setup fails after creating the sale, cancel that
+      // pending sale before allowing a retry. This prevents duplicate orders
+      // and restores stock/discount usage through the backend's cancel flow.
+      if (createdSaleId && paymentMethod === "online") {
+        try {
+          await api.post(`/sales/${createdSaleId}/cancel`);
+        } catch (cancelError) {
+          console.error("[Checkout] Could not rollback pending sale:", cancelError);
+        }
+      }
+
       const status = err.response?.status;
       const msg    = err.response?.data?.message ?? err.message
         ?? "Error al procesar tu pedido. Intenta de nuevo.";
