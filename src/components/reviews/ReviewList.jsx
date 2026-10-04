@@ -30,12 +30,12 @@ function extractReviews(data) {
 }
 
 function extractTotal(data) {
-  const d = data?.data ?? data;
   return (
-    d?.pagination?.total ??
-    d?.pagination?.totalItems ??
-    d?.total ??
-    d?.count ??
+    data?.meta?.total ??
+    data?.pagination?.total ??
+    data?.pagination?.totalItems ??
+    data?.total ??
+    data?.count ??
     0
   );
 }
