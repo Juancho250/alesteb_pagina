@@ -289,7 +289,7 @@ function OrderMiniCard({ order, onRefresh }) {
               )}
 
               {/* Comprobante lazy */}
-              {isPending && isOnline && (
+              {isPending && isOnline && order.payment_method === "transfer" && (
                 <div className="mb-3">
                   <Suspense fallback={<Skeleton className="h-16" />}>
                     <ProofUploader order={order} onUploaded={onRefresh} compact />
