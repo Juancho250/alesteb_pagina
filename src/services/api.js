@@ -1,86 +1,154 @@
 import axios from "axios";
+import {
+  STOREFRONT_API_BASE_URL,
+  STOREFRONT_API_KEY,
+  storefrontHeaders,
+} from "./storefrontConfig";
 
-const defaultBaseURL = "https://alesteb-back-1.onrender.com/api";
-const rawEnvBaseURL  = import.meta.env.VITE_API_BASE_URL?.trim();
+const ACCESS_TOKEN_KEY = "token";
+const REFRESH_TOKEN_KEY = "refreshToken";
+const USER_KEY = "user";
 
-const normalizeBaseURL = (value) => {
-  if (!value) return "";
-  const normalized = value.replace(/\/+$/, "");
-  if (
-    normalized === "/api" ||
-    normalized === "api" ||
-    normalized === window.location.origin + "/api"
-  ) {
-    return "";
+const REFRESHABLE_TOKEN_CODES = new Set([
+  "NO_TOKEN",
+  "TOKEN_EXPIRED",
+  "INVALID_TOKEN",
+]);
+
+const TERMINAL_TOKEN_CODES = new Set([
+  "USER_INACTIVE",
+  "USER_NOT_FOUND",
+  "TOKEN_REVOKED",
+  "INVALID_REFRESH_TOKEN",
+]);
+
+export function getRefreshToken() {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function persistSessionTokens(accessToken, refreshToken) {
+  if (accessToken) localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+}
+
+export function clearStoredSession() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+function redirectToAuth() {
+  if (!window.location.pathname.startsWith("/auth")) {
+    window.location.replace("/auth");
   }
-  return normalized;
-};
-
-const apiBaseURL = normalizeBaseURL(rawEnvBaseURL) || defaultBaseURL;
-
-// ============================================
-// 🔑 La API Key va en variable de entorno
-// En tu .env:  VITE_API_KEY=ak_xxxxxxxx_xxxxxxxx
-// En Vercel:   Settings → Environment Variables
-// NUNCA la pegues directo en el código
-// ============================================
-const API_KEY = import.meta.env.VITE_API_KEY;
+}
 
 const api = axios.create({
-  baseURL: apiBaseURL,
+  baseURL: STOREFRONT_API_BASE_URL,
   timeout: 30_000,
 });
 
-// Códigos de error que indican problema de JWT (no de API key)
-const TOKEN_ERROR_CODES = new Set([
-  "NO_TOKEN", "TOKEN_EXPIRED", "INVALID_TOKEN",
-  "USER_INACTIVE", "USER_NOT_FOUND",
-]);
-
-// ============================================
-// 📡 REQUEST: API Key + JWT del cliente logueado
-// ============================================
 api.interceptors.request.use(
   (config) => {
-    if (API_KEY) {
-      config.headers["X-API-Key"] = API_KEY;
+    config.headers = config.headers || {};
+
+    if (STOREFRONT_API_KEY) {
+      config.headers["X-API-Key"] = STOREFRONT_API_KEY;
     }
-    // Adjunta el JWT cuando el cliente está autenticado
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers["Authorization"] = `Bearer ${token}`;
+
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// ============================================
-// 🚨 RESPONSE: Manejo de errores
-// ============================================
+let refreshPromise = null;
+
+async function refreshAccessToken() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    throw new Error("No refresh token available");
+  }
+
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .post(
+        `${STOREFRONT_API_BASE_URL}/auth/refresh`,
+        { refreshToken },
+        {
+          timeout: 15_000,
+          headers: storefrontHeaders({ "Content-Type": "application/json" }),
+        }
+      )
+      .then(({ data }) => {
+        const accessToken = data?.data?.accessToken;
+        const nextRefreshToken = data?.data?.refreshToken;
+
+        if (!accessToken || !nextRefreshToken) {
+          throw new Error("Invalid refresh response");
+        }
+
+        persistSessionTokens(accessToken, nextRefreshToken);
+        return accessToken;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const status = error.response?.status;
-    const code   = error.response?.data?.code || "";
+    const code = error.response?.data?.code || "";
+    const originalRequest = error.config;
 
-    if (status === 401) {
-      if (TOKEN_ERROR_CODES.has(code)) {
-        // JWT vencido o inválido: limpiar sesión y redirigir a login
-        console.warn("[API] Sesión expirada o inválida:", code);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        if (!window.location.pathname.startsWith("/auth")) {
-          window.location.replace("/auth");
-        }
-      } else {
-        // API key inválida o ausente
-        console.error("[API] Clave de API inválida o no configurada:", code);
+    if (status === 401 && TERMINAL_TOKEN_CODES.has(code)) {
+      clearStoredSession();
+      redirectToAuth();
+      return Promise.reject(error);
+    }
+
+    if (
+      status === 401 &&
+      REFRESHABLE_TOKEN_CODES.has(code) &&
+      originalRequest &&
+      !originalRequest._storefrontRetry &&
+      getRefreshToken()
+    ) {
+      originalRequest._storefrontRetry = true;
+
+      try {
+        const accessToken = await refreshAccessToken();
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
+      } catch {
+        clearStoredSession();
+        redirectToAuth();
+        return Promise.reject(error);
       }
     }
 
+    if (status === 401 && REFRESHABLE_TOKEN_CODES.has(code)) {
+      clearStoredSession();
+      redirectToAuth();
+    } else if (status === 401) {
+      console.error("[Storefront API] Unauthorized request:", code);
+    }
+
     if (status === 403) {
-      console.error("[API] Acceso denegado:", error.response?.data?.message);
+      console.error(
+        "[Storefront API] Access denied:",
+        error.response?.data?.message
+      );
     }
 
     return Promise.reject(error);
