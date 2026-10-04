@@ -63,7 +63,7 @@ export default function CartPage() {
       cart.map(item => {
         const params = new URLSearchParams({ productId: item.id });
         if (item.variantId) params.append("variantId", item.variantId);
-        return api.get(`${PUBLIC_API_BASE}/inventory/availability?${params}`)
+        return api.get(`/inventory/availability?${params}`)
           .then(({ data }) => ({
             cartKey:   item.cartKey,
             available: data?.data?.disponible ?? null,
