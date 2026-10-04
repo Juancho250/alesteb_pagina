@@ -11,11 +11,6 @@ const REPORT_REASONS = [
   { value: "otro", label: "Otro motivo" },
 ];
 
-function authHeaders() {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 function relativeDate(dateStr) {
   if (!dateStr) return "";
   const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
@@ -90,8 +85,7 @@ function ReportModal({ reviewId, onClose }) {
     try {
       await api.post(
         `/reviews/${reviewId}/report`,
-        { reason, details },
-        { headers: authHeaders() }
+        { reason, details }
       );
       setStatus("done");
       setTimeout(onClose, 1500);
@@ -190,7 +184,7 @@ const TRUNCATE_LEN = 200;
 
 export default function ReviewCard({ review, currentUserId, onDelete }) {
   const [helpful, setHelpful] = useState(
-    review.user_vote_helpful ?? null
+    review.user_vote ?? null
   );
   const [helpfulCount, setHelpfulCount] = useState(
     review.helpful_count ?? 0
@@ -219,13 +213,12 @@ export default function ReviewCard({ review, currentUserId, onDelete }) {
     setVoting(true);
     const newHelpful = helpful === true ? false : true;
     try {
-      await api.post(
+      const { data } = await api.post(
         `/reviews/${review.id}/vote`,
-        { helpful: newHelpful },
-        { headers: authHeaders() }
+        { helpful: newHelpful }
       );
-      setHelpfulCount((c) => (helpful === true ? c - 1 : c + 1));
-      setHelpful(newHelpful ? true : null);
+      setHelpfulCount(Number(data?.data?.helpful_count ?? helpfulCount));
+      setHelpful(data?.data?.user_vote ?? null);
     } catch {
       // silently fail
     } finally {
@@ -237,10 +230,7 @@ export default function ReviewCard({ review, currentUserId, onDelete }) {
     if (!window.confirm("¿Eliminar esta reseña?")) return;
     setDeleting(true);
     try {
-      await api.delete(`/reviews/${review.id}`, {
-        headers: authHeaders(),
-        data: { user_id: currentUserId },
-      });
+      await api.delete(`/reviews/${review.id}`);
       onDelete?.(review.id);
     } catch {
       alert("Error al eliminar la reseña");
