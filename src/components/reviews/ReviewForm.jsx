@@ -5,64 +5,27 @@ import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import ReviewStars from "./ReviewStars";
 
-const MAX_IMAGES = 3;
+const MAX_IMAGES = 5;
 const MAX_MB = 3;
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
-
-function authHeaders() {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
-// CHECK 2 — Scan history response for the given productId across multiple
-// possible response shapes the backend might return.
-function productInHistory(historyData, productId) {
-  const pid = String(productId);
-  const raw =
-    historyData?.data ??
-    historyData?.orders ??
-    historyData?.sales ??
-    historyData;
-  const orders = Array.isArray(raw) ? raw : [];
-  if (orders.length === 0) return false;
-
-  return orders.some((order) => {
-    // Shape A: order has product_ids array
-    if (Array.isArray(order.product_ids)) {
-      return order.product_ids.map(String).includes(pid);
-    }
-    // Shape B: order has inline items/products array
-    const items =
-      order.items ?? order.products ?? order.order_items ?? [];
-    return (
-      Array.isArray(items) &&
-      items.some(
-        (item) =>
-          String(item.product_id ?? item.productId ?? item.id) === pid
-      )
-    );
-  });
-}
 
 // CHECK 5 — Map HTTP status codes to the required user-facing messages.
 function errorMessage(err) {
   const status = err.response?.status;
   const serverMsg = err.response?.data?.message;
   if (status === 403)
-    return "Solo puedes reseñar productos que hayas comprado y pagado";
-  if (status === 409) return "Ya tienes una reseña para este producto";
+    return serverMsg ?? "Aún no cumples los requisitos para reseñar este producto";
+  if (status === 409) return serverMsg ?? "Ya tienes una reseña para este producto";
   if (status === 400) return serverMsg ?? "Datos inválidos. Revisa el formulario.";
   return "Error al guardar la reseña, intenta de nuevo";
 }
 
 export default function ReviewForm({ productId, onSuccess }) {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
 
-  // Covers both the existing-review check and the purchase check
   const [checking, setChecking] = useState(true);
   const [existing, setExisting] = useState(null);
-  // null = still loading; true = purchased; false = not purchased
-  const [hasPurchased, setHasPurchased] = useState(null);
+  const [eligibility, setEligibility] = useState(null);
   const [deletingExisting, setDeletingExisting] = useState(false);
 
   const [rating, setRating] = useState(0);
@@ -76,42 +39,56 @@ export default function ReviewForm({ productId, onSuccess }) {
   const fileRef = useRef(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !productId || !user?.id) {
+    if (!isAuthenticated || !productId) {
       setChecking(false);
-      setHasPurchased(false);
+      setEligibility(null);
       return;
     }
+
     let alive = true;
     setChecking(true);
 
     Promise.all([
-      // CHECK 3: does the user already have a review for this product?
       api
-        .get(`/reviews/my/${productId}`, { headers: authHeaders() })
+        .get(`/reviews/my/${productId}`)
         .then(({ data }) => {
           const review = data?.data ?? data;
           return review?.id ? review : null;
         })
         .catch(() => null),
-
-      // CHECK 2: has the user purchased this product?
       api
-        .get(`/sales/user/history?user_id=${user.id}`, { headers: authHeaders() })
-        .then(({ data }) => productInHistory(data, productId))
-        // Fail open on network errors: let the backend enforce with 403
-        .catch(() => true),
-    ]).then(([reviewResult, purchasedResult]) => {
-      if (!alive) return;
-      setExisting(reviewResult);
-      setHasPurchased(purchasedResult);
-    }).finally(() => {
-      if (alive) setChecking(false);
-    });
+        .get(`/reviews/eligibility/${productId}`)
+        .then(({ data }) => data?.data ?? null),
+    ])
+      .then(([reviewResult, eligibilityResult]) => {
+        if (!alive) return;
+        setExisting(reviewResult);
+        setEligibility(
+          eligibilityResult ?? {
+            eligible: false,
+            reason: "unavailable",
+            message: "No pudimos verificar todavía si puedes reseñar este producto.",
+          }
+        );
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setEligibility({
+          eligible: false,
+          reason: "unavailable",
+          message:
+            err.response?.data?.message ||
+            "No pudimos verificar todavía si puedes reseñar este producto.",
+        });
+      })
+      .finally(() => {
+        if (alive) setChecking(false);
+      });
 
     return () => {
       alive = false;
     };
-  }, [isAuthenticated, productId, user?.id]);
+  }, [isAuthenticated, productId]);
 
   // ── Image helpers ────────────────────────────────────────────────────────────
 
@@ -124,9 +101,7 @@ export default function ReviewForm({ productId, onSuccess }) {
     try {
       const fd = new FormData();
       fd.append("image", file);
-      const { data } = await api.post("/upload", fd, {
-        headers: { ...authHeaders(), "Content-Type": "multipart/form-data" },
-      });
+      const { data } = await api.post("/upload", fd);
       const url = data?.data?.url ?? data?.url ?? data?.secure_url;
       const public_id = data?.data?.public_id ?? data?.public_id;
       setImages((prev) =>
@@ -195,17 +170,13 @@ export default function ReviewForm({ productId, onSuccess }) {
     setFormError("");
 
     try {
-      await api.post(
-        "/reviews",
-        {
-          product_id: productId,
-          rating,
-          ...(title.trim() && { title: title.trim() }),
-          ...(body.trim() && { body: body.trim() }),
-          images: uploadedImages,
-        },
-        { headers: authHeaders() }
-      );
+      await api.post("/reviews", {
+        product_id: productId,
+        rating,
+        ...(title.trim() && { title: title.trim() }),
+        ...(body.trim() && { body: body.trim() }),
+        images: uploadedImages,
+      });
       setStatus("success");
       onSuccess?.();
     } catch (err) {
@@ -220,12 +191,9 @@ export default function ReviewForm({ productId, onSuccess }) {
     if (!window.confirm("¿Eliminar tu reseña?")) return;
     setDeletingExisting(true);
     try {
-      await api.delete(`/reviews/${existing.id}`, {
-        headers: authHeaders(),
-        data: { user_id: user?.id },
-      });
+      await api.delete(`/reviews/${existing.id}`);
       setExisting(null);
-      setHasPurchased(true); // still purchased; allow a new review
+      setEligibility({ eligible: true, has_reviewed: false, reason: null, message: null });
       setRating(0);
       setTitle("");
       setBody("");
@@ -312,18 +280,18 @@ export default function ReviewForm({ productId, onSuccess }) {
     );
   }
 
-  // CHECK 2 — user has not purchased this product
-  if (!hasPurchased) {
+  // Backend is authoritative for paid purchase + delivery eligibility.
+  if (!eligibility?.eligible) {
     return (
       <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 text-center space-y-2">
         <div className="w-10 h-10 bg-slate-200 rounded-xl flex items-center justify-center mx-auto">
           <ShoppingBag size={18} className="text-slate-400" />
         </div>
         <p className="text-sm font-black text-slate-600">
-          Solo puedes reseñar productos que hayas comprado
+          {eligibility?.message || "Aún no puedes reseñar este producto"}
         </p>
         <p className="text-xs text-slate-400">
-          Completa una compra de este producto para dejar tu opinión
+          La tienda valida automáticamente la compra, el pago y la entrega.
         </p>
       </div>
     );
