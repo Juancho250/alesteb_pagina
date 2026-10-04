@@ -1,6 +1,6 @@
 // src/hooks/useInventoryReservation.js
 // Creates an inventory reservation on checkout mount; manages countdown;
-// releases all reservation IDs on unmount unless markPaid() was called.
+// releases all reservation IDs on unmount unless checkout committed them into a sale.
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "../services/api";
 
@@ -22,7 +22,8 @@ function getSessionId() {
  *   reserving:      boolean,
  *   error:          string|null,
  *   is409:          boolean,
- *   markPaid:       () => void
+ *   sessionId:      string,
+ *   markCommitted:   () => void
  * }}
  */
 export function useInventoryReservation(cartItems) {
@@ -35,10 +36,11 @@ export function useInventoryReservation(cartItems) {
   const [is409,          setIs409]          = useState(false);
 
   // Refs survive re-renders and are readable in cleanup closures
-  const paidRef = useRef(false);
-  const idsRef  = useRef([]);
+  const committedRef = useRef(false);
+  const idsRef       = useRef([]);
+  const sessionIdRef = useRef(getSessionId());
 
-  const markPaid = useCallback(() => { paidRef.current = true; }, []);
+  const markCommitted = useCallback(() => { committedRef.current = true; }, []);
 
   // ── Create reservation on mount ───────────────────────────────────────────
   useEffect(() => {
@@ -48,7 +50,7 @@ export function useInventoryReservation(cartItems) {
     setReserving(true);
 
     api.post("/inventory/reservations", {
-      sessionId: getSessionId(),
+      sessionId: sessionIdRef.current,
       items: cartItems.map(i => ({
         productId: i.id,
         variantId: i.variantId ?? null,
@@ -94,16 +96,28 @@ export function useInventoryReservation(cartItems) {
     return () => clearInterval(timer);
   }, [expiresAt]);
 
-  // ── Release ALL reservation IDs on unmount (if not yet paid) ─────────────
+  // ── Release ALL reservation IDs on unmount if checkout never committed ────
   useEffect(() => {
     return () => {
-      if (!paidRef.current && idsRef.current.length) {
+      if (!committedRef.current && idsRef.current.length) {
         idsRef.current.forEach(id => {
-          api.delete(`/inventory/reservations/${id}`).catch(() => {});
+          api.delete(`/inventory/reservations/${id}`, {
+            headers: { "X-Session-Id": sessionIdRef.current },
+          }).catch(() => {});
         });
       }
     };
   }, []);
 
-  return { reservationIds, reservationId: reservationIds[0] ?? null, secondsLeft, expired, reserving, error, is409, markPaid };
+  return {
+    reservationIds,
+    reservationId: reservationIds[0] ?? null,
+    sessionId: sessionIdRef.current,
+    secondsLeft,
+    expired,
+    reserving,
+    error,
+    is409,
+    markCommitted,
+  };
 }
