@@ -152,8 +152,6 @@ function OrderMiniCard({ order, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
   const [items, setItems]       = useState([]);
   const [loading, setLoading]   = useState(false);
-  const { user }                = useAuth();
-
   const isPending   = order.payment_status === "pending";
   const isPaid      = order.payment_status === "paid";
   const isCancelled = order.payment_status === "cancelled";
@@ -164,7 +162,7 @@ function OrderMiniCard({ order, onRefresh }) {
       setLoading(true);
       try {
         const { data } = await api.get(`/sales/${order.id}`);
-        setItems(Array.isArray(data) ? data : data?.items || []);
+        setItems(data?.data?.items ?? data?.items ?? (Array.isArray(data) ? data : []));
       } catch {}
       finally { setLoading(false); }
     }
@@ -174,7 +172,7 @@ function OrderMiniCard({ order, onRefresh }) {
   const cancelOrder = async () => {
     if (!window.confirm("¿Cancelar este pedido?")) return;
     try {
-      await api.post(`/sales/${order.id}/cancel`, { user_id: user.id });
+      await api.post(`/sales/${order.id}/cancel`);
       onRefresh();
     } catch (err) {
       alert(err.response?.data?.message || "Error al cancelar");
@@ -505,8 +503,8 @@ function OrdersTab({ userId }) {
     if (!userId) return;
     try {
       const [ordersRes, statsRes] = await Promise.all([
-        api.get(`/sales/user/history?user_id=${userId}`),
-        api.get(`/sales/user/stats?user_id=${userId}`),
+        api.get("/sales/user/history"),
+        api.get("/sales/user/stats"),
       ]);
       setOrders(ordersRes.data?.data ?? []);
       setStats(statsRes.data ?? null);
@@ -620,7 +618,7 @@ function SecurityTab() {
     setSaving(true);
     setError("");
     try {
-      await api.put("/auth/change-password", {
+      await api.post("/auth/change-password", {
         current_password: form.current,
         new_password:     form.next,
       });
