@@ -13,12 +13,12 @@
 
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
+import {
+  STOREFRONT_API_BASE_URL,
+  STOREFRONT_API_KEY,
+} from "../services/storefrontConfig";
 
-// Usa la misma base pública que el resto del storefront (VITE_API_BASE_URL)
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://alesteb-back-1.onrender.com/public-api/v1")
-  .replace(/\/+$/, "");
-const API_KEY  = import.meta.env.VITE_API_KEY || "";
-const ENDPOINT = `${API_BASE}/analytics/pageview`;
+const ENDPOINT = `${STOREFRONT_API_BASE_URL}/analytics/pageview`;
 
 // Genera o recupera un ID de sesión anónimo por visita
 function getSessionId() {
@@ -83,7 +83,7 @@ export function usePageTracking() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(API_KEY && { "X-API-Key": API_KEY }),
+        ...(STOREFRONT_API_KEY && { "X-API-Key": STOREFRONT_API_KEY }),
       },
       body: JSON.stringify(payload),
       keepalive: true,
