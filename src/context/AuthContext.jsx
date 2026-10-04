@@ -1,5 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useState } from "react";
+import api, {
+  clearStoredSession,
+  getRefreshToken,
+  persistSessionTokens,
+} from "../services/api";
 
 const AuthContext = createContext();
 
@@ -50,14 +55,13 @@ export const AuthProvider = ({ children }) => {
     try {
       return JSON.parse(storedUser);
     } catch {
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
+      clearStoredSession();
       return null;
     }
   });
 
-  const login = useCallback((userData, token) => {
-    localStorage.setItem("token", token);
+  const login = useCallback((userData, token, refreshToken = null) => {
+    persistSessionTokens(token, refreshToken);
     localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
   }, []);
@@ -65,8 +69,18 @@ export const AuthProvider = ({ children }) => {
   const loginWithToken = login;
 
   const logout = useCallback(() => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    const accessToken = localStorage.getItem("token");
+    const refreshToken = getRefreshToken();
+
+    if (accessToken) {
+      api.post(
+        "/auth/logout",
+        { refreshToken },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      ).catch(() => {});
+    }
+
+    clearStoredSession();
     setUser(null);
   }, []);
 
