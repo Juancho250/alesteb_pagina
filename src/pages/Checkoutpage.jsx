@@ -123,8 +123,7 @@ export default function CheckoutPage() {
 
       if (!saleResp.success) throw new Error(saleResp.message || "Error al crear el pedido");
 
-      const saleId     = saleResp.data?.sale_id ?? saleResp.data?.id;
-      const saleNumber = saleResp.data?.sale_number ?? saleResp.data?.code ?? String(saleId);
+      const saleId = saleResp.data?.sale_id ?? saleResp.data?.id;
       createdSaleId = saleId;
 
       // The backend consumes this session's reservation transactionally when
