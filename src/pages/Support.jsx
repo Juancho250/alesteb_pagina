@@ -11,6 +11,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useState } from "react";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
+import { socialHref, whatsappUrl } from "../utils/storefrontContact";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 40 },
@@ -29,7 +31,7 @@ const faqs = [
   },
   {
     q: "¿Cómo confirmo mi pago?",
-    a: "Una vez realices tu transferencia o depósito, súbela en la sección 'Mis Pedidos' usando el botón 'Subir comprobante'. Nuestro equipo la verificará en máximo 24 horas hábiles.",
+    a: "Los pagos en línea se confirman automáticamente mediante Wompi. Puedes consultar el estado del pedido desde tu perfil en la sección 'Mis Pedidos'.",
   },
   {
     q: "¿Puedo cancelar mi pedido?",
@@ -41,7 +43,7 @@ const faqs = [
   },
   {
     q: "¿Hacen cambios o devoluciones?",
-    a: "Aceptamos cambios dentro de los primeros 7 días si el producto presenta defectos. El artículo debe estar en su estado original sin uso. Contáctanos por WhatsApp para coordinar.",
+    a: "Aceptamos cambios dentro de los primeros 7 días si el producto presenta defectos. El artículo debe estar en su estado original sin uso. Usa el formulario de contacto para coordinar.",
   },
   {
     q: "¿Cómo rastreo mi pedido?",
@@ -82,6 +84,12 @@ function FaqItem({ q, a }) {
 }
 
 export default function Support() {
+  const { runtime } = useSiteRuntime();
+  const businessName = runtime.identity.businessName || "Tienda";
+  const whatsapp =
+    socialHref(runtime.identity.socialLinks, "whatsapp") ||
+    whatsappUrl(runtime.identity.contact.phone);
+
   return (
     <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
       <div className="min-h-screen bg-white text-black font-sans antialiased">
@@ -98,7 +106,7 @@ export default function Support() {
                 variants={fadeInUp}
                 className="text-[10px] font-black tracking-[0.5em] uppercase text-neutral-400 mb-6"
               >
-                Centro de Ayuda · Alesteb
+                Centro de Ayuda · {businessName}
               </motion.p>
               <motion.h1
                 variants={fadeInUp}
@@ -146,8 +154,10 @@ export default function Support() {
                   },
                   {
                     icon: <MessageCircle size={22} />,
-                    title: "WhatsApp",
-                    desc: "Atención directa lunes a sábado 8am – 7pm.",
+                    title: whatsapp ? "WhatsApp" : "Contacto",
+                    desc: whatsapp
+                      ? "Canal directo configurado por la tienda."
+                      : "Escríbenos desde el formulario de contacto.",
                   },
                 ].map(({ icon, title, desc }) => (
                   <motion.div
@@ -217,14 +227,16 @@ export default function Support() {
                   <span className="italic text-neutral-400">nuestro equipo.</span>
                 </h2>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <a
-                    href="https://wa.me/573145055073"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 px-8 py-4 bg-white text-black font-black text-[11px] tracking-widest uppercase rounded-full hover:bg-neutral-100 transition-colors"
-                  >
-                    <MessageCircle size={16} /> WhatsApp
-                  </a>
+                  {whatsapp && (
+                    <a
+                      href={whatsapp}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 px-8 py-4 bg-white text-black font-black text-[11px] tracking-widest uppercase rounded-full hover:bg-neutral-100 transition-colors"
+                    >
+                      <MessageCircle size={16} /> WhatsApp
+                    </a>
+                  )}
                   <Link
                     to="/contact"
                     className="inline-flex items-center gap-2 px-8 py-4 border border-neutral-700 text-white font-black text-[11px] tracking-widest uppercase rounded-full hover:border-white transition-colors"
