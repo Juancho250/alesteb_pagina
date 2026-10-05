@@ -2,11 +2,10 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
-  CheckCircle, XCircle, Copy, Check, MessageCircle,
+  CheckCircle, XCircle,
   Package, MapPin, Home, ChevronRight, Upload, Loader2, AlertCircle, Truck, Clock,
 } from "lucide-react";
 import ProofUploader from "../components/ProofUploader";
-import { BANK_INFO } from "./Checkoutpage";
 import api from "../services/api";
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -30,7 +29,6 @@ export default function OrderSuccessPage() {
   const [loadingWompi,  setLoading]       = useState(!!wompiReference);
   const [wompiApproved, setApproved]      = useState(false);
   const [pollTimedOut,  setPollTimedOut]  = useState(false);
-  const [copiedIdx,     setCopiedIdx]     = useState(null);
 
   // ── Polling de estado de transacción (solo para flujo Wompi) ─────────────
   //
@@ -141,7 +139,7 @@ export default function OrderSuccessPage() {
           </p>
           <div className="space-y-3">
             <Link
-              to="/mis-pedidos"
+              to="/perfil?tab=orders"
               className="flex items-center justify-center gap-2 w-full py-3
                 bg-slate-900 text-white rounded-xl font-bold text-sm"
             >
@@ -174,11 +172,11 @@ export default function OrderSuccessPage() {
             pago no se completó.
           </p>
           <p className="text-slate-400 text-xs mb-6">
-            Puedes intentar de nuevo desde "Mis pedidos" o elegir transferencia bancaria.
+            Puedes intentar nuevamente desde el checkout o revisar el estado desde "Mis pedidos".
           </p>
           <div className="space-y-3">
             <Link
-              to="/mis-pedidos"
+              to="/perfil?tab=orders"
               className="flex items-center justify-center gap-2 w-full py-3
                 bg-slate-900 text-white rounded-xl font-bold text-sm"
             >
@@ -206,22 +204,6 @@ export default function OrderSuccessPage() {
     );
   }
 
-  const copyToClipboard = async (text, idx) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedIdx(idx);
-      setTimeout(() => setCopiedIdx(null), 2000);
-    } catch {
-      const el = document.createElement("textarea");
-      el.value = text;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-      setCopiedIdx(idx);
-      setTimeout(() => setCopiedIdx(null), 2000);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-16">
@@ -320,8 +302,8 @@ export default function OrderSuccessPage() {
                   ]
                 : [
                     "Revisa tu correo con el resumen del pedido",
-                    "Realiza la transferencia usando los datos de abajo",
-                    "Sube tu comprobante para agilizar el proceso",
+                    "Sigue las instrucciones de pago proporcionadas por la tienda",
+                    "Sube tu comprobante para agilizar la verificación",
                     "Recibe tu pedido en la dirección indicada",
                   ]
               ).map((text, i) => (
@@ -337,75 +319,8 @@ export default function OrderSuccessPage() {
           </div>
         </div>
 
-        {/* ── Datos bancarios (solo transferencia) ─────────────────────── */}
-        {isTransfer && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
-            <div className="px-6 py-4 border-b border-slate-100">
-              <p className="text-xs font-black uppercase tracking-wider text-slate-400">
-                Datos para transferencia
-              </p>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {BANK_INFO.map((bank, idx) => (
-                <div key={idx} className="px-6 py-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-lg">{bank.emoji}</span>
-                    <p className="font-black text-slate-900">{bank.bank}</p>
-                    <span className="text-xs bg-slate-100 text-slate-500 font-bold px-2 py-0.5
-                      rounded-full ml-auto">
-                      {bank.type}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {[
-                      { label: "Número de cuenta / celular", value: bank.number },
-                      { label: "Titular",                    value: bank.name   },
-                      ...(bank.nit ? [{ label: "NIT", value: bank.nit }] : []),
-                    ].map((row, rowIdx) => {
-                      const copyKey = `${idx}-${rowIdx}`;
-                      return (
-                        <div
-                          key={rowIdx}
-                          className="flex items-center justify-between bg-slate-50
-                            rounded-xl px-4 py-2.5 gap-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                              {row.label}
-                            </p>
-                            <p className="text-sm font-bold text-slate-900 truncate">{row.value}</p>
-                          </div>
-                          <button
-                            onClick={() => copyToClipboard(row.value, copyKey)}
-                            className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center
-                              justify-center transition-all
-                              ${copiedIdx === copyKey
-                                ? "bg-emerald-100 text-emerald-600"
-                                : "bg-slate-200 text-slate-500 hover:bg-slate-300"
-                              }`}
-                          >
-                            {copiedIdx === copyKey ? <Check size={13} /> : <Copy size={13} />}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="px-6 py-3 bg-amber-50 border-t border-amber-100">
-              <p className="text-xs text-amber-700 font-medium text-center">
-                ⚠️ Incluye el código <strong>{order_code}</strong> en la descripción
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* ── Subir comprobante (no aplica para Wompi aprobado) ────────── */}
-        {!isWompi && sale_id && (
+        {isTransfer && sale_id && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
               <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -424,20 +339,14 @@ export default function OrderSuccessPage() {
           </div>
         )}
 
-        {/* ── WhatsApp ─────────────────────────────────────────────────── */}
-        <a
-          href={`https://wa.me/573145055073?text=${encodeURIComponent(
-            `Hola! Confirmo mi pedido ${order_code} por $${Number(total).toLocaleString()}`
-          )}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full py-4 bg-emerald-600
-            hover:bg-emerald-700 text-white rounded-2xl font-black text-sm
-            transition-all active:scale-[0.98] mb-3"
+        <Link
+          to="/contact"
+          className="flex items-center justify-center gap-2 w-full py-4 bg-white border
+            border-slate-200 text-slate-900 rounded-2xl font-black text-sm
+            hover:bg-slate-50 transition-all active:scale-[0.98] mb-3"
         >
-          <MessageCircle size={18} />
-          Contactar por WhatsApp
-        </a>
+          Contactar soporte
+        </Link>
 
         {/* ── Acciones ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 gap-3 mb-4">
@@ -450,7 +359,7 @@ export default function OrderSuccessPage() {
             <Home size={15} /> Volver
           </Link>
           <Link
-            to="/mis-pedidos"
+            to="/perfil?tab=orders"
             className="flex items-center justify-center gap-2 py-3.5 bg-slate-900 text-white
               rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all"
           >
