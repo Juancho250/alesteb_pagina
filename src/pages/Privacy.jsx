@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ReactLenis } from "lenis/react";
 import { Link } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 40 },
@@ -17,7 +18,7 @@ const stagger = {
 const sections = [
   {
     title: "1. Información que recopilamos",
-    body: `Cuando te registras en Alesteb recopilamos tu nombre, correo electrónico, cédula, teléfono y dirección de envío. También registramos información de navegación como páginas visitadas, productos vistos y datos de dispositivo para mejorar tu experiencia de compra. Nunca recopilamos información sin tu consentimiento explícito.`,
+    body: `Cuando te registras en la tienda recopilamos los datos necesarios para identificar tu cuenta, procesar pedidos y coordinar entregas. También podemos registrar información de navegación y dispositivo para mejorar la experiencia y la seguridad del servicio, de acuerdo con la normativa aplicable.`,
   },
   {
     title: "2. Cómo usamos tu información",
@@ -33,7 +34,7 @@ const sections = [
   },
   {
     title: "5. Tus derechos",
-    body: `Tienes derecho a acceder, corregir o eliminar tus datos personales en cualquier momento. Puedes actualizarlos directamente desde tu perfil o enviarnos un correo a web@alesteb.com. Para solicitar la eliminación completa de tu cuenta escríbenos y procesaremos tu solicitud en máximo 15 días hábiles.`,
+    body: `Puedes solicitar acceso, corrección o eliminación de tus datos personales mediante las opciones disponibles en tu perfil o a través de nuestro formulario de contacto, sujeto a las obligaciones legales de conservación que resulten aplicables.`,
   },
   {
     title: "6. Retención de datos",
@@ -45,11 +46,14 @@ const sections = [
   },
   {
     title: "8. Contacto",
-    body: `Para cualquier pregunta sobre esta política o el manejo de tus datos personales, escríbenos a web@alesteb.com o comunícate con nosotros a través de WhatsApp al +57 314 505 5073. Respondemos en máximo 2 días hábiles.`,
+    body: `Para cualquier pregunta sobre esta política o el manejo de tus datos personales, utiliza nuestro formulario de contacto.`,
   },
 ];
 
 export default function Privacy() {
+  const { runtime } = useSiteRuntime();
+  const businessName = runtime.identity.businessName || "Tienda";
+
   return (
     <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
       <div className="min-h-screen bg-white text-black font-sans antialiased">
@@ -62,7 +66,7 @@ export default function Privacy() {
                 variants={fadeInUp}
                 className="text-[10px] font-black tracking-[0.5em] uppercase text-neutral-400 mb-6"
               >
-                Política de Privacidad · Alesteb
+                Política de Privacidad · {businessName}
               </motion.p>
               <motion.div variants={fadeInUp} className="flex items-end gap-6 mb-8">
                 <h1 className="text-6xl sm:text-8xl font-black tracking-tighter leading-[0.9] uppercase">
@@ -80,7 +84,7 @@ export default function Privacy() {
                 variants={fadeInUp}
                 className="text-[15px] text-neutral-500 max-w-xl leading-relaxed"
               >
-                En Alesteb tratamos tu información con total transparencia.
+                En {businessName} tratamos tu información con transparencia.
                 Esta política describe exactamente qué datos recopilamos, cómo
                 los usamos y cómo los protegemos.
               </motion.p>
