@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ReactLenis } from "lenis/react";
 import { Link } from "react-router-dom";
 import { Scale } from "lucide-react";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 40 },
@@ -17,7 +18,7 @@ const stagger = {
 const sections = [
   {
     title: "1. Aceptación de términos",
-    body: `Al acceder y utilizar el sitio web de Alesteb Boutique, aceptas quedar vinculado por estos Términos y Condiciones. Si no estás de acuerdo con alguno de estos términos, no debes usar este sitio. Nos reservamos el derecho de modificar estos términos en cualquier momento con previo aviso de 15 días.`,
+    body: `Al acceder y utilizar el sitio web de la tienda, aceptas quedar vinculado por estos Términos y Condiciones. Si no estás de acuerdo con alguno de estos términos, no debes usar este sitio. Nos reservamos el derecho de modificar estos términos en cualquier momento con previo aviso de 15 días.`,
   },
   {
     title: "2. Uso del sitio",
@@ -41,23 +42,26 @@ const sections = [
   },
   {
     title: "7. Propiedad intelectual",
-    body: `Todo el contenido de este sitio —textos, imágenes, logotipos, diseños, código— es propiedad exclusiva de Alesteb Boutique o sus licenciantes y está protegido por las leyes de propiedad intelectual de Colombia. Queda prohibida su reproducción parcial o total sin autorización escrita. El uso no autorizado puede derivar en acciones civiles y penales.`,
+    body: `Todo el contenido de este sitio —textos, imágenes, logotipos, diseños, código— es propiedad exclusiva de la tienda o sus licenciantes y está protegido por las leyes de propiedad intelectual de Colombia. Queda prohibida su reproducción parcial o total sin autorización escrita. El uso no autorizado puede derivar en acciones civiles y penales.`,
   },
   {
     title: "8. Limitación de responsabilidad",
-    body: `Alesteb no será responsable por daños indirectos, incidentales, especiales o consecuentes derivados del uso o imposibilidad de uso del sitio o sus productos. Nuestra responsabilidad total no superará el monto pagado por el pedido en cuestión. Este sitio puede contener enlaces a terceros sobre los cuales no tenemos control ni responsabilidad.`,
+    body: `La tienda no será responsable por daños indirectos, incidentales, especiales o consecuentes derivados del uso o imposibilidad de uso del sitio o sus productos. Nuestra responsabilidad total no superará el monto pagado por el pedido en cuestión. Este sitio puede contener enlaces a terceros sobre los cuales no tenemos control ni responsabilidad.`,
   },
   {
     title: "9. Ley aplicable",
-    body: `Estos términos se rigen por las leyes de la República de Colombia. Cualquier disputa que surja en relación con estos términos se someterá a los tribunales competentes de la ciudad de Medellín, Colombia, renunciando las partes a cualquier otro fuero que pudiera corresponderles.`,
+    body: `Estos términos se rigen por las leyes de la República de Colombia. Cualquier disputa se tramitará ante las autoridades competentes de conformidad con la normativa aplicable.`,
   },
   {
     title: "10. Contacto",
-    body: `Para consultas sobre estos términos y condiciones, escríbenos a web@alesteb.com o comunícate por WhatsApp al +57 314 505 5073. Damos respuesta en máximo 2 días hábiles. También puedes consultar nuestra Política de Privacidad para información adicional sobre el manejo de tus datos.`,
+    body: `Para consultas sobre estos términos y condiciones, utiliza nuestro formulario de contacto. También puedes consultar la Política de Privacidad para información adicional sobre el manejo de tus datos.`,
   },
 ];
 
 export default function Legal() {
+  const { runtime } = useSiteRuntime();
+  const businessName = runtime.identity.businessName || "Tienda";
+
   return (
     <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
       <div className="min-h-screen bg-white text-black font-sans antialiased">
@@ -70,7 +74,7 @@ export default function Legal() {
                 variants={fadeInUp}
                 className="text-[10px] font-black tracking-[0.5em] uppercase text-neutral-400 mb-6"
               >
-                Términos y Condiciones · Alesteb
+                Términos y Condiciones · {businessName}
               </motion.p>
               <motion.div variants={fadeInUp} className="flex items-end gap-6 mb-8">
                 <h1 className="text-6xl sm:text-8xl font-black tracking-tighter leading-[0.9] uppercase">
@@ -88,7 +92,7 @@ export default function Legal() {
                 variants={fadeInUp}
                 className="text-[15px] text-neutral-500 max-w-xl leading-relaxed"
               >
-                Estos son los términos que rigen el uso de Alesteb. Los
+                Estos son los términos que rigen el uso de {businessName}. Los
                 escribimos en lenguaje claro porque creemos que mereces
                 entender exactamente con qué acuerdas.
               </motion.p>
