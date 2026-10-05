@@ -12,7 +12,13 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
-import api from "../services/api"; // axios instance
+import api from "../services/api";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
+import {
+  compactLocation,
+  socialHref,
+  whatsappUrl,
+} from "../utils/storefrontContact";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 40 },
@@ -24,36 +30,6 @@ const stagger = {
   visible: { opacity: 1, transition: { staggerChildren: 0.12 } },
 };
 
-const channels = [
-  {
-    icon: <MessageCircle size={20} />,
-    label: "WhatsApp",
-    value: "+57 314 505 5073",
-    href: "https://wa.me/573145055073",
-    cta: "Iniciar chat",
-  },
-  {
-    icon: <Mail size={20} />,
-    label: "Email",
-    value: "web@alesteb.com",
-    href: "mailto:web@alesteb.com",
-    cta: "Enviar email",
-  },
-  {
-    icon: <Instagram size={20} />,
-    label: "Instagram",
-    value: "@alesteb",
-    href: "https://instagram.com/alesteb",
-    cta: "Seguirnos",
-  },
-  {
-    icon: <MapPin size={20} />,
-    label: "Ubicación",
-    value: "Colombia",
-    href: null,
-    cta: null,
-  },
-];
 
 function createIdempotencyKey() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -61,6 +37,46 @@ function createIdempotencyKey() {
 }
 
 export default function Contact() {
+  const { runtime } = useSiteRuntime();
+  const identity = runtime.identity;
+  const businessName = identity.businessName || "Tienda";
+  const whatsapp =
+    socialHref(identity.socialLinks, "whatsapp") ||
+    whatsappUrl(identity.contact.phone);
+  const instagram = socialHref(identity.socialLinks, "instagram");
+  const locationLabel = compactLocation(identity.location);
+
+  const channels = [
+    whatsapp && {
+      icon: <MessageCircle size={20} />,
+      label: "WhatsApp",
+      value: identity.contact.phone || "WhatsApp",
+      href: whatsapp,
+      cta: "Iniciar chat",
+    },
+    identity.contact.email && {
+      icon: <Mail size={20} />,
+      label: "Email",
+      value: identity.contact.email,
+      href: `mailto:${identity.contact.email}`,
+      cta: "Enviar email",
+    },
+    instagram && {
+      icon: <Instagram size={20} />,
+      label: "Instagram",
+      value: "Instagram",
+      href: instagram,
+      cta: "Abrir perfil",
+    },
+    locationLabel && {
+      icon: <MapPin size={20} />,
+      label: "Ubicación",
+      value: locationLabel,
+      href: null,
+      cta: null,
+    },
+  ].filter(Boolean);
+
   const [form, setForm]     = useState({ name: "", email: "", subject: "", message: "" });
   const [status, setStatus] = useState("idle"); // idle | sending | sent | error
   const [errorMsg, setErrorMsg] = useState("");
@@ -113,7 +129,7 @@ export default function Contact() {
                 variants={fadeInUp}
                 className="text-[10px] font-black tracking-[0.5em] uppercase text-neutral-400 mb-6"
               >
-                Contacto · Alesteb
+                Contacto · {businessName}
               </motion.p>
               <motion.h1
                 variants={fadeInUp}
@@ -182,28 +198,17 @@ export default function Contact() {
                   </motion.div>
                 ))}
 
-                {/* Horario */}
                 <motion.div
                   variants={fadeInUp}
                   className="mt-4 border border-neutral-100 rounded-2xl p-5"
                 >
-                  <p className="text-[9px] font-black tracking-[0.3em] uppercase text-neutral-400 mb-3">
-                    Horario de atención
+                  <p className="text-[9px] font-black tracking-[0.3em] uppercase text-neutral-400 mb-2">
+                    Atención
                   </p>
-                  <div className="space-y-1.5 text-[13px]">
-                    <div className="flex justify-between">
-                      <span className="text-neutral-500">Lun – Vie</span>
-                      <span className="font-bold">8:00 am – 7:00 pm</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-500">Sábado</span>
-                      <span className="font-bold">9:00 am – 4:00 pm</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-500">Domingo</span>
-                      <span className="font-bold text-neutral-300">Cerrado</span>
-                    </div>
-                  </div>
+                  <p className="text-[13px] text-neutral-500 leading-relaxed">
+                    Usa el formulario o cualquiera de los canales publicados por {businessName}.
+                    Solo mostramos información configurada por la tienda.
+                  </p>
                 </motion.div>
               </motion.div>
 
