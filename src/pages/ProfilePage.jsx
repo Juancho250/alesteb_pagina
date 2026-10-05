@@ -1,6 +1,6 @@
 // src/pages/ProfilePage.jsx
 import { useState, useEffect, useCallback, Suspense, lazy } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   User, MapPin, Package, Edit3, Save, X,
   Phone, Mail, CreditCard, Building2, ArrowLeft,
@@ -762,7 +762,18 @@ function SecurityTab() {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ProfilePage() {
   const { user, isAuthenticated, updateUser } = useAuth();
-  const [activeTab, setActiveTab]             = useState("info");
+  const [searchParams, setSearchParams]       = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const initialTab = TABS.some(({ id }) => id === requestedTab) ? requestedTab : "info";
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  const selectTab = (tabId) => {
+    setActiveTab(tabId);
+    const next = new URLSearchParams(searchParams);
+    if (tabId === "info") next.delete("tab");
+    else next.set("tab", tabId);
+    setSearchParams(next, { replace: true });
+  };
 
   if (!isAuthenticated || !user) {
     return (
@@ -826,7 +837,7 @@ export default function ProfilePage() {
               {TABS.map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
-                  onClick={() => setActiveTab(id)}
+                  onClick={() => selectTab(id)}
                   className={`relative flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-bold transition-all
                     ${activeTab === id ? "text-slate-900" : "text-slate-400 hover:text-slate-600"}`}
                 >
