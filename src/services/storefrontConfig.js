@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_ORIGIN = "https://alesteb-back-1.onrender.com";
+const DEFAULT_BACKEND_ORIGIN = "https://alesteb-back-1ea2.onrender.com";
 
 function stripTrailingSlashes(value) {
   return value.replace(/\/+$/, "");
