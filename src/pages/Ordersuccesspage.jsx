@@ -9,9 +9,9 @@ import ProofUploader from "../components/ProofUploader";
 import api from "../services/api";
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Wompi redirige con query params:
-     ?id=<tx_id>&reference=<order_ref>&amount_in_cents=...&currency=COP&status=APPROVED
-   El flujo manual (transfer) sigue usando location.state.
+   Wompi documenta el retorno con ?id=<transaction_id>. El backend incorpora
+   también nuestra referencia en redirect_url y conservamos una copia efímera
+   en sessionStorage como fallback de recuperación.
    ───────────────────────────────────────────────────────────────────────── */
 export default function OrderSuccessPage() {
   const location       = useLocation();
@@ -19,8 +19,26 @@ export default function OrderSuccessPage() {
   const [searchParams] = useSearchParams();
 
   // ── Params de Wompi en la URL ────────────────────────────────────────────
-  const wompiReference = searchParams.get("reference");
-  const wompiStatus    = searchParams.get("status"); // APPROVED | DECLINED | ERROR | VOIDED
+  const wompiTransactionId = searchParams.get("id");
+  const queryReference = searchParams.get("reference");
+
+  let storedPayment = null;
+  try {
+    const raw = sessionStorage.getItem("alesteb:wompi:pending");
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (
+      parsed &&
+      typeof parsed.reference === "string" &&
+      Date.now() - Number(parsed.createdAt || 0) < 24 * 60 * 60 * 1000
+    ) {
+      storedPayment = parsed;
+    }
+  } catch {
+    storedPayment = null;
+  }
+
+  const wompiReference = queryReference || storedPayment?.reference || null;
+  const wompiStatus    = searchParams.get("status");
 
   // ── Estado para el flujo manual (transfer/cash) desde location.state ────
   const state = location.state || {};
@@ -51,7 +69,12 @@ export default function OrderSuccessPage() {
 
     const poll = async () => {
       try {
-        const { data } = await api.get(`/wompi/verify/${wompiReference}`);
+        const transactionQuery = wompiTransactionId
+          ? `?id=${encodeURIComponent(wompiTransactionId)}`
+          : "";
+        const { data } = await api.get(
+          `/wompi/verify/${encodeURIComponent(wompiReference)}${transactionQuery}`
+        );
         if (data.success) {
           const raw = (
             data.data?.status ??
@@ -64,6 +87,7 @@ export default function OrderSuccessPage() {
             setOrderData(data.data);
             setApproved(raw === "approved" || raw === "paid");
             setLoading(false);
+            sessionStorage.removeItem("alesteb:wompi:pending");
             return; // detener polling
           }
         }
@@ -85,7 +109,7 @@ export default function OrderSuccessPage() {
     // (400 ms) en lugar de esperar 3 s, para no hacer esperar al usuario.
     timerId = setTimeout(poll, wompiStatus ? 400 : 1_000);
     return () => clearTimeout(timerId);
-  }, [wompiReference, wompiStatus]);
+  }, [wompiReference, wompiStatus, wompiTransactionId]);
 
   // ── Redirigir si no hay datos en absoluto ───────────────────────────────
   useEffect(() => {
@@ -97,7 +121,7 @@ export default function OrderSuccessPage() {
 
   // ── Datos unificados para el template ───────────────────────────────────
   const order_code           = state.order_code  || orderData?.sale_number || wompiReference || "";
-  const sale_id              = state.sale_id     || orderData?.id          || null;
+  const sale_id              = state.sale_id     || orderData?.id || storedPayment?.saleId || null;
   const total                = state.total       || orderData?.total       || 0;
   const payment_method       = state.payment_method || (wompiReference ? "wompi" : "");
   const shipping_address     = state.shipping_address || "";
@@ -119,6 +143,14 @@ export default function OrderSuccessPage() {
         throw new Error(data?.message || "No se pudo reiniciar el pago");
       }
       const p = data.data;
+      sessionStorage.setItem(
+        "alesteb:wompi:pending",
+        JSON.stringify({
+          saleId: Number(sale_id),
+          reference: p.reference,
+          createdAt: Date.now(),
+        })
+      );
       const params = new URLSearchParams({
         "public-key": p.public_key,
         currency: p.currency,
