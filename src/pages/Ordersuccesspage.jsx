@@ -29,6 +29,8 @@ export default function OrderSuccessPage() {
   const [loadingWompi,  setLoading]       = useState(!!wompiReference);
   const [wompiApproved, setApproved]      = useState(false);
   const [pollTimedOut,  setPollTimedOut]  = useState(false);
+  const [retrying,      setRetrying]      = useState(false);
+  const [retryError,    setRetryError]    = useState("");
 
   // ── Polling de estado de transacción (solo para flujo Wompi) ─────────────
   //
@@ -53,6 +55,7 @@ export default function OrderSuccessPage() {
         if (data.success) {
           const raw = (
             data.data?.status ??
+            data.data?.tx_status ??
             data.data?.payment_status ??
             ""
           ).toLowerCase();
@@ -105,6 +108,35 @@ export default function OrderSuccessPage() {
   const isWompi    = payment_method === "wompi" || !!wompiReference;
   const isTransfer = payment_method === "transfer";
   const isSuccess  = isWompi ? wompiApproved : true;
+
+  const retryWompiPayment = async () => {
+    if (!sale_id || retrying) return;
+    setRetrying(true);
+    setRetryError("");
+    try {
+      const { data } = await api.get(`/wompi/session/${sale_id}`);
+      if (!data?.success || !data?.data) {
+        throw new Error(data?.message || "No se pudo reiniciar el pago");
+      }
+      const p = data.data;
+      const params = new URLSearchParams({
+        "public-key": p.public_key,
+        currency: p.currency,
+        "amount-in-cents": String(Math.round(Number(p.amount_in_cents))),
+        reference: p.reference,
+        "redirect-url": p.redirect_url,
+      });
+      window.location.href =
+        `https://checkout.wompi.co/p/?${params.toString()}&signature:integrity=${p.signature}`;
+    } catch (error) {
+      setRetryError(
+        error.response?.data?.message ||
+        error.message ||
+        "No se pudo reiniciar el pago."
+      );
+      setRetrying(false);
+    }
+  };
 
   // ── Loading mientras hacemos polling ────────────────────────────────────
   if (loadingWompi) {
@@ -182,13 +214,29 @@ export default function OrderSuccessPage() {
             >
               Ver mis pedidos
             </Link>
-            <Link
-              to="/checkout"
-              className="flex items-center justify-center gap-2 w-full py-3
-                bg-slate-100 text-slate-700 rounded-xl font-bold text-sm"
-            >
-              Intentar de nuevo
-            </Link>
+            {sale_id ? (
+              <button
+                type="button"
+                onClick={retryWompiPayment}
+                disabled={retrying}
+                className="flex items-center justify-center gap-2 w-full py-3
+                  bg-slate-100 text-slate-700 rounded-xl font-bold text-sm disabled:opacity-50"
+              >
+                {retrying ? <Loader2 size={15} className="animate-spin" /> : null}
+                {retrying ? "Preparando Wompi…" : "Intentar pago de nuevo"}
+              </button>
+            ) : (
+              <Link
+                to="/perfil?tab=orders"
+                className="flex items-center justify-center gap-2 w-full py-3
+                  bg-slate-100 text-slate-700 rounded-xl font-bold text-sm"
+              >
+                Revisar pedido
+              </Link>
+            )}
+            {retryError && (
+              <p className="text-xs text-red-500 font-medium">{retryError}</p>
+            )}
           </div>
         </div>
       </div>
