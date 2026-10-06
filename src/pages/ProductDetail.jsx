@@ -603,12 +603,12 @@ export default function ProductDetail() {
           {/* ── Galería ─────────────────────────────────────────────────────── */}
           <motion.div
             variants={stagger} initial="hidden" animate="visible"
-            className="lg:col-span-5 space-y-4"
+            className="lg:col-span-5 space-y-4 perf-section"
           >
             <motion.div variants={fadeUp} className="relative">
               {hasDiscount && (
                 <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-white/90
-                  backdrop-blur-md text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black
+                  text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black
                   shadow-sm border border-slate-100">
                   <span className="text-brand">−{discountPercent}%</span>
                 </div>
@@ -618,7 +618,7 @@ export default function ProductDetail() {
                 {isFullySelected && selectedVariant && (
                   <motion.div
                     initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="absolute top-4 right-14 z-20 bg-slate-900/70 backdrop-blur-md
+                    className="absolute top-4 right-14 z-20 bg-slate-900/70
                       text-white px-2.5 py-1 rounded-xl text-[9px] font-black tracking-wider
                       max-w-[160px] truncate"
                   >
@@ -629,7 +629,7 @@ export default function ProductDetail() {
 
               <button
                 onClick={() => setZoomed(true)}
-                className="absolute top-4 right-4 z-20 p-2.5 rounded-xl bg-white/80 backdrop-blur-md
+                className="absolute top-4 right-4 z-20 p-2.5 rounded-xl bg-white/80
                   border border-slate-100 text-slate-500 hover:text-slate-900 transition-all
                   hover:bg-white hover:scale-105 active:scale-95 shadow-sm"
               >
