@@ -2,6 +2,31 @@ const DEFAULT_BACKEND_ORIGIN = "https://alesteb-back-1ea2.onrender.com";
 const DEFAULT_PUBLIC_ORIGIN = "https://alesteb.vercel.app";
 const PUBLIC_API_PREFIX = "/public-api/v1";
 
+const EDGE_CACHE_POLICIES = [
+  { test: /^\/public-api\/v1\/profile$/, ttl: 60, swr: 300 },
+  { test: /^\/public-api\/v1\/banners$/, ttl: 15, swr: 60 },
+  { test: /^\/public-api\/v1\/categories$/, ttl: 30, swr: 120 },
+  { test: /^\/public-api\/v1\/discounts$/, ttl: 10, swr: 30 },
+  { test: /^\/public-api\/v1\/products$/, ttl: 8, swr: 30 },
+  { test: /^\/public-api\/v1\/products\/\d+$/, ttl: 8, swr: 30 },
+  { test: /^\/public-api\/v1\/products\/\d+\/reviews$/, ttl: 10, swr: 30 },
+];
+
+function applyEdgeCachePolicy(req, res, pathname, upstream) {
+  if (req.method !== "GET" || !upstream.ok) return false;
+
+  const policy = EDGE_CACHE_POLICIES.find(({ test }) => test.test(pathname));
+  if (!policy) return false;
+
+  const value =
+    `public, max-age=0, s-maxage=${policy.ttl}, stale-while-revalidate=${policy.swr}`;
+
+  res.setHeader("Cache-Control", value);
+  res.setHeader("Vercel-CDN-Cache-Control", value);
+  res.setHeader("X-ALESTEB-Edge-Cache", `s-maxage=${policy.ttl}`);
+  return true;
+}
+
 function normalizeProxyPath(value) {
   const raw = Array.isArray(value) ? value.join("/") : String(value || "");
   const clean = raw.replace(/^\/+/, "");
@@ -122,9 +147,20 @@ export default async function handler(req, res) {
     );
 
     res.status(upstream.status);
-    for (const header of ["content-type", "cache-control", "etag", "location", "retry-after"]) {
+
+    const edgeCached = applyEdgeCachePolicy(req, res, pathname, upstream);
+    for (const header of ["content-type", "etag", "location", "retry-after"]) {
       const value = upstream.headers.get(header);
       if (value) res.setHeader(header, value);
+    }
+
+    if (!edgeCached) {
+      const upstreamCacheControl = upstream.headers.get("cache-control");
+      if (upstreamCacheControl) {
+        res.setHeader("Cache-Control", upstreamCacheControl);
+      } else if (req.method !== "GET") {
+        res.setHeader("Cache-Control", "no-store");
+      }
     }
 
     return res.end(Buffer.from(await upstream.arrayBuffer()));

@@ -15,6 +15,28 @@ import {
 
 const SiteRuntimeContext = createContext(null);
 
+const RUNTIME_CACHE_KEY = "_alesteb_site_runtime_v1";
+
+function readCachedRuntime() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RUNTIME_CACHE_KEY) || "null");
+    return parsed?.runtime?.status === "resolved" ? parsed.runtime : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedRuntime(runtime) {
+  try {
+    localStorage.setItem(
+      RUNTIME_CACHE_KEY,
+      JSON.stringify({ runtime, updatedAt: Date.now() })
+    );
+  } catch {
+    // El cache es una optimización; nunca debe romper la tienda.
+  }
+}
+
 const FATAL_STOREFRONT_CODES = new Set([
   "NO_API_KEY",
   "INVALID_API_KEY",
@@ -41,7 +63,9 @@ function storefrontFatalError(error) {
 }
 
 export function SiteRuntimeProvider({ children }) {
-  const [runtime, setRuntime] = useState(FALLBACK_SITE_RUNTIME);
+  const [runtime, setRuntime] = useState(
+    () => readCachedRuntime() || FALLBACK_SITE_RUNTIME
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [fatalError, setFatalError] = useState(null);
@@ -52,7 +76,9 @@ export function SiteRuntimeProvider({ children }) {
     try {
       const response = await api.get("/profile");
       const profile = extractPublicProfile(response);
-      setRuntime(createSiteRuntime(profile));
+      const nextRuntime = createSiteRuntime(profile);
+      setRuntime(nextRuntime);
+      if (nextRuntime.status === "resolved") writeCachedRuntime(nextRuntime);
       setError(null);
       setFatalError(null);
     } catch (loadError) {

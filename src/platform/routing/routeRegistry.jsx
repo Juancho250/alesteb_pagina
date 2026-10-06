@@ -1,16 +1,18 @@
-import Home from "../../pages/Home";
-import Products from "../../pages/Products";
-import ProductDetail from "../../pages/ProductDetail";
-import Support from "../../pages/Support";
-import Contact from "../../pages/Contact";
-import Legal from "../../pages/Legal";
-import Privacy from "../../pages/Privacy";
-import CheckoutPage from "../../pages/Checkoutpage";
-import Auth from "../../pages/Auth";
-import Ordersuccesspage from "../../pages/Ordersuccesspage";
-import ProfilePage from "../../pages/ProfilePage";
-import CartPage from "../../pages/CartPage";
-import FavoritesPage from "../../pages/FavoritesPage";
+import { lazy } from "react";
+
+const Home = lazy(() => import("../../pages/Home"));
+const Products = lazy(() => import("../../pages/Products"));
+const ProductDetail = lazy(() => import("../../pages/ProductDetail"));
+const Support = lazy(() => import("../../pages/Support"));
+const Contact = lazy(() => import("../../pages/Contact"));
+const Legal = lazy(() => import("../../pages/Legal"));
+const Privacy = lazy(() => import("../../pages/Privacy"));
+const CheckoutPage = lazy(() => import("../../pages/Checkoutpage"));
+const Auth = lazy(() => import("../../pages/Auth"));
+const Ordersuccesspage = lazy(() => import("../../pages/Ordersuccesspage"));
+const ProfilePage = lazy(() => import("../../pages/ProfilePage"));
+const CartPage = lazy(() => import("../../pages/CartPage"));
+const FavoritesPage = lazy(() => import("../../pages/FavoritesPage"));
 
 export const storefrontRouteRegistry = Object.freeze([
   { id: "home", path: "/", Component: Home },

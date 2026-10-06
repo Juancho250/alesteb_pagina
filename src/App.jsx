@@ -1,4 +1,5 @@
 // App.jsx  ─  ALESTEB_PAGINA/src/App.jsx
+import { Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppearanceProvider } from "./context/AppearanceContext";
 import { AuthProvider }      from "./context/AuthContext";
@@ -25,11 +26,19 @@ function AppContent() {
       <Navbar />
 
       <main className="min-h-screen">
-        <Routes>
-          {storefrontRouteRegistry.map(({ id, path, Component }) => (
-            <Route key={id} path={path} element={<Component />} />
-          ))}
-        </Routes>
+        <Suspense
+          fallback={
+            <div className="min-h-[55vh] flex items-center justify-center bg-[var(--store-page-bg,#ffffff)]">
+              <div className="h-8 w-8 rounded-full border-2 border-neutral-200 border-t-neutral-900 animate-spin" />
+            </div>
+          }
+        >
+          <Routes>
+            {storefrontRouteRegistry.map(({ id, path, Component }) => (
+              <Route key={id} path={path} element={<Component />} />
+            ))}
+          </Routes>
+        </Suspense>
       </main>
 
       <Footer />
@@ -39,16 +48,10 @@ function AppContent() {
 }
 
 function StorefrontGate() {
-  const { loading, fatalError, reload } = useSiteRuntime();
+  const { fatalError, reload } = useSiteRuntime();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <p className="text-sm font-bold text-neutral-400">Conectando con la tienda…</p>
-      </div>
-    );
-  }
-
+  // El perfil ya no bloquea el primer render. La tienda pinta de inmediato
+  // con runtime cacheado/fallback y revalida /profile en segundo plano.
   if (fatalError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white px-6">
