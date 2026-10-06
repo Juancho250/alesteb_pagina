@@ -32,6 +32,13 @@ const ROLE_PERMISSIONS = {
     "banner.read",
     "report.read",
   ],
+  user: [
+    "sale.create",
+    "sale.my.read",
+    "sale.my.cancel",
+    "product.read",
+    "category.read",
+  ],
   cliente: [
     "sale.create",
     "sale.my.read",
@@ -113,7 +120,8 @@ export const AuthProvider = ({ children }) => {
 
   const isAdmin   = user?.roles?.includes("admin")   ?? false;
   const isGerente = user?.roles?.includes("gerente") ?? false;
-  const isCliente = user?.roles?.includes("cliente") ?? false;
+  const isCliente =
+    user?.roles?.some((role) => role === "user" || role === "cliente") ?? false;
   const loading   = false;
 
   return (
