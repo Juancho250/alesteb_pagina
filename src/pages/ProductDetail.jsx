@@ -7,7 +7,7 @@ import {
   ZoomIn, X, AlertCircle, Truck, Clock, AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import api from "../services/api";
+import { loadPublicJson } from "../services/publicData";
 import { useCart } from "../context/CartContext";
 import { useFavorites } from "../context/FavoritesContext";
 import { useAvailability } from "../hooks/useAvailability";
@@ -204,8 +204,8 @@ export default function ProductDetail() {
     } else {
       setLoading(true);
     }
-    api.get(`/products/${id}`)
-      .then(({ data }) => {
+    loadPublicJson(`/products/${id}`, `product:${id}`)
+      .then((data) => {
         if (!alive) return;
         const raw = data?.data || data?.product || data;
         const resolved = raw ? {
