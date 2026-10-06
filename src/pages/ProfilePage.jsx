@@ -11,7 +11,6 @@ import {
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import { motion, AnimatePresence } from "framer-motion";
-import { ReactLenis } from "lenis/react";
 
 // Lazy-load ProofUploader solo cuando se necesita
 const ProofUploader = lazy(() => import("../components/ProofUploader"));
@@ -800,7 +799,6 @@ export default function ProfilePage() {
   }
 
   return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
       <style>{`
         @keyframes shimmer {
           0%   { background-position: -200% 0; }
@@ -876,6 +874,5 @@ export default function ProfilePage() {
           </AnimatePresence>
         </div>
       </div>
-    </ReactLenis>
   );
 }
