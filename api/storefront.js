@@ -4,6 +4,7 @@ const PUBLIC_API_PREFIX = "/public-api/v1";
 
 const EDGE_CACHE_POLICIES = [
   { test: /^\/public-api\/v1\/profile$/, ttl: 60, swr: 300 },
+  { test: /^\/public-api\/v1\/site-manifest$/, ttl: 15, swr: 60 },
   { test: /^\/public-api\/v1\/banners$/, ttl: 15, swr: 60 },
   { test: /^\/public-api\/v1\/categories$/, ttl: 30, swr: 120 },
   { test: /^\/public-api\/v1\/discounts$/, ttl: 10, swr: 30 },
