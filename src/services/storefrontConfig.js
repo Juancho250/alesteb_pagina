@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_ORIGIN = "https://alesteb-back-1ea2.onrender.com";
+const DEFAULT_STOREFRONT_PROXY = "/api/storefront";
 
 function stripTrailingSlashes(value) {
   return value.replace(/\/+$/, "");
@@ -6,16 +6,16 @@ function stripTrailingSlashes(value) {
 
 export function resolveStorefrontApiBase(rawValue) {
   let base = stripTrailingSlashes(
-    String(rawValue || DEFAULT_BACKEND_ORIGIN).trim()
+    String(rawValue || DEFAULT_STOREFRONT_PROXY).trim()
   );
 
-  if (!base || base === "/api" || base === "api" || base === "/public-api/v1" || base === "public-api/v1") {
-    base = DEFAULT_BACKEND_ORIGIN;
+  if (!base || base === "/api" || base === "api") {
+    base = DEFAULT_STOREFRONT_PROXY;
   }
 
-  base = base
-    .replace(/\/public-api\/v1$/i, "")
-    .replace(/\/api$/i, "");
+  if (/\/public-api\/v1$/i.test(base)) {
+    return base;
+  }
 
   return `${stripTrailingSlashes(base)}/public-api/v1`;
 }
@@ -24,11 +24,6 @@ export const STOREFRONT_API_BASE_URL = resolveStorefrontApiBase(
   import.meta.env.VITE_API_BASE_URL
 );
 
-export const STOREFRONT_API_KEY = import.meta.env.VITE_API_KEY?.trim() || "";
-
 export function storefrontHeaders(extra = {}) {
-  return {
-    ...(STOREFRONT_API_KEY ? { "X-API-Key": STOREFRONT_API_KEY } : {}),
-    ...extra,
-  };
+  return { ...extra };
 }
