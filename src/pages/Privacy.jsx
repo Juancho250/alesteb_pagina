@@ -1,6 +1,5 @@
 // src/pages/Privacy.jsx
 import { motion } from "framer-motion";
-import { ReactLenis } from "lenis/react";
 import { Link } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
@@ -55,7 +54,6 @@ export default function Privacy() {
   const businessName = runtime.identity.businessName || "Tienda";
 
   return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
       <div className="min-h-screen bg-white text-black font-sans antialiased">
         <main className="pt-24">
 
@@ -102,8 +100,7 @@ export default function Privacy() {
             <div className="max-w-5xl mx-auto">
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={fadeInUp}
                 className="bg-[#f5f5f7] rounded-2xl p-6 flex flex-wrap gap-3"
               >
@@ -125,8 +122,7 @@ export default function Privacy() {
             <div className="max-w-3xl mx-auto">
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={stagger}
                 className="space-y-0"
               >
@@ -148,8 +144,7 @@ export default function Privacy() {
               {/* CTA final */}
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={fadeInUp}
                 className="mt-16 bg-neutral-900 text-white rounded-3xl p-10 text-center"
               >
@@ -171,6 +166,5 @@ export default function Privacy() {
 
         </main>
       </div>
-    </ReactLenis>
   );
 }
