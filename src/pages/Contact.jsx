@@ -1,6 +1,5 @@
 // src/pages/Contact.jsx
 import { motion } from "framer-motion";
-import { ReactLenis } from "lenis/react";
 import { useRef, useState } from "react";
 import {
   Send,
@@ -118,7 +117,6 @@ export default function Contact() {
   };
 
   return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
       <div className="min-h-screen bg-white text-black font-sans antialiased">
         <main className="pt-24">
 
@@ -150,14 +148,13 @@ export default function Contact() {
           </section>
 
           {/* ── CONTENIDO PRINCIPAL ─────────────────── */}
-          <section className="pb-32 px-6">
+          <section className="pb-32 px-6 perf-section">
             <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-10">
 
               {/* Canales */}
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={stagger}
                 className="lg:col-span-2 flex flex-col gap-4"
               >
@@ -215,8 +212,7 @@ export default function Contact() {
               {/* Formulario */}
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={fadeInUp}
                 className="lg:col-span-3"
               >
@@ -321,7 +317,6 @@ export default function Contact() {
 
         </main>
       </div>
-    </ReactLenis>
   );
 }
 
