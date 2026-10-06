@@ -74,9 +74,13 @@ export function SiteRuntimeProvider({ children }) {
     setLoading(true);
 
     try {
-      const payload = await loadPublicJson("/profile", "profile");
-      const profile = extractPublicProfile({ data: payload });
-      const nextRuntime = createSiteRuntime(profile);
+      const [profilePayload, manifestPayload] = await Promise.all([
+        loadPublicJson("/profile", "profile"),
+        loadPublicJson("/site-manifest", "site-manifest").catch(() => null),
+      ]);
+      const profile = extractPublicProfile({ data: profilePayload });
+      const manifest = manifestPayload?.data ?? manifestPayload ?? null;
+      const nextRuntime = createSiteRuntime(profile, manifest);
       setRuntime(nextRuntime);
       if (nextRuntime.status === "resolved") writeCachedRuntime(nextRuntime);
       setError(null);
