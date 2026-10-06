@@ -24,8 +24,17 @@ export function extractPublicProfile(response) {
   return payload;
 }
 
-export function createSiteRuntime(profile) {
+function normalizeManifest(value) {
+  const manifest = asObject(value);
+  if (manifest?.schemaVersion !== 1 || !Array.isArray(manifest?.home?.sections)) {
+    return null;
+  }
+  return manifest;
+}
+
+export function createSiteRuntime(profile, manifest = null) {
   const publicProfile = asObject(profile);
+  const publicManifest = normalizeManifest(manifest);
 
   return {
     schemaVersion: SITE_RUNTIME_SCHEMA_VERSION,
@@ -69,7 +78,7 @@ export function createSiteRuntime(profile) {
         pageBackground: publicProfile?.store_page_bg ?? "#ffffff",
         fontFamily: publicProfile?.store_font ?? null,
       },
-      manifest: null,
+      manifest: publicManifest,
     },
     compatibility: {
       publicProfile,
