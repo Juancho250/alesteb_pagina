@@ -1,6 +1,5 @@
 // src/pages/Support.jsx
 import { motion } from "framer-motion";
-import { ReactLenis } from "lenis/react";
 import { Link } from "react-router-dom";
 import {
   ShieldCheck,
@@ -91,7 +90,6 @@ export default function Support() {
     whatsappUrl(runtime.identity.contact.phone);
 
   return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
       <div className="min-h-screen bg-white text-black font-sans antialiased">
         <main className="pt-24">
 
@@ -131,8 +129,7 @@ export default function Support() {
             <div className="max-w-5xl mx-auto">
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={stagger}
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
               >
@@ -179,12 +176,11 @@ export default function Support() {
           </section>
 
           {/* ── FAQ ────────────────────────────────── */}
-          <section className="py-24 px-6">
+          <section className="py-24 px-6 perf-section">
             <div className="max-w-3xl mx-auto">
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={fadeInUp}
                 className="mb-14"
               >
@@ -196,8 +192,7 @@ export default function Support() {
 
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={stagger}
                 className="bg-[#f5f5f7] rounded-3xl p-6 md:p-10"
               >
@@ -209,12 +204,11 @@ export default function Support() {
           </section>
 
           {/* ── CTA CONTACTO ───────────────────────── */}
-          <section className="pb-32 px-6">
+          <section className="pb-32 px-6 perf-section">
             <div className="max-w-5xl mx-auto">
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={fadeInUp}
                 className="bg-neutral-900 text-white rounded-[2.5rem] px-10 py-16 text-center"
               >
@@ -250,6 +244,5 @@ export default function Support() {
 
         </main>
       </div>
-    </ReactLenis>
   );
 }
