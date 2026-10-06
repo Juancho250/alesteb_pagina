@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import api from "../../services/api";
+import { loadPublicJson } from "../../services/publicData";
 import {
   createSiteRuntime,
   extractPublicProfile,
@@ -74,8 +74,8 @@ export function SiteRuntimeProvider({ children }) {
     setLoading(true);
 
     try {
-      const response = await api.get("/profile");
-      const profile = extractPublicProfile(response);
+      const payload = await loadPublicJson("/profile", "profile");
+      const profile = extractPublicProfile({ data: payload });
       const nextRuntime = createSiteRuntime(profile);
       setRuntime(nextRuntime);
       if (nextRuntime.status === "resolved") writeCachedRuntime(nextRuntime);
