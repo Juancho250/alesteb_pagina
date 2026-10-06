@@ -318,6 +318,16 @@ function isDescendantOf(cat, slug) {
   return cat.children?.some(c => isDescendantOf(c, slug)) ?? false;
 }
 
+function findCategoryBySlug(categories, slug) {
+  if (!slug) return null;
+  for (const category of categories) {
+    if (category.slug === slug) return category;
+    const nested = findCategoryBySlug(category.children || [], slug);
+    if (nested) return nested;
+  }
+  return null;
+}
+
 // ─── Prefetch del siguiente bloque de productos ───────────────────────────────
 function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
   useEffect(() => {
@@ -346,16 +356,16 @@ export default function Products() {
 
   const [products,    setProducts]   = useState([]);
   const [loading,     setLoading]    = useState(true);
-  const [firstLoad,   setFirstLoad]  = useState(true);
+  const [resolvedKey, setResolvedKey] = useState(null);
   const [search,      setSearch]     = useState(() => searchParams.get("search") || "");
   const [debSearch,   setDebSearch]  = useState(() => searchParams.get("search") || "");
   const [page,        setPage]       = useState(1);
   const [pagination,  setPagination] = useState({ totalPages: 1, totalItems: 0 });
-  const [catName,     setCatName]    = useState("");
   const [categories,  setCategories] = useState(
     () => extractCategories(readPublicCache("categories", 6 * 60 * 60 * 1000) || {})
   );
   const searchRef = useRef(null);
+  const requestKey = `${slug ?? ""}-${debSearch}-${page}`;
 
   // Debounce búsqueda + sincronización bidireccional con URL
   useEffect(() => {
@@ -382,7 +392,7 @@ export default function Products() {
   // Fetch con cache
   useEffect(() => {
     let active = true;
-    const cacheKey = `${slug ?? ""}-${debSearch}-${page}`;
+    const cacheKey = requestKey;
     const cached   = cacheGet(cacheKey);
 
     if (cached) {
@@ -391,9 +401,8 @@ export default function Products() {
       const pag   = extractPagination(cached);
       setProducts(items.map(applyDiscount));
       setPagination(pag);
-      if (slug && items[0]?.category_name) setCatName(items[0].category_name);
+      setResolvedKey(cacheKey);
       setLoading(false);
-      setFirstLoad(false);
     } else {
       setLoading(true);
     }
@@ -408,20 +417,25 @@ export default function Products() {
         cacheSet(cacheKey, data);
         const items = extractProducts(data);
         const pag   = extractPagination(data);
-        setProducts(items.map(applyDiscount));   // ← agregar .map(applyDiscount)
+        setProducts(items.map(applyDiscount));
         setPagination(pag);
-        if (slug && items[0]?.category_name) setCatName(items[0].category_name);
+        setResolvedKey(cacheKey);
       })
-      .catch(console.error)
+      .catch((error) => {
+        console.error(error);
+        if (!active || cached) return;
+        setProducts([]);
+        setPagination({ totalPages: 1, totalItems: 0 });
+        setResolvedKey(cacheKey);
+      })
       .finally(() => {
         if (!active) return;
         setLoading(false);
-        setFirstLoad(false);
         if (page > 1) window.scrollTo({ top: 0, behavior: "smooth" });
       });
 
     return () => { active = false; };
-  }, [slug, debSearch, page, applyDiscount]);   // ← agregar applyDiscount
+  }, [slug, debSearch, page, applyDiscount, requestKey]);
 
   // Prefetch de la página siguiente en background
   usePrefetchNextPage({ slug, debSearch, page, totalPages: pagination.totalPages });
@@ -430,6 +444,12 @@ export default function Products() {
 
   // Categoría activa en el filtro (la que contiene el slug actual)
   const activeCat = slug ? categories.find(cat => isDescendantOf(cat, slug)) : null;
+  const currentCategory = slug ? findCategoryBySlug(categories, slug) : null;
+  const categoryLabel = slug
+    ? (currentCategory?.name || slug.replace(/-/g, " "))
+    : "";
+  const isCurrentData = resolvedKey === requestKey;
+  const showLoading = loading || !isCurrentData;
 
   const SKELETONS = 12;
 
@@ -456,7 +476,7 @@ export default function Products() {
                   <ChevronRight size={10} className="text-[var(--store-border)]" />
                 </>
               )}
-              <span className="text-[var(--store-text-primary)]">{catName || slug.replace(/-/g, " ")}</span>
+              <span className="text-[var(--store-text-primary)]">{categoryLabel}</span>
             </motion.nav>
           )}
 
@@ -469,14 +489,14 @@ export default function Products() {
               <h1 className="text-[clamp(3rem,10vw,7rem)] font-black text-[var(--store-text-primary)]
                 tracking-[-0.04em] leading-[0.85] italic whitespace-pre-line">
                 {slug
-                  ? (catName || slug.replace(/-/g, " ")).toUpperCase()
+                  ? categoryLabel.toUpperCase()
                   : "EXPLORA\nLO NUEVO"
                 }
               </h1>
               <div className="flex items-center gap-3">
                 <div className="h-1 w-14 bg-brand rounded-full" />
                 <p className="text-[var(--store-text-secondary)] font-bold uppercase tracking-[0.3em] text-[10px]">
-                  {loading ? "Cargando…" : `${pagination.totalItems} productos`}
+                  {showLoading ? "Cargando…" : `${pagination.totalItems} productos`}
                 </p>
               </div>
             </div>
@@ -596,7 +616,7 @@ export default function Products() {
 
           {/* ── Grid ────────────────────────────────────────────────── */}
           <AnimatePresence mode="wait">
-            {(loading && firstLoad) ? (
+            {showLoading ? (
               <motion.div
                 key="skeletons"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -653,7 +673,7 @@ export default function Products() {
           </AnimatePresence>
 
           {/* ── Paginación ──────────────────────────────────────────── */}
-          {!loading && (
+          {!showLoading && (
             <Pagination
               page={page}
               totalPages={pagination.totalPages}
