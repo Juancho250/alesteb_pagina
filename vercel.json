@@ -1,12 +1,16 @@
 {
   "functions": {
-    "api/storefront/[...path].js": {
+    "api/storefront.js": {
       "maxDuration": 30
     }
   },
   "rewrites": [
     {
-      "source": "/((?!.*\\.).*)",
+      "source": "/api/storefront/:path*",
+      "destination": "/api/storefront?path=:path*"
+    },
+    {
+      "source": "/((?!api/|.*\\.).*)",
       "destination": "/index.html"
     }
   ]
