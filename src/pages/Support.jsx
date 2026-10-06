@@ -39,7 +39,7 @@ const faqs = [
   },
   {
     q: "¿Qué garantía tienen los productos?",
-    a: "Todos los productos cuentan con garantía mínima de 3 meses contra defectos de fabricación. Algunos productos premium tienen garantía extendida de hasta 1 año.",
+    a: "La cobertura de garantía depende del producto, el fabricante y las condiciones aplicables. Si necesitas validar una cobertura específica, contáctanos con el número de pedido.",
   },
   {
     q: "¿Hacen cambios o devoluciones?",
