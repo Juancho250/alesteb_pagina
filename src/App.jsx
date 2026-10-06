@@ -1,5 +1,5 @@
 // App.jsx  ─  ALESTEB_PAGINA/src/App.jsx
-import { Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppearanceProvider } from "./context/AppearanceContext";
 import { AuthProvider }      from "./context/AuthContext";
@@ -10,10 +10,11 @@ import { usePageTracking }   from "./hooks/usePageTracking";
 import { SiteRuntimeProvider, useSiteRuntime } from "./platform/runtime/SiteRuntimeContext";
 import { storefrontRouteRegistry } from "./platform/routing/routeRegistry";
 
-import Footer           from "./components/Footer";
-import Navbar           from "./components/Navbar";
-import CartFloating     from "./components/CartFloating";
-import ScrollToTop      from "./components/ScrollToTop";
+import ScrollToTop from "./components/ScrollToTop";
+
+const Navbar = lazy(() => import("./components/Navbar"));
+const Footer = lazy(() => import("./components/Footer"));
+const CartFloating = lazy(() => import("./components/CartFloating"));
 
 // ─── Componente interno que activa el tracker ─────────────────────────────────
 // Debe vivir DENTRO de <BrowserRouter> porque usePageTracking usa useLocation.
@@ -23,7 +24,16 @@ function AppContent() {
   return (
     <>
       <ScrollToTop />
-      <Navbar />
+      <Suspense
+        fallback={
+          <div
+            className="fixed top-0 left-0 right-0 z-[200] h-16 lg:h-[68px] bg-white/95 border-b border-neutral-100"
+            aria-hidden="true"
+          />
+        }
+      >
+        <Navbar />
+      </Suspense>
 
       <main className="min-h-screen">
         <Suspense
@@ -41,8 +51,10 @@ function AppContent() {
         </Suspense>
       </main>
 
-      <Footer />
-      <CartFloating />
+      <Suspense fallback={null}>
+        <Footer />
+        <CartFloating />
+      </Suspense>
     </>
   );
 }
