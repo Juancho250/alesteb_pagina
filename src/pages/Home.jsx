@@ -223,28 +223,6 @@ export default function Home() {
   }, []);
 
   return (
-      <div className="min-h-screen flex items-center justify-center px-6 bg-[var(--store-page-bg,#ffffff)]">
-        <div className="max-w-md text-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-400 mb-3">
-            Servicio temporalmente no disponible
-          </p>
-          <h1 className="text-3xl font-black tracking-tight text-neutral-900 mb-3">
-            No pudimos conectar con la tienda.
-          </h1>
-          <p className="text-sm text-neutral-500 mb-6">
-            Evitamos mostrar catálogo o disponibilidad desactualizados. Intenta nuevamente en unos segundos.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-6 py-3 rounded-full bg-neutral-900 text-white text-sm font-bold"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-
-  return (
       <div className="min-h-screen text-black font-sans antialiased selection:bg-neutral-200 bg-[var(--store-page-bg,#ffffff)]">
         <main className="pt-20 md:pt-24">
 
