@@ -48,15 +48,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-// ─── Variantes de animación ───────────────────────────────────────────────────
-const cardVariants = {
-  hidden:  { opacity: 0, y: 28 },
-  visible: (i) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.55, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
-
+// ─── Animación ligera para elementos puntuales ────────────────────────────────
 const fadeUp = {
   hidden:  { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } },
@@ -95,16 +87,10 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
   const thumb2x = imgUrl(rawThumb, 1200);
 
   return (
-    <motion.div
-      custom={index}
-      variants={cardVariants}
-      initial="hidden"
-      animate="visible"
-      className="group relative flex flex-col"
-    >
+    <div className="group relative flex flex-col perf-card">
       {/* Badge fulfillment_mode */}
       {!isOut && (
-        <div className={`absolute top-4 left-4 z-20 flex items-center gap-1 backdrop-blur-md
+        <div className={`absolute top-4 left-4 z-20 flex items-center gap-1
           px-3 py-1 rounded-2xl text-[10px] font-black shadow-sm border
           ${isOnDemand
             ? "bg-purple-600/90 text-white border-purple-500"
@@ -118,7 +104,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
 
       {/* Badge descuento */}
       {hasDiscount && (
-        <div className={`absolute z-20 flex items-center gap-1 bg-white/90 backdrop-blur-md
+        <div className={`absolute z-20 flex items-center gap-1 bg-white/90
           text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black shadow-sm border border-slate-100
           ${!isOut ? "top-11 left-4" : "top-4 left-4"}`}>
           <Percent size={9} className="text-brand" strokeWidth={3} />
@@ -128,7 +114,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
 
       {/* Badge variantes + Favorito */}
       {hasVariants && (
-        <div className={`absolute z-20 bg-slate-900/70 backdrop-blur-md
+        <div className={`absolute z-20 bg-slate-900/70
           text-white px-2.5 py-1 rounded-xl text-[9px] font-black tracking-wider
           ${(isOnDemand || isHybrid) ? "top-11 right-4" : "top-4 right-4"}`}>
           + opciones
@@ -138,7 +124,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
       <button
         onClick={(e) => { e.preventDefault(); toggleFavorite(p); }}
         aria-label={fav ? "Quitar de favoritos" : "Agregar a favoritos"}
-        className={`absolute z-20 p-2.5 rounded-full bg-white/90 backdrop-blur-md
+        className={`absolute z-20 p-2.5 rounded-full bg-white/90
           border border-slate-100 shadow-sm transition-all duration-300
           hover:scale-110 active:scale-95
           ${hasVariants ? "top-12 right-4 mt-1" : "top-4 right-4"}
@@ -174,7 +160,8 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
             src={thumb}
             srcSet={`${thumb} 1x, ${thumb2x} 2x`}
             alt={p.name}
-            loading="lazy"
+            loading={index < 4 ? "eager" : "lazy"}
+            fetchPriority={index < 4 ? "high" : "auto"}
             decoding="async"
             width={600}
             height={750}
@@ -272,7 +259,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
           }}
         />
       </div>
-    </motion.div>
+    </div>
   );
 });
 ProductCard.displayName = "ProductCard";
@@ -620,7 +607,7 @@ export default function Products() {
               <motion.div
                 key="skeletons"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14"
+                className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14 perf-section"
               >
                 {Array.from({ length: SKELETONS }).map((_, i) => <SkeletonCard key={i} />)}
               </motion.div>
@@ -631,7 +618,7 @@ export default function Products() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14"
+                className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14 perf-section"
               >
                 {products.map((p, i) => (
                   <ProductCard
