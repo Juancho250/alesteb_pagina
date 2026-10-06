@@ -261,7 +261,16 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
             Entrega en {p.supplier_lead_time_days ?? "?"} días
           </span>
         )}
-        <ProductReviewSummary productId={p.id} compact />
+        <ProductReviewSummary
+          productId={p.id}
+          compact
+          initialSummary={{
+            avg_rating: p.avg_rating,
+            review_count: p.review_count,
+            verified_review_count: p.verified_review_count,
+            review_distribution: p.review_distribution,
+          }}
+        />
       </div>
     </motion.div>
   );
@@ -375,7 +384,7 @@ export default function Products() {
     const cached   = cacheGet(cacheKey);
 
     if (cached) {
-      // Render inmediato desde cache
+      // Render inmediato desde cache y revalidación silenciosa en background.
       const items = extractProducts(cached);
       const pag   = extractPagination(cached);
       setProducts(items.map(applyDiscount));
@@ -383,10 +392,9 @@ export default function Products() {
       if (slug && items[0]?.category_name) setCatName(items[0].category_name);
       setLoading(false);
       setFirstLoad(false);
-      return;
+    } else {
+      setLoading(true);
     }
-
-    setLoading(true);
 
     const params = new URLSearchParams({ page, limit: 100 });
     if (debSearch) params.append("search", debSearch);
