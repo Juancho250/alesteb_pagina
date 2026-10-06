@@ -14,7 +14,7 @@ const fadeUp = {
   },
 };
 
-export default function ProductReviewsSection({ productId, productName }) {
+export default function ProductReviewsSection({ productId, productName, initialSummary = null }) {
   const { user } = useAuth();
 
   // refreshKey triggers full re-fetch of summary + list (after create)
@@ -50,7 +50,8 @@ export default function ProductReviewsSection({ productId, productName }) {
       <div className="mb-10">
         <ProductReviewSummary
           productId={productId}
-          refreshKey={`${refreshKey}-${summaryKey}`}
+          initialSummary={initialSummary}
+          refreshKey={refreshKey || summaryKey ? `${refreshKey}-${summaryKey}` : 0}
         />
       </div>
 
