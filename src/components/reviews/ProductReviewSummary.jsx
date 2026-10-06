@@ -52,18 +52,54 @@ function Skeleton() {
   );
 }
 
+function normalizeInitialSummary(value) {
+  if (!value) return null;
+  return {
+    average: value.average ?? value.avg_rating ?? null,
+    total: value.total ?? value.review_count ?? 0,
+    verifiedCount:
+      value.verifiedCount ??
+      value.verified_review_count ??
+      value.verified_count ??
+      0,
+    distribution:
+      value.distribution ??
+      value.review_distribution ??
+      null,
+  };
+}
+
 export default function ProductReviewSummary({
   productId,
   compact = false,
   refreshKey = 0,
+  initialSummary = null,
 }) {
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const normalizedInitial = normalizeInitialSummary(initialSummary);
+  const [summary, setSummary] = useState(normalizedInitial);
+  const [loading, setLoading] = useState(!normalizedInitial);
 
   useEffect(() => {
     if (!productId) return;
+
+    // Compact cards already receive authoritative stats with the catalog row.
+    // Never launch one extra request per card.
+    if (compact && normalizedInitial) {
+      setSummary(normalizedInitial);
+      setLoading(false);
+      return;
+    }
+
+    // Full product view can paint immediately with catalog stats, then refresh
+    // only when a review mutation explicitly bumps refreshKey.
+    if (normalizedInitial && !refreshKey) {
+      setSummary(normalizedInitial);
+      setLoading(false);
+      return;
+    }
+
     let alive = true;
-    setLoading(true);
+    setLoading(!summary);
 
     api
       .get(`/products/${productId}/reviews?limit=1`)
@@ -72,7 +108,7 @@ export default function ProductReviewSummary({
         setSummary(extractSummary(data));
       })
       .catch(() => {
-        if (alive) setSummary(null);
+        if (alive && !summary) setSummary(null);
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -81,7 +117,7 @@ export default function ProductReviewSummary({
     return () => {
       alive = false;
     };
-  }, [productId, refreshKey]);
+  }, [productId, refreshKey, compact]);
 
   if (compact) {
     if (loading || !summary?.average || !summary?.total) return null;
