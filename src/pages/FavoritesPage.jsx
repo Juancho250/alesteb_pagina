@@ -18,14 +18,6 @@ const fadeUp = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
 };
 
-const cardVariants = {
-  hidden:  { opacity: 0, y: 28 },
-  visible: (i) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.55, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
-
 const FavCard = memo(({ p, index, isInCart, onToggle }) => {
   const [imgLoaded, setImgLoaded] = useState(false);
   const { toggleFavorite, isFavorite } = useFavorites();
@@ -42,13 +34,10 @@ const FavCard = memo(({ p, index, isInCart, onToggle }) => {
   const thumb2x       = imgUrl(p.main_image, 1200);
 
   return (
-    <motion.div
-      custom={index} variants={cardVariants} initial="hidden" animate="visible"
-      className="group relative flex flex-col"
-    >
+    <div className="group relative flex flex-col perf-card">
       {hasDiscount && (
         <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-white/90
-          backdrop-blur-md text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black
+          text-slate-900 px-3 py-1 rounded-2xl text-[10px] font-black
           shadow-sm border border-slate-100">
           <Percent size={9} className="text-blue-600" strokeWidth={3} />
           {discountPct}% OFF
@@ -56,7 +45,7 @@ const FavCard = memo(({ p, index, isInCart, onToggle }) => {
       )}
 
       {hasVariants && (
-        <div className="absolute top-4 right-4 z-20 bg-slate-900/70 backdrop-blur-md
+        <div className="absolute top-4 right-4 z-20 bg-slate-900/70
           text-white px-2.5 py-1 rounded-xl text-[9px] font-black tracking-wider">
           + opciones
         </div>
@@ -65,7 +54,7 @@ const FavCard = memo(({ p, index, isInCart, onToggle }) => {
       {/* Botón favorito */}
       <button
         onClick={(e) => { e.preventDefault(); toggleFavorite(p); }}
-        className={`absolute z-20 p-2.5 rounded-full bg-white/90 backdrop-blur-md
+        className={`absolute z-20 p-2.5 rounded-full bg-white/90
           border border-slate-100 shadow-sm transition-all duration-300
           hover:scale-110 active:scale-95
           ${hasVariants ? "top-12 right-4 mt-1" : "top-4 right-4"}
@@ -139,7 +128,7 @@ const FavCard = memo(({ p, index, isInCart, onToggle }) => {
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 });
 FavCard.displayName = "FavCard";
