@@ -5,7 +5,7 @@ import {
   User, LogOut, Search, LayoutGrid,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import api from "../services/api";
+import { loadPublicJson, readPublicCache } from "../services/publicData";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useAppearance } from "../context/AppearanceContext";
@@ -299,7 +299,9 @@ export default function Navbar() {
   const [openMap,     setOpenMap]     = useState({});
   const [searchOpen,  setSearchOpen]  = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [categories,  setCategories]  = useState([]);
+  const [categories,  setCategories]  = useState(
+    () => extractCategories(readPublicCache("categories", 6 * 60 * 60 * 1000) || {})
+  );
 
   const megaRef = useRef(null);
 
@@ -323,9 +325,9 @@ export default function Navbar() {
   }, [menuOpen]);
 
   useEffect(() => {
-    api.get("/categories")
-      .then(res => setCategories(extractCategories(res.data)))
-      .catch(() => setCategories([]));
+    loadPublicJson("/categories", "categories")
+      .then(payload => setCategories(extractCategories(payload)))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
