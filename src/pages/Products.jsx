@@ -317,7 +317,7 @@ function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
     const key = `${slug ?? ""}-${debSearch}-${nextPage}`;
     if (cacheGet(key)) return; // ya está en cache
 
-    const params = new URLSearchParams({ page: nextPage, limit: 200 });
+    const params = new URLSearchParams({ page: nextPage, limit: 100 });
     if (debSearch) params.append("search", debSearch);
     if (slug)      params.append("category", slug);
 
@@ -388,7 +388,7 @@ export default function Products() {
 
     setLoading(true);
 
-    const params = new URLSearchParams({ page, limit: 200 });
+    const params = new URLSearchParams({ page, limit: 100 });
     if (debSearch) params.append("search", debSearch);
     if (slug)      params.append("category", slug);
 
