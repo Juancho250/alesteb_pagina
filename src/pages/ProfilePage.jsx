@@ -799,6 +799,7 @@ export default function ProfilePage() {
   }
 
   return (
+    <>
       <style>{`
         @keyframes shimmer {
           0%   { background-position: -200% 0; }
@@ -808,7 +809,7 @@ export default function ProfilePage() {
 
       <div className="min-h-screen bg-[#F8FAFC]">
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-10">
+        <div className="bg-white/95 border-b border-slate-100 sticky top-0 z-10">
           <div className="max-w-2xl mx-auto px-4 pt-6 pb-0">
             <Link
               to="/"
@@ -874,5 +875,6 @@ export default function ProfilePage() {
           </AnimatePresence>
         </div>
       </div>
+    </>
   );
 }
