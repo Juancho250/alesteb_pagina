@@ -35,18 +35,18 @@ const PAGE_LABELS = {
   "/checkout": "Checkout",
   "/favoritos": "Favoritos",
   "/perfil": "Perfil",
-  "/contacto": "Contacto",
+  "/contact": "Contacto",
   "/support": "Soporte",
   "/legal": "Legal",
   "/privacidad": "Privacidad",
   "/auth": "Login / Registro",
-  "/pedido-exitoso": "Pedido exitoso",
+  "/order-success": "Pedido exitoso",
 };
 
 function getLabel(pathname) {
   // Rutas dinámicas
-  if (pathname.startsWith("/productos/")) return "Detalle de producto";
-  if (pathname.startsWith("/categoria/")) return "Categoría";
+  if (pathname.startsWith("/productos/categoria/")) return "Categoría";
+  if (pathname.startsWith("/productos/detalle/")) return "Detalle de producto";
   return PAGE_LABELS[pathname] || pathname;
 }
 
