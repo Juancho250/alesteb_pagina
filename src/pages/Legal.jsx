@@ -1,6 +1,5 @@
 // src/pages/Legal.jsx
 import { motion } from "framer-motion";
-import { ReactLenis } from "lenis/react";
 import { Link } from "react-router-dom";
 import { Scale } from "lucide-react";
 import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
@@ -63,7 +62,6 @@ export default function Legal() {
   const businessName = runtime.identity.businessName || "Tienda";
 
   return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
       <div className="min-h-screen bg-white text-black font-sans antialiased">
         <main className="pt-24">
 
@@ -110,8 +108,7 @@ export default function Legal() {
             <div className="max-w-5xl mx-auto">
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={stagger}
                 className="grid grid-cols-1 sm:grid-cols-3 gap-4"
               >
@@ -139,8 +136,7 @@ export default function Legal() {
             <div className="max-w-5xl mx-auto">
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={fadeInUp}
                 className="border border-neutral-100 rounded-2xl p-6 flex flex-wrap gap-3"
               >
@@ -162,8 +158,7 @@ export default function Legal() {
             <div className="max-w-3xl mx-auto">
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={stagger}
               >
                 {sections.map((s, i) => (
@@ -184,8 +179,7 @@ export default function Legal() {
               {/* Links relacionados */}
               <motion.div
                 initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
+                animate="visible"
                 variants={fadeInUp}
                 className="mt-16 grid grid-cols-1 sm:grid-cols-2 gap-4"
               >
@@ -217,6 +211,5 @@ export default function Legal() {
 
         </main>
       </div>
-    </ReactLenis>
   );
 }
