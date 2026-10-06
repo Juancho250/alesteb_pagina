@@ -2,11 +2,11 @@
 import React, { useEffect, useState, useRef, memo, useCallback } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../services/api";
+import { loadPublicJson, readPublicCache } from "../services/publicData";
 import { extractPagination, extractProducts, extractCategories } from "../utils/apiResponse";
 import { useCart } from "../context/CartContext";
 import { useDiscounts } from "../context/DiscountsContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { ReactLenis } from "lenis/react";
 import {
   ShoppingBag, Percent, Search, X,
   ChevronRight, ArrowLeft, Plus, ChevronLeft, Heart,
@@ -330,8 +330,8 @@ function usePrefetchNextPage({ slug, debSearch, page, totalPages }) {
     if (debSearch) params.append("search", debSearch);
     if (slug)      params.append("category", slug);
 
-    api.get(`/products?${params}`)
-      .then(({ data }) => cacheSet(key, data))
+    loadPublicJson(`/products?${params}`, `catalog:${key}`)
+      .then((data) => cacheSet(key, data))
       .catch(() => {});
   }, [slug, debSearch, page, totalPages]);
 }
@@ -348,11 +348,13 @@ export default function Products() {
   const [loading,     setLoading]    = useState(true);
   const [firstLoad,   setFirstLoad]  = useState(true);
   const [search,      setSearch]     = useState(() => searchParams.get("search") || "");
-  const [debSearch,   setDebSearch]  = useState("");
+  const [debSearch,   setDebSearch]  = useState(() => searchParams.get("search") || "");
   const [page,        setPage]       = useState(1);
   const [pagination,  setPagination] = useState({ totalPages: 1, totalItems: 0 });
   const [catName,     setCatName]    = useState("");
-  const [categories,  setCategories] = useState([]);
+  const [categories,  setCategories] = useState(
+    () => extractCategories(readPublicCache("categories", 6 * 60 * 60 * 1000) || {})
+  );
   const searchRef = useRef(null);
 
   // Debounce búsqueda + sincronización bidireccional con URL
@@ -372,8 +374,8 @@ export default function Products() {
 
   // Carga de categorías para el filtro
   useEffect(() => {
-    api.get("/categories")
-      .then(res => setCategories(extractCategories(res.data)))
+    loadPublicJson("/categories", "categories")
+      .then(payload => setCategories(extractCategories(payload)))
       .catch(() => {});
   }, []);
 
@@ -400,8 +402,8 @@ export default function Products() {
     if (debSearch) params.append("search", debSearch);
     if (slug)      params.append("category", slug);
 
-    api.get(`/products?${params}`)
-      .then(({ data }) => {
+    loadPublicJson(`/products?${params}`, `catalog:${cacheKey}`)
+      .then((data) => {
         if (!active) return;
         cacheSet(cacheKey, data);
         const items = extractProducts(data);
@@ -432,7 +434,6 @@ export default function Products() {
   const SKELETONS = 12;
 
   return (
-    <ReactLenis root options={{ lerp: 0.08, duration: 1.8, smoothTouch: false }}>
       <div className="min-h-screen font-sans selection:bg-brand/15 bg-[var(--store-page-bg,#ffffff)]">
         <main className="pt-24 md:pt-32 max-w-7xl mx-auto px-5 sm:px-8 pb-32">
 
@@ -663,6 +664,5 @@ export default function Products() {
 
         </main>
       </div>
-    </ReactLenis>
   );
 }
