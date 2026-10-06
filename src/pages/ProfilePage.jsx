@@ -82,7 +82,7 @@ function StatusTimeline({ order }) {
   const isCancelled = order.payment_status === "cancelled";
   const isPaid      = order.payment_status === "paid";
   const hasProof    = !!order.payment_proof_url;
-  const isOnline    = order.sale_type === "online" || order.sale_type === "web";
+  const isTransfer  = order.payment_method === "transfer";
 
   if (isCancelled) return (
     <div className="flex items-center gap-1.5 text-[9px] font-bold text-red-400 mt-1.5">
@@ -90,7 +90,7 @@ function StatusTimeline({ order }) {
     </div>
   );
 
-  const steps = isOnline
+  const steps = isTransfer
     ? [
         { label: "Recibido",    done: true },
         { label: "Comprobante", done: hasProof },
@@ -99,6 +99,7 @@ function StatusTimeline({ order }) {
       ]
     : [
         { label: "Recibido",   done: true },
+        { label: "Pago",       done: isPaid },
         { label: "Confirmado", done: isPaid },
       ];
 
@@ -250,17 +251,19 @@ function OrderMiniCard({ order, onRefresh }) {
                 <div className="space-y-2 mt-3 mb-3">
                   {items.map((item, i) => (
                     <div key={i} className="flex items-center gap-3 bg-slate-50 rounded-xl p-2.5 border border-slate-100">
-                      {item.main_image && (
+                      {(item.image_url || item.main_image) && (
                         <img
-                          src={optimizeImage(item.main_image, 120)}
-                          alt={item.name}
+                          src={optimizeImage(item.image_url || item.main_image, 120)}
+                          alt={item.product_name || item.name || "Producto"}
                           loading="lazy"
                           decoding="async"
                           className="w-10 h-10 object-cover rounded-lg border border-slate-200 flex-shrink-0"
                         />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-slate-900 text-xs truncate">{item.name}</p>
+                        <p className="font-bold text-slate-900 text-xs truncate">
+                          {item.product_name || item.name || "Producto"}
+                        </p>
                         <p className="text-[10px] text-slate-400">
                           ${Number(item.unit_price).toLocaleString()} × {item.quantity}
                         </p>
