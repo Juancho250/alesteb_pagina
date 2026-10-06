@@ -5,27 +5,7 @@ import BannerCarousel from "../components/BannerCarousel";
 import { ArrowRight } from "lucide-react";
 import { extractBanners, extractCategories, extractProducts } from "../utils/apiResponse";
 
-import { motion } from "framer-motion";
 import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
-const Motion = motion;
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 40 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
-  },
-};
-
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
-};
-
 const getOptimizedImageUrl = (url, width = 600) => {
   if (!url) return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'%3E%3Crect width='400' height='500' fill='%23F5F5F7'/%3E%3C/svg%3E";
   if (url.includes("/upload/")) {
@@ -83,42 +63,31 @@ const FEATURES = [
 
 // ─── Componentes auxiliares ───────────────────────────────────────
 function TickerStrip() {
-  const repeated = [...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS];
   return (
-    <div className="overflow-hidden border-y border-neutral-100 py-4 bg-white">
-      <Motion.div
-        className="flex gap-16 whitespace-nowrap"
-        animate={{ x: ["0%", "-50%"] }}
-        transition={{ duration: 22, ease: "linear", repeat: Infinity }}
-      >
-        {repeated.map((item, i) => (
+    <div className="border-y border-neutral-100 bg-white px-6 py-4">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4">
+        {TICKER_ITEMS.map((item) => (
           <span
-            key={i}
-            className="inline-flex items-center gap-8 text-[10px] font-black uppercase tracking-[0.28em] text-neutral-400 shrink-0"
+            key={item}
+            className="text-center text-[9px] font-black uppercase tracking-[0.2em] text-neutral-400"
           >
             {item}
-            <span className="text-black text-base leading-none select-none">·</span>
           </span>
         ))}
-      </Motion.div>
+      </div>
     </div>
   );
 }
 
 function FeaturesStrip() {
   return (
-    <section className="py-16 px-6 border-t border-neutral-100">
-      <Motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-60px" }}
-        variants={staggerContainer}
+    <section className="py-16 px-6 border-t border-neutral-100 perf-section">
+      <div
         className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-10"
       >
         {FEATURES.map((f, i) => (
-          <Motion.div
+          <div
             key={i}
-            variants={fadeInUp}
             className="flex flex-col items-center text-center gap-4"
           >
             <div className="w-11 h-11 rounded-2xl bg-[#f5f5f7] flex items-center justify-center text-black">
@@ -130,9 +99,9 @@ function FeaturesStrip() {
               </p>
               <p className="text-[11px] text-neutral-500 leading-relaxed">{f.desc}</p>
             </div>
-          </Motion.div>
+          </div>
         ))}
-      </Motion.div>
+      </div>
     </section>
   );
 }
@@ -141,11 +110,7 @@ function CategoryCard({ category }) {
   const childCount = Array.isArray(category?.children) ? category.children.length : 0;
 
   return (
-    <Motion.div
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-80px" }}
-      variants={fadeInUp}
+    <div
     >
       <Link
         to={`/productos/categoria/${category.slug}`}
@@ -172,7 +137,7 @@ function CategoryCard({ category }) {
           />
         </div>
       </Link>
-    </Motion.div>
+    </div>
   );
 }
 
@@ -228,14 +193,13 @@ export default function Home() {
 
           {/* ── BANNER CAROUSEL ── */}
           {banners.length > 0 ? (
-            <Motion.section
+            <section
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1, ease: "easeOut" }}
               className="max-w-[1540px] mx-auto h-[90vh] sm:h-[80vh] bg-[#f5f5f7] overflow-hidden relative md:rounded-3xl shadow-sm md:-mt-16"
             >
               <BannerCarousel banners={banners} />
-            </Motion.section>
+            </section>
           ) : loading ? (
             <section
               className="max-w-[1540px] mx-auto h-[90vh] sm:h-[80vh] bg-[#f5f5f7] overflow-hidden relative md:rounded-3xl shadow-sm md:-mt-16 animate-pulse"
@@ -254,14 +218,9 @@ export default function Home() {
 
           {/* ── HERO TEXT ── */}
           <section className="text-center py-10 md:py-20 px-6 max-w-5xl mx-auto">
-            <Motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={staggerContainer}
+            <div
             >
-              <Motion.h2
-                variants={fadeInUp}
+              <h2
                 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter mb-8 leading-[0.9]"
               >
                 {runtime.brand.tagline ? (
@@ -272,27 +231,23 @@ export default function Home() {
                     <span className="text-neutral-400 italic">la colección.</span>
                   </>
                 )}
-              </Motion.h2>
+              </h2>
 
-              <Motion.div variants={fadeInUp}>
+              <div>
                 <Link
                   to="/productos"
                   className="inline-block px-10 py-4 bg-brand text-white font-bold rounded-full text-sm transition-all hover:scale-105 hover:bg-[var(--brand-hover)] hover:shadow-xl"
                 >
                   Ver colección
                 </Link>
-              </Motion.div>
-            </Motion.div>
+              </div>
+            </div>
           </section>
 
           {/* ── PRODUCTOS ── */}
-          <section className="py-20 px-6 bg-white">
+          <section className="py-20 px-6 bg-white perf-section">
             <div className="max-w-6xl mx-auto">
-              <Motion.div
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: "-100px" }}
-                variants={fadeInUp}
+              <div
                 className="flex flex-col sm:flex-row justify-between items-end gap-4 mb-12"
               >
                 <div className="space-y-1">
@@ -311,13 +266,9 @@ export default function Home() {
                     className="transition-transform group-hover:translate-x-1"
                   />
                 </Link>
-              </Motion.div>
+              </div>
 
-              <Motion.div
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: "-50px" }}
-                variants={staggerContainer}
+              <div
                 className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-8"
               >
                 {featuredProducts.length === 0 && loading
@@ -336,12 +287,13 @@ export default function Home() {
                       to={`/productos/detalle/${p.id}`}
                       className="group block cursor-pointer"
                     >
-                      <Motion.div variants={fadeInUp}>
+                      <div>
                         <div className="aspect-[4/5] bg-[#f5f5f7] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden mb-5 relative">
                           <img
                             src={getOptimizedImageUrl(p.main_image)}
                             alt={p.name}
                             loading="lazy"
+                            decoding="async"
                             className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                           />
                         </div>
@@ -353,11 +305,11 @@ export default function Home() {
                             ${price.toLocaleString()}
                           </p>
                         </div>
-                      </Motion.div>
+                      </div>
                     </Link>
                   );
                 })}
-              </Motion.div>
+              </div>
             </div>
           </section>
 
@@ -366,29 +318,21 @@ export default function Home() {
 
           {/* ── CATEGORÍAS DEL BACKEND ── */}
           {categories.length > 0 && (
-            <section className="py-20 px-6 border-t border-neutral-100">
+            <section className="py-20 px-6 border-t border-neutral-100 perf-section">
               <div className="max-w-6xl mx-auto">
-                <Motion.h3
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true }}
-                  variants={fadeInUp}
+                <h3
                   className="text-center text-3xl md:text-4xl font-black mb-12 uppercase tracking-tighter"
                 >
                   Categorías
-                </Motion.h3>
+                </h3>
 
-                <Motion.div
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true, margin: "-60px" }}
-                  variants={staggerContainer}
+                <div
                   className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
                 >
                   {categories.slice(0, 6).map((category) => (
                     <CategoryCard key={category.id} category={category} />
                   ))}
-                </Motion.div>
+                </div>
               </div>
             </section>
           )}
