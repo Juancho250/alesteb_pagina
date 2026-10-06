@@ -21,7 +21,10 @@ const ENDPOINT = `${STOREFRONT_API_BASE_URL}/analytics/pageview`;
 function getSessionId() {
   let sid = sessionStorage.getItem("_alesteb_sid");
   if (!sid) {
-    sid = `s_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const randomPart = globalThis.crypto?.randomUUID
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+    sid = `s_${randomPart}`;
     sessionStorage.setItem("_alesteb_sid", sid);
   }
   return sid;
@@ -83,14 +86,20 @@ export function usePageTracking() {
       },
       body: JSON.stringify(payload),
       keepalive: true,
-    }).catch(() => {
-      // Si falla el envío, guardamos en localStorage como respaldo
-      const stored = JSON.parse(localStorage.getItem("_alesteb_pageviews") || "[]");
-      stored.push(payload);
-      // Máximo 200 eventos en caché local
-      if (stored.length > 200) stored.splice(0, stored.length - 200);
-      localStorage.setItem("_alesteb_pageviews", JSON.stringify(stored));
-    });
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`PAGEVIEW_HTTP_${response.status}`);
+        }
+      })
+      .catch(() => {
+        // Si falla el envío, guardamos en localStorage como respaldo
+        const stored = JSON.parse(localStorage.getItem("_alesteb_pageviews") || "[]");
+        stored.push(payload);
+        // Máximo 200 eventos en caché local
+        if (stored.length > 200) stored.splice(0, stored.length - 200);
+        localStorage.setItem("_alesteb_pageviews", JSON.stringify(stored));
+      });
 
     // Actualizar refs para la próxima navegación
     prevPath.current = location.pathname;
