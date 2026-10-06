@@ -33,6 +33,44 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Critical public reads start before React so API latency overlaps JS. -->
+    <script>
+      (() => {
+        const base = "/api/storefront/public-api/v1";
+        const bucket = (window.__ALESTEB_PREFETCH__ = window.__ALESTEB_PREFETCH__ || {});
+        const warm = (path) => {
+          if (bucket[path]) return;
+          bucket[path] = fetch(base + path, {
+            headers: { Accept: "application/json" },
+            credentials: "same-origin"
+          }).then((response) => {
+            if (!response.ok) throw new Error("PREFETCH_HTTP_" + response.status);
+            return response.json();
+          }).catch(() => null);
+        };
+
+        warm("/profile");
+        warm("/categories");
+
+        const pathname = window.location.pathname;
+        if (pathname === "/") {
+          warm("/banners");
+          warm("/products?limit=4");
+        } else if (pathname === "/productos" || pathname.startsWith("/productos/categoria/")) {
+          const params = new URLSearchParams({ page: "1", limit: "24" });
+          const search = new URLSearchParams(window.location.search).get("search");
+          if (search) params.append("search", search);
+          if (pathname.startsWith("/productos/categoria/")) {
+            params.append("category", decodeURIComponent(pathname.split("/").pop() || ""));
+          }
+          warm("/products?" + params.toString());
+        } else if (pathname.startsWith("/productos/detalle/")) {
+          const id = pathname.split("/").pop();
+          if (/^\d+$/.test(id || "")) warm("/products/" + id);
+        }
+      })();
+    </script>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
