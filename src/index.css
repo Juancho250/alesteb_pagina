@@ -20,3 +20,37 @@
 .animate-progress {
   animation: progress 3s ease-in-out forwards;
 }
+
+/* ── Scroll/performance baseline ───────────────────────────────────────────── */
+html {
+  scroll-behavior: auto;
+}
+
+body {
+  overflow-y: scroll;
+  text-rendering: optimizeLegibility;
+}
+
+/* Permite que Chromium omita layout/paint de bloques todavía fuera del viewport.
+   contain-intrinsic-size reserva espacio estable y evita saltos al entrar en vista. */
+.perf-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+.perf-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 560px;
+}
+
+/* Las animaciones deben ser un detalle, no un requisito para navegar. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
