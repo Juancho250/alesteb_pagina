@@ -294,7 +294,6 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   const [menuOpen,    setMenuOpen]    = useState(false);
-  const [scrolled,    setScrolled]    = useState(false);
   const [megaOpen,    setMegaOpen]    = useState(false);
   const [openMap,     setOpenMap]     = useState({});
   const [searchOpen,  setSearchOpen]  = useState(false);
@@ -304,12 +303,6 @@ export default function Navbar() {
   );
 
   const megaRef = useRef(null);
-
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 8);
-    window.addEventListener("scroll", fn, { passive: true });
-    return () => window.removeEventListener("scroll", fn);
-  }, []);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -363,11 +356,7 @@ export default function Navbar() {
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 w-full z-[200] transition-all duration-300 ${
-          scrolled
-            ? `border-b ${borderCls} shadow-sm shadow-black/[0.05]`
-            : "backdrop-blur-xl"
-        }`}
+        className={`fixed top-0 left-0 w-full z-[200] border-b ${borderCls}`}
         style={{ backgroundColor: navBg }}
       >
         <div className="max-w-[1540px] mx-auto px-4 sm:px-6 lg:px-10 h-16 lg:h-[68px] flex items-center gap-3">
