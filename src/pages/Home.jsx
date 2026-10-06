@@ -3,10 +3,11 @@ import { Link } from "react-router-dom";
 import api from "../services/api";
 import BannerCarousel from "../components/BannerCarousel";
 import { ArrowRight, Loader2 } from "lucide-react";
-import { extractBanners, extractProducts } from "../utils/apiResponse";
+import { extractBanners, extractCategories, extractProducts } from "../utils/apiResponse";
 
 import { motion } from "framer-motion";
 import { ReactLenis } from "lenis/react";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
 const Motion = motion;
 
 const fadeInUp = {
@@ -34,32 +35,41 @@ const getOptimizedImageUrl = (url, width = 600) => {
   return url;
 };
 
-// ─── Datos estáticos ──────────────────────────────────────────────
+// ─── Mensajes respaldados por capacidades reales del storefront ────────────
 const TICKER_ITEMS = [
-  "Envío gratis en pedidos +$200.000",
-  "Devolución sin preguntas · 30 días",
-  "Garantía 12 meses",
-  "Pago seguro · SSL",
+  "Catálogo conectado al inventario",
+  "Disponibilidad validada en tiempo real",
+  "Pago en línea con Wompi",
+  "Historial de pedidos desde tu cuenta",
 ];
 
 const FEATURES = [
   {
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5 12h14M12 5l7 7-7 7"/>
+        <path d="M3 6h18M6 3v6M18 3v6M5 13h14v8H5z"/>
       </svg>
     ),
-    title: "Envío gratis",
-    desc: "En pedidos superiores a $200.000",
+    title: "Catálogo conectado",
+    desc: "Productos, precios y variantes servidos por la tienda en tiempo real.",
   },
   {
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/>
+        <path d="M4 7h16v10H4z"/><path d="M8 11h8"/>
       </svg>
     ),
-    title: "Devolución fácil",
-    desc: "30 días sin preguntas",
+    title: "Stock validado",
+    desc: "La disponibilidad se comprueba antes de confirmar una compra.",
+  },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>
+      </svg>
+    ),
+    title: "Pago con Wompi",
+    desc: "El monto se calcula en el backend y el pago se procesa en Wompi.",
   },
   {
     icon: (
@@ -67,35 +77,8 @@ const FEATURES = [
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
       </svg>
     ),
-    title: "Garantía total",
-    desc: "12 meses en todos los productos",
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-      </svg>
-    ),
-    title: "Pago seguro",
-    desc: "Encriptación SSL en cada compra",
-  },
-];
-
-const REVIEWS = [
-  {
-    name: "Sara M.",
-    text: "La calidad superó mis expectativas. Lo recomiendo a cualquiera.",
-    stars: 5,
-  },
-  {
-    name: "Carlos R.",
-    text: "Llegó rápido y empaquetado perfecto. Sin duda volvería a comprar.",
-    stars: 5,
-  },
-  {
-    name: "Valentina L.",
-    text: "Exactamente como en las fotos. Atención al cliente impecable.",
-    stars: 5,
+    title: "Cuenta protegida",
+    desc: "Acceso autenticado para checkout, perfil y seguimiento de pedidos.",
   },
 ];
 
@@ -155,93 +138,39 @@ function FeaturesStrip() {
   );
 }
 
-function TestimonialsSection() {
-  return (
-    <section className="py-20 px-6 bg-black text-white">
-      <div className="max-w-6xl mx-auto">
-        <Motion.h3
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeInUp}
-          className="text-3xl md:text-4xl font-black tracking-tighter uppercase italic mb-12"
-        >
-          Lo que dicen
-        </Motion.h3>
+function CategoryCard({ category }) {
+  const childCount = Array.isArray(category?.children) ? category.children.length : 0;
 
-        <Motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-60px" }}
-          variants={staggerContainer}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6"
-        >
-          {REVIEWS.map((r, i) => (
-            <Motion.div
-              key={i}
-              variants={fadeInUp}
-              className="border border-white/10 rounded-2xl p-7 flex flex-col gap-5 hover:border-white/20 transition-colors"
-            >
-              <div className="flex gap-0.5">
-                {[...Array(r.stars)].map((_, j) => (
-                  <span key={j} className="text-white text-sm leading-none">
-                    ★
-                  </span>
-                ))}
-              </div>
-              <p className="text-white/65 text-sm leading-relaxed flex-1">
-                "{r.text}"
-              </p>
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
-                — {r.name}
-              </p>
-            </Motion.div>
-          ))}
-        </Motion.div>
-      </div>
-    </section>
-  );
-}
-
-function PromoCard({ title, subtitle, img, dark = false, link }) {
   return (
     <Motion.div
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: true, margin: "-100px" }}
+      viewport={{ once: true, margin: "-80px" }}
       variants={fadeInUp}
-      className="w-full"
     >
       <Link
-        to={link}
-        className="relative h-[400px] md:h-[500px] rounded-[2rem] md:rounded-[3rem] overflow-hidden group block shadow-sm hover:shadow-2xl transition-all duration-500"
+        to={`/productos/categoria/${category.slug}`}
+        className="group block rounded-[2rem] border border-neutral-200 bg-white p-7 md:p-9
+          hover:border-neutral-900 hover:shadow-xl transition-all duration-300"
       >
-        <Motion.div
-          className="absolute inset-0 w-full h-full"
-          whileHover={{ scale: 1.05 }}
-          transition={{ duration: 1.2, ease: "easeOut" }}
-        >
-          <img
-            src={img}
-            loading="lazy"
-            className="w-full h-full object-cover"
-            alt={title}
+        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400 mb-3">
+          Categoría
+        </p>
+        <div className="flex items-end justify-between gap-6">
+          <div>
+            <h4 className="text-2xl md:text-3xl font-black tracking-tight text-neutral-900">
+              {category.name}
+            </h4>
+            {childCount > 0 && (
+              <p className="text-xs text-neutral-400 mt-2">
+                {childCount} {childCount === 1 ? "subcategoría" : "subcategorías"}
+              </p>
+            )}
+          </div>
+          <ArrowRight
+            size={20}
+            className="text-neutral-400 transition-transform group-hover:translate-x-1 group-hover:text-black"
           />
-        </Motion.div>
-
-        <div
-          className={`absolute inset-0 p-8 md:p-12 flex flex-col justify-end ${
-            dark
-              ? "bg-gradient-to-t from-black/70 to-transparent text-white"
-              : "bg-gradient-to-t from-white/70 to-transparent text-black"
-          }`}
-        >
-          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] mb-2 opacity-80">
-            {title}
-          </h4>
-          <p className="text-4xl md:text-6xl font-black tracking-tighter leading-[0.9]">
-            {subtitle}
-          </p>
         </div>
       </Link>
     </Motion.div>
@@ -250,16 +179,20 @@ function PromoCard({ title, subtitle, img, dark = false, link }) {
 
 // ─── Página principal ─────────────────────────────────────────────
 export default function Home() {
+  const { runtime } = useSiteRuntime();
   const [banners, setBanners] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     const loadHomeData = async () => {
       try {
-        const [bannersRes, productsRes] = await Promise.all([
+        const [bannersRes, productsRes, categoriesRes] = await Promise.all([
           api.get("/banners"),
           api.get("/products?limit=4"),
+          api.get("/categories"),
         ]);
 
         const bannersData = extractBanners(bannersRes.data);
@@ -269,8 +202,13 @@ export default function Home() {
 
         const productsData = extractProducts(productsRes.data);
         setFeaturedProducts(Array.isArray(productsData) ? productsData : []);
+
+        const categoriesData = extractCategories(categoriesRes.data);
+        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        setLoadError(false);
       } catch (err) {
         console.error("Error loading home data", err);
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
@@ -282,6 +220,29 @@ export default function Home() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--store-page-bg,#ffffff)]">
         <Loader2 className="animate-spin text-black mb-4" size={40} />
+      </div>
+    );
+
+  if (loadError)
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6 bg-[var(--store-page-bg,#ffffff)]">
+        <div className="max-w-md text-center">
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-400 mb-3">
+            Servicio temporalmente no disponible
+          </p>
+          <h1 className="text-3xl font-black tracking-tight text-neutral-900 mb-3">
+            No pudimos conectar con la tienda.
+          </h1>
+          <p className="text-sm text-neutral-500 mb-6">
+            Evitamos mostrar catálogo o disponibilidad desactualizados. Intenta nuevamente en unos segundos.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 rounded-full bg-neutral-900 text-white text-sm font-bold"
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
     );
 
@@ -317,8 +278,14 @@ export default function Home() {
                 variants={fadeInUp}
                 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter mb-8 leading-[0.9]"
               >
-                Redefiniendo <br />
-                <span className="text-neutral-400 italic">lo cotidiano.</span>
+                {runtime.brand.tagline ? (
+                  runtime.brand.tagline
+                ) : (
+                  <>
+                    Explora <br />
+                    <span className="text-neutral-400 italic">la colección.</span>
+                  </>
+                )}
               </Motion.h2>
 
               <Motion.div variants={fadeInUp}>
@@ -403,39 +370,34 @@ export default function Home() {
           {/* ── PROPUESTAS DE VALOR ── */}
           <FeaturesStrip />
 
-          {/* ── COLECCIONES ── */}
-          <section className="py-20 px-6 border-t border-neutral-100">
-            <div className="max-w-6xl mx-auto">
-              <Motion.h3
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={fadeInUp}
-                className="text-center text-3xl md:text-4xl font-black mb-16 uppercase tracking-tighter"
-              >
-                Colecciones
-              </Motion.h3>
+          {/* ── CATEGORÍAS DEL BACKEND ── */}
+          {categories.length > 0 && (
+            <section className="py-20 px-6 border-t border-neutral-100">
+              <div className="max-w-6xl mx-auto">
+                <Motion.h3
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  variants={fadeInUp}
+                  className="text-center text-3xl md:text-4xl font-black mb-12 uppercase tracking-tighter"
+                >
+                  Categorías
+                </Motion.h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
-                <PromoCard
-                  title="Audio Pro"
-                  subtitle="Inmersión"
-                  img="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1000"
-                  dark
-                  link="/productos?categoria=audio"
-                />
-                <PromoCard
-                  title="Workspace"
-                  subtitle="Focus"
-                  img="https://images.unsplash.com/photo-1493934558415-9d19f0b2b4d2?q=80&w=1000"
-                  link="/productos?categoria=desktop"
-                />
+                <Motion.div
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true, margin: "-60px" }}
+                  variants={staggerContainer}
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+                >
+                  {categories.slice(0, 6).map((category) => (
+                    <CategoryCard key={category.id} category={category} />
+                  ))}
+                </Motion.div>
               </div>
-            </div>
-          </section>
-
-          {/* ── TESTIMONIOS ── */}
-          <TestimonialsSection />
+            </section>
+          )}
 
         </main>
       </div>
