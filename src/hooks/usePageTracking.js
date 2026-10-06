@@ -78,31 +78,42 @@ export function usePageTracking() {
       // userId: authUser?.id ?? null,
     };
 
-    // Envío al backend (fire-and-forget, no bloqueante)
-    fetch(ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`PAGEVIEW_HTTP_${response.status}`);
-        }
+    // Analytics no debe competir con LCP, catálogo o perfil durante el arranque.
+    const send = () => {
+      fetch(ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        keepalive: true,
       })
-      .catch(() => {
-        // Si falla el envío, guardamos en localStorage como respaldo
-        const stored = JSON.parse(localStorage.getItem("_alesteb_pageviews") || "[]");
-        stored.push(payload);
-        // Máximo 200 eventos en caché local
-        if (stored.length > 200) stored.splice(0, stored.length - 200);
-        localStorage.setItem("_alesteb_pageviews", JSON.stringify(stored));
-      });
+        .then((response) => {
+          if (!response.ok) throw new Error(`PAGEVIEW_HTTP_${response.status}`);
+        })
+        .catch(() => {
+          const stored = JSON.parse(localStorage.getItem("_alesteb_pageviews") || "[]");
+          stored.push(payload);
+          if (stored.length > 200) stored.splice(0, stored.length - 200);
+          localStorage.setItem("_alesteb_pageviews", JSON.stringify(stored));
+        });
+    };
+
+    let idleId = null;
+    let timeoutId = null;
+    if ("requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(send, { timeout: 1600 });
+    } else {
+      timeoutId = window.setTimeout(send, 1200);
+    }
 
     // Actualizar refs para la próxima navegación
     prevPath.current = location.pathname;
     enteredAt.current = now;
+
+    return () => {
+      if (idleId != null) window.cancelIdleCallback?.(idleId);
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+    };
   }, [location.pathname]);
 }
