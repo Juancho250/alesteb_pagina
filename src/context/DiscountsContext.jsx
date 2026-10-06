@@ -1,16 +1,39 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import api from "../services/api";
+import { loadPublicJson, readPublicCache } from "../services/publicData";
 
 const DiscountsContext = createContext({ discounts: [], applyDiscount: (p) => p });
 
 export function DiscountsProvider({ children }) {
-  const [discounts, setDiscounts] = useState([]);
+  const [discounts, setDiscounts] = useState(() => {
+    const cached = readPublicCache("discounts", 10 * 60 * 1000);
+    return Array.isArray(cached?.data) ? cached.data : [];
+  });
 
   useEffect(() => {
-    api.get("/discounts")
-      .then(({ data }) => setDiscounts(Array.isArray(data?.data) ? data.data : []))
-      .catch(() => setDiscounts([]));
+    let cancelled = false;
+    let idleId = null;
+    let timeoutId = null;
+
+    const refresh = () => {
+      loadPublicJson("/discounts", "discounts")
+        .then((payload) => {
+          if (!cancelled) setDiscounts(Array.isArray(payload?.data) ? payload.data : []);
+        })
+        .catch(() => {});
+    };
+
+    if ("requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(refresh, { timeout: 1500 });
+    } else {
+      timeoutId = window.setTimeout(refresh, 800);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId != null) window.cancelIdleCallback?.(idleId);
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+    };
   }, []);
 
   // ✅ FIX: applyDiscount acepta un segundo argumento `basePrice` opcional.
