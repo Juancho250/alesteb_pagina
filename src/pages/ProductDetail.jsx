@@ -196,16 +196,14 @@ export default function ProductDetail() {
 
     const cached = cacheGet(id);
     if (cached) {
-      // ✅ FIX: Re-aplicar descuentos al leer de cache por si el contexto
-      // cambió (ej. descuento expiró o se activó uno nuevo)
+      // Pintar instantáneamente desde cache y revalidar en background.
       const withDiscount = applyDiscount(cached);
       setProduct(withDiscount);
       autoSelectSingleVariant(withDiscount);
       setLoading(false);
-      return;
+    } else {
+      setLoading(true);
     }
-
-    setLoading(true);
     api.get(`/products/${id}`)
       .then(({ data }) => {
         if (!alive) return;
@@ -967,7 +965,16 @@ export default function ProductDetail() {
           </motion.div>
         </div>
 
-        <ProductReviewsSection productId={id} productName={product.name} />
+        <ProductReviewsSection
+          productId={id}
+          productName={product.name}
+          initialSummary={{
+            avg_rating: product.avg_rating,
+            review_count: product.review_count,
+            verified_review_count: product.verified_review_count,
+            review_distribution: product.review_distribution,
+          }}
+        />
       </div>
     </div>
   );
