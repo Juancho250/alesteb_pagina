@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react"; // ← agregar useEffect
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   Lock, Mail, User, ArrowRight, 
   ShieldCheck, Zap, Globe, Loader2, KeyRound, RefreshCw 
 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
 
 export default function Auth() {
   const { loginWithToken } = useAuth();
+  const { runtime } = useSiteRuntime();
+  const businessName = runtime.identity.businessName || "Tienda";
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState("auth");
@@ -16,6 +19,11 @@ export default function Auth() {
   const [loggedUser, setLoggedUser] = useState(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const navigate = useNavigate();
+  const location = useLocation();
+  const postLoginDestination =
+    typeof location.state?.from === "string" && location.state.from.startsWith("/")
+      ? location.state.from
+      : "/";
   
   const [formData, setFormData] = useState({
     name: "", email: "", password: "", phone: "", cedula: ""
@@ -54,7 +62,7 @@ export default function Auth() {
           setLoggedUser(userToLogin);
           setStep("success");
           
-          setTimeout(() => navigate("/"), 3500);
+          setTimeout(() => navigate(postLoginDestination, { replace: true }), 1200);
 
         } else {
           alert(`¡Registro exitoso! Hemos enviado un código de verificación a ${formData.email}`);
@@ -109,7 +117,7 @@ export default function Auth() {
         <div className="w-full max-w-4xl px-12">
           <div className="space-y-4 text-center sm:text-left">
             <p className="text-[10px] font-black tracking-[0.6em] uppercase text-slate-300 animate-in slide-in-from-left-8 duration-1000">
-              Secure Entry / Alesteb Boutique
+              Acceso seguro / {businessName}
             </p>
             <h2 className="text-5xl md:text-8xl font-light tracking-tighter leading-none uppercase animate-in slide-in-from-bottom-12 duration-1000 delay-200">
               Hola, <br />
@@ -130,14 +138,14 @@ export default function Auth() {
                 </span>
               </div>
               <span className="text-[9px] font-bold tracking-[0.3em] uppercase text-slate-300">
-                Cargando colección exclusiva 2026
+                Preparando tu cuenta
               </span>
             </div>
           </div>
         </div>
         <div className="absolute left-12 bottom-12 -rotate-90 origin-left hidden md:block">
           <p className="text-[8px] font-black tracking-[0.5em] uppercase text-slate-100">
-            ALESTEB // NEW ERA SHOPPING
+            {businessName.toUpperCase()} // CUENTA DE CLIENTE
           </p>
         </div>
         <style>{`
@@ -161,9 +169,9 @@ export default function Auth() {
             }
           </h2>
           <div className="space-y-6 mt-12">
-            <AuthBenefit icon={<ShieldCheck />} text="Seguridad encriptada de grado militar" />
-            <AuthBenefit icon={<Zap />} text="Acceso prioritario a nuevos lanzamientos" />
-            <AuthBenefit icon={<Globe />} text="Comunidad global de diseño y tecnología" />
+            <AuthBenefit icon={<ShieldCheck />} text="Sesión protegida y verificación de cuenta" />
+            <AuthBenefit icon={<Zap />} text="Checkout y seguimiento de pedidos desde tu cuenta" />
+            <AuthBenefit icon={<Globe />} text="Historial de compras asociado a tu perfil" />
           </div>
         </div>
         <div className="absolute bottom-[-10%] right-[-10%] opacity-[0.03] select-none pointer-events-none">
@@ -171,7 +179,7 @@ export default function Auth() {
         </div>
         <div className="z-10">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-            © 2026 ALESTEB SYSTEM / AUTH_MODULE
+            © {new Date().getFullYear()} {businessName.toUpperCase()}
           </p>
         </div>
       </div>
@@ -179,7 +187,7 @@ export default function Auth() {
       <div className="flex-1 flex items-center justify-center p-8 lg:p-24 bg-white">
         <div className="w-full max-w-sm">
           <div className="mb-10 lg:hidden text-center">
-            <Link to="/" className="text-xl font-black italic tracking-tighter uppercase">ALESTEB</Link>
+            <Link to="/" className="text-xl font-black italic tracking-tighter uppercase">{businessName}</Link>
           </div>
           <div className="mb-10">
             <h3 className="text-2xl font-black tracking-tighter uppercase italic text-slate-900">
@@ -232,7 +240,7 @@ export default function Auth() {
                 />
                 {!isLogin && (
                   <p className="text-[10px] text-slate-400 px-1">
-                    💡 Mínimo 8 caracteres con mayúsculas, minúsculas y números
+                    Mínimo 8 caracteres con mayúscula, minúscula, número y carácter especial
                   </p>
                 )}
               </>
