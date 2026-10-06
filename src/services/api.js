@@ -1,7 +1,6 @@
 import axios from "axios";
 import {
   STOREFRONT_API_BASE_URL,
-  STOREFRONT_API_KEY,
   storefrontHeaders,
 } from "./storefrontConfig";
 
@@ -51,10 +50,6 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     config.headers = config.headers || {};
-
-    if (STOREFRONT_API_KEY) {
-      config.headers["X-API-Key"] = STOREFRONT_API_KEY;
-    }
 
     const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     if (token && !config.headers.Authorization) {
