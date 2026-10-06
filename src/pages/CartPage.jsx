@@ -4,8 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCart, getItemPrice } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 
-const rawBase = import.meta.env.VITE_API_BASE_URL?.trim() ?? "https://alesteb-back-1.onrender.com/api";
-const PUBLIC_API_BASE = rawBase.replace(/\/api\/?$/, "/public-api/v1");
 import {
   ShoppingBag, ArrowLeft, Trash2, Plus, Minus,
   ArrowRight, LogIn, AlertCircle, Truck, Clock,
