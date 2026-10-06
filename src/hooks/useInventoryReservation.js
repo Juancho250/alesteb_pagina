@@ -7,7 +7,10 @@ import api from "../services/api";
 function getSessionId() {
   let sid = sessionStorage.getItem("_alesteb_sid");
   if (!sid) {
-    sid = `s_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const randomPart = globalThis.crypto?.randomUUID
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+    sid = `s_${randomPart}`;
     sessionStorage.setItem("_alesteb_sid", sid);
   }
   return sid;
