@@ -165,7 +165,7 @@ export default function Auth() {
           <h2 className="text-6xl font-black tracking-tighter leading-[0.9] uppercase italic mb-8 whitespace-pre-line">
             {step === "verify" 
               ? "Verifica \n tu identidad." 
-              : (isLogin ? "Bienvenido de \n vuelta al futuro." : "Únete a la \n vanguardia digital.")
+              : (isLogin ? "Bienvenido de \n vuelta." : "Crea tu \n cuenta.")
             }
           </h2>
           <div className="space-y-6 mt-12">
