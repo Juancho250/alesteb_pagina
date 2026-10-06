@@ -95,7 +95,7 @@ function ControlPill({ banners, current, go, isPaused, setIsPaused, onPrev, onNe
       {/* Pill principal con dots */}
       <div
         className="flex items-center gap-[7px] px-4 h-[42px] rounded-full
-          bg-white/10 backdrop-blur-xl border border-white/10
+          bg-white/10 border border-white/10
           shadow-[0_4px_24px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.08)]"
       >
         {/* Flecha prev — solo visible en mobile dentro de la pill */}
@@ -146,7 +146,7 @@ function ControlPill({ banners, current, go, isPaused, setIsPaused, onPrev, onNe
           onClick={() => setIsPaused(p => !p)}
           aria-label={isPaused ? "Reanudar slideshow" : "Pausar slideshow"}
           className="absolute inset-[4px] rounded-full flex items-center justify-center
-            bg-white/10 backdrop-blur-xl border border-white/10
+            bg-white/10 border border-white/10
             text-white/60 hover:text-white hover:bg-white/18
             transition-all duration-200 hover:scale-105 active:scale-95
             shadow-[0_4px_24px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.08)]"
@@ -170,7 +170,8 @@ export default function BannerCarousel({ banners }) {
   const [touchStart, setTouchStart] = useState(null);
   const [direction,  setDirection]  = useState(1);
   const timerRef   = useRef(null);
-  const allLoaded  = useRef(false);
+  const rootRef    = useRef(null);
+  const [isVisible, setIsVisible] = useState(true);
 
   const go = useCallback((idx, dir = 1) => {
     setDirection(dir);
@@ -185,28 +186,31 @@ export default function BannerCarousel({ banners }) {
     go(current === 0 ? banners.length - 1 : current - 1, -1);
   }, [current, banners.length, go]);
 
-  // Precarga de todas las imágenes en background
   useEffect(() => {
-    if (!banners?.length || allLoaded.current) return;
-    allLoaded.current = true;
-    const t = setTimeout(() => {
-      banners.forEach((s, i) => { if (i !== 0) preloadImage(s.image_url); });
-    }, 1500);
-    return () => clearTimeout(t);
-  }, [banners]);
-
-  useEffect(() => {
-    if (!banners?.length) return;
+    if (!banners?.length || !isVisible) return;
     const nextIdx = current === banners.length - 1 ? 0 : current + 1;
     preloadImage(banners[nextIdx]?.image_url, 1600);
-  }, [current, banners]);
+  }, [current, banners, isVisible]);
+
+  // Pausa completamente slideshow y zoom cuando el hero sale del viewport.
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting && entry.intersectionRatio > 0.03),
+      { threshold: [0, 0.03, 0.2] }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   // Auto-play
   useEffect(() => {
-    if (banners.length <= 1 || isPaused) return;
+    if (banners.length <= 1 || isPaused || !isVisible) return;
     timerRef.current = setInterval(next, INTERVAL);
     return () => clearInterval(timerRef.current);
-  }, [banners.length, isPaused, next]);
+  }, [banners.length, isPaused, isVisible, next]);
 
   // Swipe táctil
   const handleTouchStart = useCallback(e => setTouchStart(e.touches[0].clientX), []);
@@ -234,6 +238,7 @@ export default function BannerCarousel({ banners }) {
 
   return (
     <div
+      ref={rootRef}
       role="region"
       aria-label="Banner principal"
       className="relative w-full h-full bg-[#050505] overflow-hidden select-none"
@@ -254,7 +259,7 @@ export default function BannerCarousel({ banners }) {
           >
             <div
               className={`absolute inset-0 transition-transform ease-in-out
-                ${isActive ? "scale-[1.08] duration-[9000ms]" : "scale-100 duration-0"}`}
+                ${isVisible && isActive ? "scale-[1.06] duration-[9000ms]" : "scale-100 duration-0"}`}
             >
               <img
                 src={getBannerUrl(s.image_url, { w: 1600 })}
@@ -330,7 +335,7 @@ export default function BannerCarousel({ banners }) {
                 to="/productos"
                 className="w-full sm:w-auto px-10 py-4 border border-white/25 text-white rounded-full
                   font-black text-[10px] tracking-[0.2em] uppercase
-                  hover:bg-white/10 backdrop-blur-md
+                  hover:bg-white/10
                   transition-all duration-300 hover:scale-105 active:scale-95"
               >
                 Explorar colección
@@ -350,7 +355,7 @@ export default function BannerCarousel({ banners }) {
           onClick={prev}
           aria-label="Banner anterior"
           className="group w-11 h-11 flex items-center justify-center rounded-full
-            border border-white/10 bg-white/5 backdrop-blur-sm
+            border border-white/10 bg-white/5
             text-white/30 hover:text-white hover:bg-white/15 hover:border-white/25
             transition-all duration-300 hover:scale-105 active:scale-95"
         >
@@ -362,7 +367,7 @@ export default function BannerCarousel({ banners }) {
           onClick={next}
           aria-label="Siguiente banner"
           className="group w-11 h-11 flex items-center justify-center rounded-full
-            border border-white/10 bg-white/5 backdrop-blur-sm
+            border border-white/10 bg-white/5
             text-white/30 hover:text-white hover:bg-white/15 hover:border-white/25
             transition-all duration-300 hover:scale-105 active:scale-95"
         >
@@ -377,7 +382,7 @@ export default function BannerCarousel({ banners }) {
             banners={banners}
             current={current}
             go={go}
-            isPaused={isPaused}
+            isPaused={isPaused || !isVisible}
             setIsPaused={setIsPaused}
             onPrev={prev}
             onNext={next}
