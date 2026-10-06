@@ -38,7 +38,7 @@ const sections = [
   },
   {
     title: "6. Retención de datos",
-    body: `Conservamos tus datos mientras tu cuenta esté activa o sea necesario para prestarte el servicio. Si eliminas tu cuenta, eliminamos tu información personal en un plazo de 30 días, exceptuando los registros contables que debemos conservar por obligación legal por un período de 5 años.`,
+    body: `Conservamos tus datos mientras sean necesarios para prestar el servicio, atender obligaciones contractuales y cumplir los períodos de conservación exigidos por la normativa aplicable. Las solicitudes de eliminación se procesan teniendo en cuenta esas obligaciones legales.`,
   },
   {
     title: "7. Cambios a esta política",
@@ -92,7 +92,7 @@ export default function Privacy() {
                 variants={fadeInUp}
                 className="text-[11px] text-neutral-400 font-bold mt-4"
               >
-                Última actualización: enero 2026
+                Última actualización: octubre 2026
               </motion.p>
             </motion.div>
           </section>
