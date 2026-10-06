@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/storefront/[...path].js": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     {
       "source": "/((?!.*\\.).*)",
