@@ -13,10 +13,7 @@
 
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import {
-  STOREFRONT_API_BASE_URL,
-  STOREFRONT_API_KEY,
-} from "../services/storefrontConfig";
+import { STOREFRONT_API_BASE_URL } from "../services/storefrontConfig";
 
 const ENDPOINT = `${STOREFRONT_API_BASE_URL}/analytics/pageview`;
 
@@ -83,7 +80,6 @@ export function usePageTracking() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(STOREFRONT_API_KEY && { "X-API-Key": STOREFRONT_API_KEY }),
       },
       body: JSON.stringify(payload),
       keepalive: true,
