@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../services/api";
+import { loadPublicJson, readPublicCache } from "../services/publicData";
 import BannerCarousel from "../components/BannerCarousel";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { extractBanners, extractCategories, extractProducts } from "../utils/apiResponse";
 
 import { motion } from "framer-motion";
-import { ReactLenis } from "lenis/react";
 import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
 const Motion = motion;
 
@@ -180,30 +179,37 @@ function CategoryCard({ category }) {
 // ─── Página principal ─────────────────────────────────────────────
 export default function Home() {
   const { runtime } = useSiteRuntime();
-  const [banners, setBanners] = useState([]);
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [banners, setBanners] = useState(
+    () => extractBanners(readPublicCache("banners", 6 * 60 * 60 * 1000) || {})
+      .filter((b) => b.is_active)
+  );
+  const [featuredProducts, setFeaturedProducts] = useState(
+    () => extractProducts(readPublicCache("home-products", 10 * 60 * 1000) || {})
+  );
+  const [categories, setCategories] = useState(
+    () => extractCategories(readPublicCache("categories", 6 * 60 * 60 * 1000) || {})
+  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     const loadHomeData = async () => {
       try {
-        const [bannersRes, productsRes, categoriesRes] = await Promise.all([
-          api.get("/banners"),
-          api.get("/products?limit=4"),
-          api.get("/categories"),
+        const [bannersPayload, productsPayload, categoriesPayload] = await Promise.all([
+          loadPublicJson("/banners", "banners"),
+          loadPublicJson("/products?limit=4", "home-products"),
+          loadPublicJson("/categories", "categories"),
         ]);
 
-        const bannersData = extractBanners(bannersRes.data);
+        const bannersData = extractBanners(bannersPayload);
         setBanners(
           Array.isArray(bannersData) ? bannersData.filter((b) => b.is_active) : []
         );
 
-        const productsData = extractProducts(productsRes.data);
+        const productsData = extractProducts(productsPayload);
         setFeaturedProducts(Array.isArray(productsData) ? productsData : []);
 
-        const categoriesData = extractCategories(categoriesRes.data);
+        const categoriesData = extractCategories(categoriesPayload);
         setCategories(Array.isArray(categoriesData) ? categoriesData : []);
         setLoadError(false);
       } catch (err) {
@@ -216,15 +222,7 @@ export default function Home() {
     loadHomeData();
   }, []);
 
-  if (loading)
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--store-page-bg,#ffffff)]">
-        <Loader2 className="animate-spin text-black mb-4" size={40} />
-      </div>
-    );
-
-  if (loadError)
-    return (
+  return (
       <div className="min-h-screen flex items-center justify-center px-6 bg-[var(--store-page-bg,#ffffff)]">
         <div className="max-w-md text-center">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-400 mb-3">
@@ -247,12 +245,11 @@ export default function Home() {
     );
 
   return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothTouch: true }}>
       <div className="min-h-screen text-black font-sans antialiased selection:bg-neutral-200 bg-[var(--store-page-bg,#ffffff)]">
         <main className="pt-20 md:pt-24">
 
           {/* ── BANNER CAROUSEL ── */}
-          {banners.length > 0 && (
+          {banners.length > 0 ? (
             <Motion.section
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -261,6 +258,17 @@ export default function Home() {
             >
               <BannerCarousel banners={banners} />
             </Motion.section>
+          ) : loading ? (
+            <section
+              className="max-w-[1540px] mx-auto h-[90vh] sm:h-[80vh] bg-[#f5f5f7] overflow-hidden relative md:rounded-3xl shadow-sm md:-mt-16 animate-pulse"
+              aria-label="Cargando contenido principal"
+            />
+          ) : null}
+
+          {loadError && banners.length === 0 && featuredProducts.length === 0 && categories.length === 0 && (
+            <div className="mx-auto max-w-6xl px-6 py-3 text-center text-[11px] font-semibold text-neutral-400">
+              No pudimos actualizar los datos. Reintentaremos automáticamente al volver.
+            </div>
           )}
 
           {/* ── TICKER ── */}
@@ -334,7 +342,15 @@ export default function Home() {
                 variants={staggerContainer}
                 className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-8"
               >
-                {featuredProducts.map((p) => {
+                {featuredProducts.length === 0 && loading
+                  ? Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="aspect-[4/5] bg-[#f5f5f7] rounded-[1.5rem] md:rounded-[2rem] mb-5" />
+                        <div className="h-2.5 w-2/3 rounded-full bg-neutral-100 mb-2" />
+                        <div className="h-5 w-1/2 rounded-full bg-neutral-100" />
+                      </div>
+                    ))
+                  : featuredProducts.map((p) => {
                   const price = Number(p.final_price || p.price);
                   return (
                     <Link
@@ -401,6 +417,5 @@ export default function Home() {
 
         </main>
       </div>
-    </ReactLenis>
   );
 }
