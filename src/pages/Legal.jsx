@@ -100,7 +100,7 @@ export default function Legal() {
                 variants={fadeInUp}
                 className="text-[11px] text-neutral-400 font-bold mt-4"
               >
-                Última actualización: enero 2026
+                Última actualización: octubre 2026
               </motion.p>
             </motion.div>
           </section>
