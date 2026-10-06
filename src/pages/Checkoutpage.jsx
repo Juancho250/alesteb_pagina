@@ -142,6 +142,15 @@ export default function CheckoutPage() {
         "redirect-url":    p.redirect_url,
       });
 
+      sessionStorage.setItem(
+        "alesteb:wompi:pending",
+        JSON.stringify({
+          saleId,
+          reference: p.reference,
+          createdAt: Date.now(),
+        })
+      );
+
       clearCart();
       setRedirecting(true);
       window.location.href =
