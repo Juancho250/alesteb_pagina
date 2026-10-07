@@ -74,11 +74,15 @@ function clamp(value, min, max, fallback) {
   return Math.min(max, Math.max(min, Math.round(parsed)));
 }
 
-function TickerStrip() {
+function TickerStrip({ settings }) {
+  const items = Array.isArray(settings?.items) && settings.items.length
+    ? settings.items.slice(0, 4)
+    : TICKER_ITEMS;
+
   return (
     <div className="border-y border-neutral-100 bg-white px-6 py-4">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4">
-        {TICKER_ITEMS.map((item) => (
+        {items.map((item) => (
           <span
             key={item}
             className="text-center text-[9px] font-black uppercase tracking-[0.2em] text-neutral-400"
@@ -91,11 +95,22 @@ function TickerStrip() {
   );
 }
 
-function FeaturesStrip() {
+function FeaturesStrip({ settings }) {
+  const configuredItems = Array.isArray(settings?.items) ? settings.items.slice(0, 4) : [];
+  const items = FEATURES.map((fallback, index) => {
+    const configured = configuredItems[index];
+    if (!configured || typeof configured !== "object") return fallback;
+    return {
+      ...fallback,
+      title: String(configured.title || fallback.title),
+      desc: String(configured.description || fallback.desc),
+    };
+  });
+
   return (
     <section className="perf-section border-t border-neutral-100 px-6 py-16">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-10 md:grid-cols-4">
-        {FEATURES.map((feature) => (
+        {items.map((feature) => (
           <div key={feature.title} className="flex flex-col items-center gap-4 text-center">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f5f5f7] text-black">
               {feature.icon}
@@ -364,7 +379,7 @@ export default function Home() {
       case "hero.banner":
         return <BannerSection key={section.id} banners={banners} loading={loading} />;
       case "trust.strip":
-        return <TickerStrip key={section.id} />;
+        return <TickerStrip key={section.id} settings={section.settings} />;
       case "hero.copy":
         return <HeroCopySection key={section.id} runtime={runtime} settings={section.settings} />;
       case "product.collection":
@@ -377,7 +392,7 @@ export default function Home() {
           />
         );
       case "feature.strip":
-        return <FeaturesStrip key={section.id} />;
+        return <FeaturesStrip key={section.id} settings={section.settings} />;
       case "category.grid":
         return (
           <CategoryGridSection
