@@ -73,6 +73,7 @@ function forwardedHeaders(req) {
     "content-type",
     "idempotency-key",
     "x-session-id",
+    "x-alesteb-preview-token",
     "user-agent",
   ]) {
     const value = req.headers[name];

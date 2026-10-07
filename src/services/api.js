@@ -21,6 +21,14 @@ const TERMINAL_TOKEN_CODES = new Set([
   "INVALID_REFRESH_TOKEN",
 ]);
 
+function readStorefrontPreviewToken() {
+  if (typeof window === "undefined") return "";
+  const hash = window.location.hash.startsWith("#")
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  return new URLSearchParams(hash).get("preview") || "";
+}
+
 export function getRefreshToken() {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
@@ -54,6 +62,11 @@ api.interceptors.request.use(
     const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    const previewToken = readStorefrontPreviewToken();
+    if (previewToken && !config.headers["X-ALESTEB-Preview-Token"]) {
+      config.headers["X-ALESTEB-Preview-Token"] = previewToken;
     }
 
     return config;
