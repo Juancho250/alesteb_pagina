@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import api from "../../services/api";
 import { loadPublicJson } from "../../services/publicData";
 import {
   createSiteRuntime,
@@ -45,6 +46,9 @@ const FATAL_STOREFRONT_CODES = new Set([
   "API_KEY_EXPIRED",
   "ORIGIN_NOT_ALLOWED",
   "TENANT_CONTEXT_UNAVAILABLE",
+  "SITE_PREVIEW_TOKEN_EXPIRED",
+  "SITE_PREVIEW_TOKEN_INVALID",
+  "SITE_PREVIEW_TENANT_MISMATCH",
 ]);
 
 function storefrontFatalError(error) {
@@ -63,8 +67,13 @@ function storefrontFatalError(error) {
 }
 
 export function SiteRuntimeProvider({ children }) {
+  const previewToken = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("preview") || "";
+  }, [previewToken]);
+
   const [runtime, setRuntime] = useState(
-    () => readCachedRuntime() || FALLBACK_SITE_RUNTIME
+    () => previewToken ? FALLBACK_SITE_RUNTIME : (readCachedRuntime() || FALLBACK_SITE_RUNTIME)
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -74,15 +83,22 @@ export function SiteRuntimeProvider({ children }) {
     setLoading(true);
 
     try {
+      const manifestRequest = previewToken
+        ? api.get("/site-manifest/preview", {
+            params: { token: previewToken },
+            headers: { "Cache-Control": "no-store" },
+          }).then((response) => response.data)
+        : loadPublicJson("/site-manifest", "site-manifest").catch(() => null);
+
       const [profilePayload, manifestPayload] = await Promise.all([
         loadPublicJson("/profile", "profile"),
-        loadPublicJson("/site-manifest", "site-manifest").catch(() => null),
+        manifestRequest,
       ]);
       const profile = extractPublicProfile({ data: profilePayload });
       const manifest = manifestPayload?.data ?? manifestPayload ?? null;
       const nextRuntime = createSiteRuntime(profile, manifest);
       setRuntime(nextRuntime);
-      if (nextRuntime.status === "resolved") writeCachedRuntime(nextRuntime);
+      if (nextRuntime.status === "resolved" && !previewToken) writeCachedRuntime(nextRuntime);
       setError(null);
       setFatalError(null);
     } catch (loadError) {
@@ -101,8 +117,8 @@ export function SiteRuntimeProvider({ children }) {
   }, [reload]);
 
   const value = useMemo(
-    () => ({ runtime, loading, error, fatalError, reload }),
-    [runtime, loading, error, fatalError, reload]
+    () => ({ runtime, loading, error, fatalError, reload, previewMode: Boolean(previewToken) }),
+    [runtime, loading, error, fatalError, reload, previewToken]
   );
 
   return (
