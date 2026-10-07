@@ -1,20 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { loadPublicJson, readPublicCache } from "../services/publicData";
-import BannerCarousel from "../components/BannerCarousel";
 import { ArrowRight } from "lucide-react";
-import { extractBanners, extractCategories, extractProducts } from "../utils/apiResponse";
 
+import BannerCarousel from "../components/BannerCarousel";
 import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
+import { normalizeHomeSections } from "../platform/sections/sectionRegistry";
+import { loadPublicJson, readPublicCache } from "../services/publicData";
+import {
+  extractBanners,
+  extractCategories,
+  extractProducts,
+} from "../utils/apiResponse";
+
 const getOptimizedImageUrl = (url, width = 600) => {
-  if (!url) return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'%3E%3Crect width='400' height='500' fill='%23F5F5F7'/%3E%3C/svg%3E";
+  if (!url) {
+    return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'%3E%3Crect width='400' height='500' fill='%23F5F5F7'/%3E%3C/svg%3E";
+  }
   if (url.includes("/upload/")) {
     return url.replace("/upload/", `/upload/f_auto,q_auto,w_${width},c_scale/`);
   }
   return url;
 };
 
-// ─── Mensajes respaldados por capacidades reales del storefront ────────────
 const TICKER_ITEMS = [
   "Catálogo conectado al inventario",
   "Disponibilidad validada en tiempo real",
@@ -26,7 +33,7 @@ const FEATURES = [
   {
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 6h18M6 3v6M18 3v6M5 13h14v8H5z"/>
+        <path d="M3 6h18M6 3v6M18 3v6M5 13h14v8H5z" />
       </svg>
     ),
     title: "Catálogo conectado",
@@ -35,7 +42,7 @@ const FEATURES = [
   {
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 7h16v10H4z"/><path d="M8 11h8"/>
+        <path d="M4 7h16v10H4z" /><path d="M8 11h8" />
       </svg>
     ),
     title: "Stock validado",
@@ -44,7 +51,7 @@ const FEATURES = [
   {
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>
+        <rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18" />
       </svg>
     ),
     title: "Pago con Wompi",
@@ -53,7 +60,7 @@ const FEATURES = [
   {
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       </svg>
     ),
     title: "Cuenta protegida",
@@ -61,7 +68,12 @@ const FEATURES = [
   },
 ];
 
-// ─── Componentes auxiliares ───────────────────────────────────────
+function clamp(value, min, max, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(parsed)));
+}
+
 function TickerStrip() {
   return (
     <div className="border-y border-neutral-100 bg-white px-6 py-4">
@@ -81,23 +93,20 @@ function TickerStrip() {
 
 function FeaturesStrip() {
   return (
-    <section className="py-16 px-6 border-t border-neutral-100 perf-section">
-      <div
-        className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-10"
-      >
-        {FEATURES.map((f, i) => (
-          <div
-            key={i}
-            className="flex flex-col items-center text-center gap-4"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-[#f5f5f7] flex items-center justify-center text-black">
-              {f.icon}
+    <section className="perf-section border-t border-neutral-100 px-6 py-16">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-10 md:grid-cols-4">
+        {FEATURES.map((feature) => (
+          <div key={feature.title} className="flex flex-col items-center gap-4 text-center">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f5f5f7] text-black">
+              {feature.icon}
             </div>
             <div>
-              <p className="font-black text-[11px] uppercase tracking-[0.18em] mb-1">
-                {f.title}
+              <p className="mb-1 text-[11px] font-black uppercase tracking-[0.18em]">
+                {feature.title}
               </p>
-              <p className="text-[11px] text-neutral-500 leading-relaxed">{f.desc}</p>
+              <p className="text-[11px] leading-relaxed text-neutral-500">
+                {feature.desc}
+              </p>
             </div>
           </div>
         ))}
@@ -110,46 +119,198 @@ function CategoryCard({ category }) {
   const childCount = Array.isArray(category?.children) ? category.children.length : 0;
 
   return (
-    <div
+    <Link
+      to={`/productos/categoria/${category.slug}`}
+      className="group block rounded-[2rem] border border-neutral-200 bg-white p-7 transition-all duration-300 hover:border-neutral-900 hover:shadow-xl md:p-9"
     >
-      <Link
-        to={`/productos/categoria/${category.slug}`}
-        className="group block rounded-[2rem] border border-neutral-200 bg-white p-7 md:p-9
-          hover:border-neutral-900 hover:shadow-xl transition-all duration-300"
-      >
-        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400 mb-3">
-          Categoría
-        </p>
-        <div className="flex items-end justify-between gap-6">
-          <div>
-            <h4 className="text-2xl md:text-3xl font-black tracking-tight text-neutral-900">
-              {category.name}
-            </h4>
-            {childCount > 0 && (
-              <p className="text-xs text-neutral-400 mt-2">
-                {childCount} {childCount === 1 ? "subcategoría" : "subcategorías"}
-              </p>
-            )}
-          </div>
-          <ArrowRight
-            size={20}
-            className="text-neutral-400 transition-transform group-hover:translate-x-1 group-hover:text-black"
-          />
+      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400">
+        Categoría
+      </p>
+      <div className="flex items-end justify-between gap-6">
+        <div>
+          <h4 className="text-2xl font-black tracking-tight text-neutral-900 md:text-3xl">
+            {category.name}
+          </h4>
+          {childCount > 0 ? (
+            <p className="mt-2 text-xs text-neutral-400">
+              {childCount} {childCount === 1 ? "subcategoría" : "subcategorías"}
+            </p>
+          ) : null}
         </div>
-      </Link>
-    </div>
+        <ArrowRight
+          size={20}
+          className="text-neutral-400 transition-transform group-hover:translate-x-1 group-hover:text-black"
+        />
+      </div>
+    </Link>
   );
 }
 
-// ─── Página principal ─────────────────────────────────────────────
+function BannerSection({ banners, loading }) {
+  if (banners.length > 0) {
+    return (
+      <section className="relative mx-auto h-[90vh] max-w-[1540px] overflow-hidden bg-[#f5f5f7] shadow-sm sm:h-[80vh] md:-mt-16 md:rounded-3xl">
+        <BannerCarousel banners={banners} />
+      </section>
+    );
+  }
+
+  if (!loading) return null;
+
+  return (
+    <section
+      className="relative mx-auto h-[90vh] max-w-[1540px] animate-pulse overflow-hidden bg-[#f5f5f7] shadow-sm sm:h-[80vh] md:-mt-16 md:rounded-3xl"
+      aria-label="Cargando contenido principal"
+    />
+  );
+}
+
+function HeroCopySection({ runtime, settings }) {
+  const configuredTitle = String(settings?.title || "").trim();
+  const title = configuredTitle || runtime.brand.tagline;
+  const ctaLabel = String(settings?.ctaLabel || "Ver colección").trim() || "Ver colección";
+  const ctaLink = String(settings?.ctaLink || "/productos").trim() || "/productos";
+
+  return (
+    <section className="mx-auto max-w-5xl px-6 py-10 text-center md:py-20">
+      <h2 className="mb-8 whitespace-pre-line text-5xl font-black leading-[0.9] tracking-tighter sm:text-7xl md:text-8xl">
+        {title || (
+          <>
+            Explora <br />
+            <span className="italic text-neutral-400">la colección.</span>
+          </>
+        )}
+      </h2>
+      <Link
+        to={ctaLink}
+        className="inline-block rounded-full bg-brand px-10 py-4 text-sm font-bold text-white transition-all hover:scale-105 hover:bg-[var(--brand-hover)] hover:shadow-xl"
+      >
+        {ctaLabel}
+      </Link>
+    </section>
+  );
+}
+
+function ProductCollectionSection({ products, loading, settings }) {
+  const limit = clamp(settings?.limit, 2, 12, 4);
+  const title = String(settings?.title || "Lo último").trim() || "Lo último";
+  const visibleProducts = products.slice(0, limit);
+
+  return (
+    <section className="perf-section bg-white px-6 py-20">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-12 flex flex-col items-end justify-between gap-4 sm:flex-row">
+          <div className="space-y-1">
+            <div className="mb-3 h-1 w-10 rounded-full bg-black" />
+            <h3 className="text-3xl font-black uppercase italic tracking-tighter md:text-4xl">
+              {title}
+            </h3>
+          </div>
+          <Link
+            to="/productos"
+            className="group flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-black"
+          >
+            Explorar
+            <ArrowRight
+              size={16}
+              className="transition-transform group-hover:translate-x-1"
+            />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:gap-8 lg:grid-cols-4">
+          {visibleProducts.length === 0 && loading
+            ? Array.from({ length: Math.min(limit, 8) }).map((_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="mb-5 aspect-[4/5] rounded-[1.5rem] bg-[#f5f5f7] md:rounded-[2rem]" />
+                  <div className="mb-2 h-2.5 w-2/3 rounded-full bg-neutral-100" />
+                  <div className="h-5 w-1/2 rounded-full bg-neutral-100" />
+                </div>
+              ))
+            : visibleProducts.map((product) => {
+                const price = Number(product.final_price || product.price);
+                return (
+                  <Link
+                    key={product.id}
+                    to={`/productos/detalle/${product.id}`}
+                    className="group block cursor-pointer"
+                  >
+                    <div>
+                      <div className="relative mb-5 aspect-[4/5] overflow-hidden rounded-[1.5rem] bg-[#f5f5f7] md:rounded-[2rem]">
+                        <img
+                          src={getOptimizedImageUrl(product.main_image)}
+                          alt={product.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="truncate text-[9px] font-bold uppercase tracking-[0.2em] text-neutral-500 md:text-[10px]">
+                          {product.name}
+                        </h4>
+                        <p className="text-lg font-black tracking-tight text-neutral-900 md:text-xl">
+                          ${Number.isFinite(price) ? price.toLocaleString() : "0"}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CategoryGridSection({ categories, settings }) {
+  const limit = clamp(settings?.limit, 3, 12, 6);
+  const title = String(settings?.title || "Categorías").trim() || "Categorías";
+
+  if (!categories.length) return null;
+
+  return (
+    <section className="perf-section border-t border-neutral-100 px-6 py-20">
+      <div className="mx-auto max-w-6xl">
+        <h3 className="mb-12 text-center text-3xl font-black uppercase tracking-tighter md:text-4xl">
+          {title}
+        </h3>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {categories.slice(0, limit).map((category) => (
+            <CategoryCard key={category.id} category={category} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const { runtime } = useSiteRuntime();
+  const homeSections = useMemo(
+    () => normalizeHomeSections(runtime.site.manifest),
+    [runtime.site.manifest],
+  );
+
+  const productLimit = useMemo(() => {
+    const section = homeSections.find(
+      (item) => item.enabled && item.type === "product.collection"
+    );
+    return clamp(section?.settings?.limit, 2, 12, 4);
+  }, [homeSections]);
+
+  const productCacheKey = `home-products-${productLimit}`;
+
   const [banners, setBanners] = useState(
     () => extractBanners(readPublicCache("banners", 6 * 60 * 60 * 1000) || {})
-      .filter((b) => b.is_active)
+      .filter((banner) => banner.is_active)
   );
   const [featuredProducts, setFeaturedProducts] = useState(
-    () => extractProducts(readPublicCache("home-products", 10 * 60 * 1000) || {})
+    () => extractProducts(
+      readPublicCache(productCacheKey, 10 * 60 * 1000)
+      || readPublicCache("home-products", 10 * 60 * 1000)
+      || {}
+    )
   );
   const [categories, setCategories] = useState(
     () => extractCategories(readPublicCache("categories", 6 * 60 * 60 * 1000) || {})
@@ -158,17 +319,23 @@ export default function Home() {
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
     const loadHomeData = async () => {
+      setLoading(true);
       try {
         const [bannersPayload, productsPayload, categoriesPayload] = await Promise.all([
           loadPublicJson("/banners", "banners"),
-          loadPublicJson("/products?limit=4", "home-products"),
+          loadPublicJson(`/products?limit=${productLimit}`, productCacheKey),
           loadPublicJson("/categories", "categories"),
         ]);
+        if (!active) return;
 
         const bannersData = extractBanners(bannersPayload);
         setBanners(
-          Array.isArray(bannersData) ? bannersData.filter((b) => b.is_active) : []
+          Array.isArray(bannersData)
+            ? bannersData.filter((banner) => banner.is_active)
+            : []
         );
 
         const productsData = extractProducts(productsPayload);
@@ -177,167 +344,64 @@ export default function Home() {
         const categoriesData = extractCategories(categoriesPayload);
         setCategories(Array.isArray(categoriesData) ? categoriesData : []);
         setLoadError(false);
-      } catch (err) {
-        console.error("Error loading home data", err);
-        setLoadError(true);
+      } catch {
+        if (active) setLoadError(true);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
-    loadHomeData();
-  }, []);
+
+    void loadHomeData();
+    return () => {
+      active = false;
+    };
+  }, [productCacheKey, productLimit]);
+
+  const renderSection = (section) => {
+    if (!section.enabled) return null;
+
+    switch (section.type) {
+      case "hero.banner":
+        return <BannerSection key={section.id} banners={banners} loading={loading} />;
+      case "trust.strip":
+        return <TickerStrip key={section.id} />;
+      case "hero.copy":
+        return <HeroCopySection key={section.id} runtime={runtime} settings={section.settings} />;
+      case "product.collection":
+        return (
+          <ProductCollectionSection
+            key={section.id}
+            products={featuredProducts}
+            loading={loading}
+            settings={section.settings}
+          />
+        );
+      case "feature.strip":
+        return <FeaturesStrip key={section.id} />;
+      case "category.grid":
+        return (
+          <CategoryGridSection
+            key={section.id}
+            categories={categories}
+            settings={section.settings}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-      <div className="min-h-screen text-black font-sans antialiased selection:bg-neutral-200 bg-[var(--store-page-bg,#ffffff)]">
-        <main className="pt-20 md:pt-24">
+    <div className="min-h-screen bg-[var(--store-page-bg,#ffffff)] font-sans text-black antialiased selection:bg-neutral-200">
+      <main className="pt-20 md:pt-24">
+        {loadError && banners.length === 0 && featuredProducts.length === 0 && categories.length === 0 ? (
+          <div className="mx-auto max-w-6xl px-6 py-3 text-center text-[11px] font-semibold text-neutral-400">
+            No pudimos actualizar los datos. Reintentaremos automáticamente al volver.
+          </div>
+        ) : null}
 
-          {/* ── BANNER CAROUSEL ── */}
-          {banners.length > 0 ? (
-            <section
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="max-w-[1540px] mx-auto h-[90vh] sm:h-[80vh] bg-[#f5f5f7] overflow-hidden relative md:rounded-3xl shadow-sm md:-mt-16"
-            >
-              <BannerCarousel banners={banners} />
-            </section>
-          ) : loading ? (
-            <section
-              className="max-w-[1540px] mx-auto h-[90vh] sm:h-[80vh] bg-[#f5f5f7] overflow-hidden relative md:rounded-3xl shadow-sm md:-mt-16 animate-pulse"
-              aria-label="Cargando contenido principal"
-            />
-          ) : null}
-
-          {loadError && banners.length === 0 && featuredProducts.length === 0 && categories.length === 0 && (
-            <div className="mx-auto max-w-6xl px-6 py-3 text-center text-[11px] font-semibold text-neutral-400">
-              No pudimos actualizar los datos. Reintentaremos automáticamente al volver.
-            </div>
-          )}
-
-          {/* ── TICKER ── */}
-          <TickerStrip />
-
-          {/* ── HERO TEXT ── */}
-          <section className="text-center py-10 md:py-20 px-6 max-w-5xl mx-auto">
-            <div
-            >
-              <h2
-                className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter mb-8 leading-[0.9]"
-              >
-                {runtime.brand.tagline ? (
-                  runtime.brand.tagline
-                ) : (
-                  <>
-                    Explora <br />
-                    <span className="text-neutral-400 italic">la colección.</span>
-                  </>
-                )}
-              </h2>
-
-              <div>
-                <Link
-                  to="/productos"
-                  className="inline-block px-10 py-4 bg-brand text-white font-bold rounded-full text-sm transition-all hover:scale-105 hover:bg-[var(--brand-hover)] hover:shadow-xl"
-                >
-                  Ver colección
-                </Link>
-              </div>
-            </div>
-          </section>
-
-          {/* ── PRODUCTOS ── */}
-          <section className="py-20 px-6 bg-white perf-section">
-            <div className="max-w-6xl mx-auto">
-              <div
-                className="flex flex-col sm:flex-row justify-between items-end gap-4 mb-12"
-              >
-                <div className="space-y-1">
-                  <div className="h-1 w-10 bg-black rounded-full mb-3" />
-                  <h3 className="text-3xl md:text-4xl font-black tracking-tighter uppercase italic">
-                    Lo último
-                  </h3>
-                </div>
-                <Link
-                  to="/productos"
-                  className="group text-black font-bold flex items-center gap-2 text-xs tracking-widest uppercase"
-                >
-                  Explorar{" "}
-                  <ArrowRight
-                    size={16}
-                    className="transition-transform group-hover:translate-x-1"
-                  />
-                </Link>
-              </div>
-
-              <div
-                className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-8"
-              >
-                {featuredProducts.length === 0 && loading
-                  ? Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="animate-pulse">
-                        <div className="aspect-[4/5] bg-[#f5f5f7] rounded-[1.5rem] md:rounded-[2rem] mb-5" />
-                        <div className="h-2.5 w-2/3 rounded-full bg-neutral-100 mb-2" />
-                        <div className="h-5 w-1/2 rounded-full bg-neutral-100" />
-                      </div>
-                    ))
-                  : featuredProducts.map((p) => {
-                  const price = Number(p.final_price || p.price);
-                  return (
-                    <Link
-                      key={p.id}
-                      to={`/productos/detalle/${p.id}`}
-                      className="group block cursor-pointer"
-                    >
-                      <div>
-                        <div className="aspect-[4/5] bg-[#f5f5f7] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden mb-5 relative">
-                          <img
-                            src={getOptimizedImageUrl(p.main_image)}
-                            alt={p.name}
-                            loading="lazy"
-                            decoding="async"
-                            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="font-bold text-[9px] md:text-[10px] uppercase tracking-[0.2em] text-neutral-500 truncate">
-                            {p.name}
-                          </h4>
-                          <p className="font-black text-lg md:text-xl tracking-tight text-neutral-900">
-                            ${price.toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-
-          {/* ── PROPUESTAS DE VALOR ── */}
-          <FeaturesStrip />
-
-          {/* ── CATEGORÍAS DEL BACKEND ── */}
-          {categories.length > 0 && (
-            <section className="py-20 px-6 border-t border-neutral-100 perf-section">
-              <div className="max-w-6xl mx-auto">
-                <h3
-                  className="text-center text-3xl md:text-4xl font-black mb-12 uppercase tracking-tighter"
-                >
-                  Categorías
-                </h3>
-
-                <div
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
-                >
-                  {categories.slice(0, 6).map((category) => (
-                    <CategoryCard key={category.id} category={category} />
-                  ))}
-                </div>
-              </div>
-            </section>
-          )}
-
-        </main>
-      </div>
+        {homeSections.map(renderSection)}
+      </main>
+    </div>
   );
 }
