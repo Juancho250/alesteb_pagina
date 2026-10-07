@@ -45,7 +45,19 @@ const definitions = Object.freeze({
 
 export const DEFAULT_HOME_SECTIONS = Object.freeze([
   Object.freeze({ id: "hero-banner", type: "hero.banner", enabled: true, settings: Object.freeze({}) }),
-  Object.freeze({ id: "trust-strip", type: "trust.strip", enabled: true, settings: Object.freeze({}) }),
+  Object.freeze({
+    id: "trust-strip",
+    type: "trust.strip",
+    enabled: true,
+    settings: Object.freeze({
+      items: Object.freeze([
+        "Catálogo conectado al inventario",
+        "Disponibilidad validada en tiempo real",
+        "Pago en línea con Wompi",
+        "Historial de pedidos desde tu cuenta",
+      ]),
+    }),
+  }),
   Object.freeze({
     id: "hero-copy",
     type: "hero.copy",
@@ -66,7 +78,31 @@ export const DEFAULT_HOME_SECTIONS = Object.freeze([
       limit: 4,
     }),
   }),
-  Object.freeze({ id: "feature-strip", type: "feature.strip", enabled: true, settings: Object.freeze({}) }),
+  Object.freeze({
+    id: "feature-strip",
+    type: "feature.strip",
+    enabled: true,
+    settings: Object.freeze({
+      items: Object.freeze([
+        Object.freeze({
+          title: "Catálogo conectado",
+          description: "Productos, precios y variantes servidos por la tienda en tiempo real.",
+        }),
+        Object.freeze({
+          title: "Stock validado",
+          description: "La disponibilidad se comprueba antes de confirmar una compra.",
+        }),
+        Object.freeze({
+          title: "Pago con Wompi",
+          description: "El monto se calcula en el backend y el pago se procesa en Wompi.",
+        }),
+        Object.freeze({
+          title: "Cuenta protegida",
+          description: "Acceso autenticado para checkout, perfil y seguimiento de pedidos.",
+        }),
+      ]),
+    }),
+  }),
   Object.freeze({
     id: "category-grid",
     type: "category.grid",
