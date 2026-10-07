@@ -70,7 +70,7 @@ export function SiteRuntimeProvider({ children }) {
   const previewToken = useMemo(() => {
     if (typeof window === "undefined") return "";
     return new URLSearchParams(window.location.search).get("preview") || "";
-  }, [previewToken]);
+  }, []);
 
   const [runtime, setRuntime] = useState(
     () => previewToken ? FALLBACK_SITE_RUNTIME : (readCachedRuntime() || FALLBACK_SITE_RUNTIME)
@@ -110,7 +110,7 @@ export function SiteRuntimeProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [previewToken]);
 
   useEffect(() => {
     void reload();
