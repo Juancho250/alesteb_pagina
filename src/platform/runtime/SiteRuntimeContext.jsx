@@ -69,7 +69,10 @@ function storefrontFatalError(error) {
 export function SiteRuntimeProvider({ children }) {
   const previewToken = useMemo(() => {
     if (typeof window === "undefined") return "";
-    return new URLSearchParams(window.location.search).get("preview") || "";
+    const hash = window.location.hash.startsWith("#")
+      ? window.location.hash.slice(1)
+      : window.location.hash;
+    return new URLSearchParams(hash).get("preview") || "";
   }, []);
 
   const [runtime, setRuntime] = useState(
@@ -84,10 +87,11 @@ export function SiteRuntimeProvider({ children }) {
 
     try {
       const manifestRequest = previewToken
-        ? api.get("/site-manifest/preview", {
-            params: { token: previewToken },
-            headers: { "Cache-Control": "no-store" },
-          }).then((response) => response.data)
+        ? api.post(
+            "/site-manifest/preview",
+            { token: previewToken },
+            { headers: { "Cache-Control": "no-store" } }
+          ).then((response) => response.data)
         : loadPublicJson("/site-manifest", "site-manifest").catch(() => null);
 
       const [profilePayload, manifestPayload] = await Promise.all([
