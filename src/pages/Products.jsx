@@ -40,7 +40,7 @@ function imgUrl(url, w = 600) {
 // ─── Skeleton card ────────────────────────────────────────────────────────────
 const SkeletonCard = () => (
   <div className="flex flex-col animate-pulse">
-    <div className="aspect-[4/5] rounded-[2rem] bg-[var(--store-surface)]" />
+    <div className="store-site-product-image rounded-[var(--store-card-radius)] bg-[var(--store-surface)]" />
     <div className="mt-5 px-1 space-y-2">
       <div className="h-2 w-24 bg-[var(--store-surface)] rounded-full" />
       <div className="h-5 w-32 bg-[var(--store-surface)] rounded-full" />
@@ -137,7 +137,7 @@ const ProductCard = memo(({ p, index, isInCart, onToggle }) => {
       {/* Imagen */}
       <Link
         to={`/productos/detalle/${p.id}`}
-        className="relative block overflow-hidden rounded-[2.5rem] bg-[#F5F5F7] aspect-[4/5]
+        className="store-site-product-image relative block overflow-hidden rounded-[var(--store-card-radius)] bg-[#F5F5F7]
           transition-shadow duration-500 group-hover:shadow-2xl group-hover:shadow-slate-200/80"
       >
         {/* Pulse skeleton — solo mientras carga la imagen */}
