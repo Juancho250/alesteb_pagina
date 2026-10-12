@@ -54,3 +54,15 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Storefront presentation tokens: published per tenant, never arbitrary tenant CSS. */
+.store-site-section {
+  padding-top: var(--store-section-spacing, 80px);
+  padding-bottom: var(--store-section-spacing, 80px);
+}
+.store-site-card { border-radius: var(--store-card-radius, 32px); }
+.store-site-cta {
+  border-radius: var(--store-button-radius, 999px);
+  color: var(--store-brand-contrast, #ffffff);
+}
