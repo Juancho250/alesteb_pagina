@@ -38,6 +38,65 @@ function writeCachedRuntime(runtime) {
   }
 }
 
+function upsertMeta(selector, selectorAttributes, content) {
+  let element = document.head.querySelector(selector);
+  if (!element) {
+    element = document.createElement("meta");
+    for (const [key, value] of Object.entries(selectorAttributes)) {
+      element.setAttribute(key, value);
+    }
+    document.head.appendChild(element);
+  }
+  element.setAttribute("content", content);
+}
+
+function safePublicImageUrl(value) {
+  if (typeof value !== "string" || !value.trim()) return "";
+  try {
+    const candidate = new URL(value, window.location.origin);
+    return candidate.protocol === "https:" || candidate.origin === window.location.origin
+      ? candidate.href
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function applySiteDocumentMetadata(runtime) {
+  if (runtime.status !== "resolved") return;
+  const seo = runtime.site.manifest?.seo || {};
+  const title = String(seo.title || runtime.identity.businessName || "Tienda en línea").trim().slice(0, 70);
+  const description = String(
+    seo.description || runtime.identity.description || `Explora el catálogo de ${runtime.identity.businessName || "nuestra tienda"}.`
+  ).trim().slice(0, 160);
+
+  document.title = title;
+  upsertMeta('meta[name="description"]', { name: "description" }, description);
+  upsertMeta('meta[property="og:title"]', { property: "og:title" }, title);
+  upsertMeta('meta[property="og:description"]', { property: "og:description" }, description);
+
+  const favicon = safePublicImageUrl(runtime.brand.assets.faviconUrl || runtime.brand.assets.logoUrl);
+  let icon = document.head.querySelector('link[rel="icon"]');
+  if (favicon) {
+    if (!icon) {
+      icon = document.createElement("link");
+      icon.rel = "icon";
+      document.head.appendChild(icon);
+    }
+    icon.href = favicon;
+  } else {
+    icon?.remove();
+  }
+
+  const socialImage = safePublicImageUrl(runtime.brand.assets.logoUrl);
+  const ogImage = document.head.querySelector('meta[property="og:image"]');
+  if (socialImage) {
+    upsertMeta('meta[property="og:image"]', { property: "og:image" }, socialImage);
+  } else {
+    ogImage?.remove();
+  }
+}
+
 const FATAL_STOREFRONT_CODES = new Set([
   "NO_API_KEY",
   "INVALID_API_KEY",
@@ -119,6 +178,11 @@ export function SiteRuntimeProvider({ children }) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    applySiteDocumentMetadata(runtime);
+  }, [runtime]);
+
 
   const value = useMemo(
     () => ({ runtime, loading, error, fatalError, reload, previewMode: Boolean(previewToken) }),
