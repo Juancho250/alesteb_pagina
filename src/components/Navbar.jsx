@@ -357,7 +357,7 @@ export default function Navbar() {
     <>
       <nav
         className={`fixed top-0 left-0 w-full z-[200] border-b ${borderCls}`}
-        style={{ backgroundColor: navBg }}
+        style={{ backgroundColor: navBg, boxShadow: "var(--store-header-shadow, none)" }}
       >
         <div className="max-w-[1540px] mx-auto px-4 sm:px-6 lg:px-10 h-16 lg:h-[68px] flex items-center gap-3">
 
