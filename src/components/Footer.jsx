@@ -30,7 +30,7 @@ export default function Footer() {
 
   return (
     <footer className="bg-[var(--store-footer-bg)] border-t border-[var(--store-footer-border)] text-[var(--store-footer-text)] pt-16 pb-12 font-sans">
-      <div className="max-w-5xl mx-auto px-6">
+      <div className="store-site-footer-width mx-auto px-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 mb-16">
           <div className="sm:col-span-2 md:col-span-1">
             <Link
