@@ -309,7 +309,7 @@ function ProductCollectionSection({ products, loading, settings }) {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:gap-8 lg:grid-cols-4">
+        <div className="store-catalog-grid grid grid-cols-2 gap-x-4 gap-y-10 md:gap-8 lg:grid-cols-4">
           {visibleProducts.length === 0 && loading
             ? Array.from({ length: Math.min(limit, 8) }).map((_, index) => (
                 <div key={index} className="animate-pulse">
