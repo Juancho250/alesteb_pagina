@@ -71,3 +71,7 @@ body {
 .store-site-content-width { width: 100%; max-width: var(--store-content-width, 1152px); }
 .store-site-footer-width { width: 100%; max-width: var(--store-footer-width, 1024px); }
 .store-site-product-image { aspect-ratio: var(--store-product-aspect, 4 / 5); }
+
+@media (min-width: 1280px) {
+  .store-catalog-grid { grid-template-columns: repeat(var(--store-catalog-columns, 4), minmax(0, 1fr)); }
+}
