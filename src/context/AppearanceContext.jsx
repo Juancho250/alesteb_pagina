@@ -57,6 +57,12 @@ function applyGlobalStyles(data, style) {
   root.style.setProperty("--store-button-radius", radii[style?.buttonShape] || radii.pill);
   root.style.setProperty("--store-card-radius", cardRadii[style?.cardShape] || cardRadii.round);
   root.style.setProperty("--store-section-spacing", spacing[style?.sectionSpacing] || spacing.balanced);
+  root.style.setProperty("--store-content-width", style?.contentWidth === "wide" ? "1400px" : "1152px");
+  root.style.setProperty("--store-footer-width", style?.contentWidth === "wide" ? "1320px" : "1024px");
+  root.style.setProperty("--store-header-shadow",
+    style?.headerTreatment === "elevated" ? "0 8px 28px rgba(0,0,0,.11)" : "none");
+  root.style.setProperty("--store-product-aspect", style?.productImageRatio === "square" ? "1 / 1" : "4 / 5");
+
 
 
   if (data.primary_color) {
