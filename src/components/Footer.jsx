@@ -7,6 +7,8 @@ import { socialHref, whatsappUrl } from "../utils/storefrontContact";
 export default function Footer() {
   const { runtime } = useSiteRuntime();
   const identity = runtime.identity;
+  const footer = runtime.site.manifest?.footer || {};
+  const enabled = (field) => footer[field] !== false;
   const businessName = identity.businessName || "Tienda";
   const description =
     identity.description ||
@@ -39,11 +41,12 @@ export default function Footer() {
             >
               {businessName}
             </Link>
-            <p className="text-[var(--store-footer-muted)] text-[13px] leading-relaxed max-w-xs font-medium">
-              {description}
-            </p>
+            {enabled("showDescription") ? (
+              <p className="text-[var(--store-footer-muted)] text-[13px] leading-relaxed max-w-xs font-medium">{description}</p>
+            ) : null}
           </div>
 
+          {enabled("showStoreLinks") ? (
           <div className="flex flex-col gap-4">
             <h4 className="font-bold text-[10px] text-[var(--store-footer-text)] uppercase tracking-[0.2em]">
               Tienda
@@ -54,7 +57,9 @@ export default function Footer() {
               <li><Link to="/carrito" className="hover:text-brand transition-colors">Carrito</Link></li>
             </ul>
           </div>
+          ) : null}
 
+          {enabled("showSupportLinks") ? (
           <div className="flex flex-col gap-4">
             <h4 className="font-bold text-[10px] text-[var(--store-footer-text)] uppercase tracking-[0.2em]">
               Soporte
@@ -65,7 +70,9 @@ export default function Footer() {
               <li><Link to="/perfil?tab=orders" className="hover:text-brand transition-colors">Mis pedidos</Link></li>
             </ul>
           </div>
+          ) : null}
 
+          {enabled("showSocialLinks") ? (
           <div className="flex flex-col gap-4">
             <h4 className="font-bold text-[10px] text-[var(--store-footer-text)] uppercase tracking-[0.2em]">
               Contacto
@@ -91,6 +98,7 @@ export default function Footer() {
               </Link>
             )}
           </div>
+          ) : null}
         </div>
 
         <div className="border-t border-[var(--store-footer-border)] pt-8">
@@ -104,9 +112,9 @@ export default function Footer() {
                 <Link to="/support" className="hover:text-brand">Ayuda</Link>
               </div>
             </div>
-            <p className="text-[var(--store-footer-muted)] text-[9px] font-black tracking-[0.2em] uppercase">
-              {country}
-            </p>
+            {enabled("showCountry") ? (
+              <p className="text-[var(--store-footer-muted)] text-[9px] font-black tracking-[0.2em] uppercase">{country}</p>
+            ) : null}
           </div>
         </div>
       </div>
