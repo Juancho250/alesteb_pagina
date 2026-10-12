@@ -62,6 +62,7 @@ function applyGlobalStyles(data, style) {
   root.style.setProperty("--store-header-shadow",
     style?.headerTreatment === "elevated" ? "0 8px 28px rgba(0,0,0,.11)" : "none");
   root.style.setProperty("--store-product-aspect", style?.productImageRatio === "square" ? "1 / 1" : "4 / 5");
+  root.style.setProperty("--store-catalog-columns", ["3", "4", "5"].includes(style?.catalogColumns) ? style.catalogColumns : "4");
 
 
 
