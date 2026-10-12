@@ -35,6 +35,12 @@ const definitions = Object.freeze({
     status: "registered",
     description: "Accesos a categorías del catálogo.",
   }),
+  "promotion.banner": Object.freeze({
+    key: "promotion.banner",
+    ownerDomain: "storefront",
+    status: "registered",
+    description: "Campaña editorial con título, descripción y enlace seguro.",
+  }),
   "legacy.home": Object.freeze({
     key: "legacy.home",
     ownerDomain: "storefront",
