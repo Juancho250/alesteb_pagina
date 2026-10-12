@@ -75,3 +75,6 @@ body {
 @media (min-width: 1280px) {
   .store-catalog-grid { grid-template-columns: repeat(var(--store-catalog-columns, 4), minmax(0, 1fr)); }
 }
+
+/* Tailwind font-sans cannot override a tenant's published typography. */
+body, .font-sans { font-family: var(--store-font-family, ui-sans-serif, system-ui, sans-serif); }
