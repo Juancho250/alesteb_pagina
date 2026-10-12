@@ -80,12 +80,12 @@ function TickerStrip({ settings }) {
     : TICKER_ITEMS;
 
   return (
-    <div className="border-y border-neutral-100 bg-white px-6 py-4">
+    <div className="border-y border-[var(--store-surface-border)] bg-[var(--store-surface-bg)] px-6 py-4 text-[var(--store-surface-text)]">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4">
         {items.map((item) => (
           <span
             key={item}
-            className="text-center text-[9px] font-black uppercase tracking-[0.2em] text-neutral-400"
+            className="text-center text-[9px] font-black uppercase tracking-[0.2em] text-[var(--store-surface-muted)]"
           >
             {item}
           </span>
@@ -108,11 +108,11 @@ function FeaturesStrip({ settings }) {
   });
 
   return (
-    <section className="perf-section border-t border-neutral-100 px-6 py-16">
+    <section className="store-site-section perf-section border-t border-[var(--store-surface-border)] px-6">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-10 md:grid-cols-4">
         {items.map((feature) => (
           <div key={feature.title} className="flex flex-col items-center gap-4 text-center">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f5f5f7] text-black">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--store-surface-bg)] text-[var(--store-surface-text)]">
               {feature.icon}
             </div>
             <div>
@@ -136,14 +136,14 @@ function CategoryCard({ category }) {
   return (
     <Link
       to={`/productos/categoria/${category.slug}`}
-      className="group block rounded-[2rem] border border-neutral-200 bg-white p-7 transition-all duration-300 hover:border-neutral-900 hover:shadow-xl md:p-9"
+      className="store-site-card group block border border-[var(--store-surface-border)] bg-[var(--store-surface-bg)] p-7 text-[var(--store-surface-text)] transition-all duration-300 hover:shadow-xl md:p-9"
     >
       <p className="mb-3 text-[10px] font-black uppercase tracking-[0.25em] text-neutral-400">
         Categoría
       </p>
       <div className="flex items-end justify-between gap-6">
         <div>
-          <h4 className="text-2xl font-black tracking-tight text-neutral-900 md:text-3xl">
+          <h4 className="text-2xl font-black tracking-tight text-[var(--store-surface-text)] md:text-3xl">
             {category.name}
           </h4>
           {childCount > 0 ? (
@@ -187,7 +187,7 @@ function HeroCopySection({ runtime, settings }) {
   const ctaLink = String(settings?.ctaLink || "/productos").trim() || "/productos";
 
   return (
-    <section className="mx-auto max-w-5xl px-6 py-10 text-center md:py-20">
+    <section className="store-site-section mx-auto max-w-5xl px-6 text-center">
       <h2 className="mb-8 whitespace-pre-line text-5xl font-black leading-[0.9] tracking-tighter sm:text-7xl md:text-8xl">
         {title || (
           <>
@@ -198,10 +198,37 @@ function HeroCopySection({ runtime, settings }) {
       </h2>
       <Link
         to={ctaLink}
-        className="inline-block rounded-full bg-brand px-10 py-4 text-sm font-bold text-white transition-all hover:scale-105 hover:bg-[var(--brand-hover)] hover:shadow-xl"
+        className="store-site-cta inline-block bg-brand px-10 py-4 text-sm font-bold transition-all hover:scale-105 hover:bg-[var(--brand-hover)] hover:shadow-xl"
       >
         {ctaLabel}
       </Link>
+    </section>
+  );
+}
+
+function PromotionBannerSection({ settings }) {
+  const title = String(settings?.title || "").trim();
+  if (!title) return null;
+
+  const tones = {
+    neutral: { backgroundColor: "var(--store-surface-bg)", color: "var(--store-surface-text)" },
+    dark: { backgroundColor: "#131519", color: "#FFFFFF" },
+    brand: { backgroundColor: "var(--brand)", color: "var(--store-brand-contrast, #FFFFFF)" },
+  };
+  const tone = tones[settings?.tone] || tones.neutral;
+
+  return (
+    <section className="store-site-section px-6" style={tone}>
+      <div className="mx-auto max-w-5xl text-center">
+        {settings?.eyebrow ? <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] opacity-65">{settings.eyebrow}</p> : null}
+        <h2 className="text-4xl font-black tracking-tight md:text-6xl">{title}</h2>
+        {settings?.description ? <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed opacity-75">{settings.description}</p> : null}
+        {settings?.ctaLabel ? (
+          <Link to={settings.ctaLink || "/productos"} className="mt-8 inline-flex items-center justify-center gap-2 border border-current px-7 py-3 text-sm font-semibold transition-opacity hover:opacity-70" style={{ borderRadius: "var(--store-button-radius)" }}>
+            {settings.ctaLabel}<ArrowRight size={15} />
+          </Link>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -212,18 +239,18 @@ function ProductCollectionSection({ products, loading, settings }) {
   const visibleProducts = products.slice(0, limit);
 
   return (
-    <section className="perf-section bg-white px-6 py-20">
+    <section className="store-site-section perf-section bg-[var(--store-surface-bg)] px-6 text-[var(--store-surface-text)]">
       <div className="mx-auto max-w-6xl">
         <div className="mb-12 flex flex-col items-end justify-between gap-4 sm:flex-row">
           <div className="space-y-1">
-            <div className="mb-3 h-1 w-10 rounded-full bg-black" />
+            <div className="mb-3 h-1 w-10 rounded-full bg-current" />
             <h3 className="text-3xl font-black uppercase italic tracking-tighter md:text-4xl">
               {title}
             </h3>
           </div>
           <Link
             to="/productos"
-            className="group flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-black"
+            className="group flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[var(--store-surface-text)]"
           >
             Explorar
             <ArrowRight
@@ -251,7 +278,7 @@ function ProductCollectionSection({ products, loading, settings }) {
                     className="group block cursor-pointer"
                   >
                     <div>
-                      <div className="relative mb-5 aspect-[4/5] overflow-hidden rounded-[1.5rem] bg-[#f5f5f7] md:rounded-[2rem]">
+                      <div className="store-site-card relative mb-5 aspect-[4/5] overflow-hidden bg-[var(--store-page-bg)]">
                         <img
                           src={getOptimizedImageUrl(product.main_image)}
                           alt={product.name}
@@ -264,7 +291,7 @@ function ProductCollectionSection({ products, loading, settings }) {
                         <h4 className="truncate text-[9px] font-bold uppercase tracking-[0.2em] text-neutral-500 md:text-[10px]">
                           {product.name}
                         </h4>
-                        <p className="text-lg font-black tracking-tight text-neutral-900 md:text-xl">
+                        <p className="text-lg font-black tracking-tight text-[var(--store-surface-text)] md:text-xl">
                           ${Number.isFinite(price) ? price.toLocaleString() : "0"}
                         </p>
                       </div>
@@ -285,7 +312,7 @@ function CategoryGridSection({ categories, settings }) {
   if (!categories.length) return null;
 
   return (
-    <section className="perf-section border-t border-neutral-100 px-6 py-20">
+    <section className="store-site-section perf-section border-t border-[var(--store-surface-border)] px-6">
       <div className="mx-auto max-w-6xl">
         <h3 className="mb-12 text-center text-3xl font-black uppercase tracking-tighter md:text-4xl">
           {title}
@@ -393,6 +420,8 @@ export default function Home() {
         );
       case "feature.strip":
         return <FeaturesStrip key={section.id} settings={section.settings} />;
+      case "promotion.banner":
+        return <PromotionBannerSection key={section.id} settings={section.settings} />;
       case "category.grid":
         return (
           <CategoryGridSection
@@ -407,7 +436,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--store-page-bg,#ffffff)] font-sans text-black antialiased selection:bg-neutral-200">
+    <div className="min-h-screen bg-[var(--store-page-bg,#ffffff)] font-sans text-[var(--store-text-primary,#0f172a)] antialiased selection:bg-neutral-200">
       <main className="pt-20 md:pt-24">
         {loadError && banners.length === 0 && featuredProducts.length === 0 && categories.length === 0 ? (
           <div className="mx-auto max-w-6xl px-6 py-3 text-center text-[11px] font-semibold text-neutral-400">
