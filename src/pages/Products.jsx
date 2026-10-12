@@ -607,7 +607,7 @@ export default function Products() {
               <motion.div
                 key="skeletons"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14 perf-section"
+                className="store-catalog-grid grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14 perf-section"
               >
                 {Array.from({ length: SKELETONS }).map((_, i) => <SkeletonCard key={i} />)}
               </motion.div>
@@ -618,7 +618,7 @@ export default function Products() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14 perf-section"
+                className="store-catalog-grid grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14 perf-section"
               >
                 {products.map((p, i) => (
                   <ProductCard
