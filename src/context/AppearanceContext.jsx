@@ -29,15 +29,42 @@ function getLuminance(hex) {
     .reduce((acc, c, i) => acc + [0.2126, 0.7152, 0.0722][i] * c, 0);
 }
 
-function applyGlobalStyles(data) {
+function applyGlobalStyles(data, style) {
   if (!data) return;
   const root = document.documentElement;
+
+  // Style is a published, backend-sanitized site manifest; these defaults
+  // preserve the appearance of stores that have not configured the editor.
+  const safeColor = (value, fallback) =>
+    typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value)
+      ? value : fallback;
+  const surface = safeColor(style?.surfaceColor, "#FFFFFF");
+  const footer = safeColor(style?.footerColor, "#F5F5F7");
+  const darkSurface = getLuminance(surface) < 0.18;
+  const darkFooter = getLuminance(footer) < 0.18;
+  const radii = { pill: "999px", soft: "14px", square: "4px" };
+  const cardRadii = { round: "32px", soft: "16px", square: "4px" };
+  const spacing = { compact: "48px", balanced: "80px", spacious: "112px" };
+
+  root.style.setProperty("--store-surface-bg", surface);
+  root.style.setProperty("--store-surface-text", darkSurface ? "#F8FAFC" : "#17191D");
+  root.style.setProperty("--store-surface-muted", darkSurface ? "#CBD5E1" : "#62646B");
+  root.style.setProperty("--store-surface-border", darkSurface ? "#41434A" : "#E5E7EB");
+  root.style.setProperty("--store-footer-bg", footer);
+  root.style.setProperty("--store-footer-text", darkFooter ? "#F8FAFC" : "#1D1D1F");
+  root.style.setProperty("--store-footer-muted", darkFooter ? "#CBD5E1" : "#52525B");
+  root.style.setProperty("--store-footer-border", darkFooter ? "#3F3F46" : "#D2D2D7");
+  root.style.setProperty("--store-button-radius", radii[style?.buttonShape] || radii.pill);
+  root.style.setProperty("--store-card-radius", cardRadii[style?.cardShape] || cardRadii.round);
+  root.style.setProperty("--store-section-spacing", spacing[style?.sectionSpacing] || spacing.balanced);
+
 
   if (data.primary_color) {
     root.style.setProperty("--brand", data.primary_color);
     const rgb = hexToRgb(data.primary_color);
     if (rgb) root.style.setProperty("--brand-rgb", rgb);
     root.style.setProperty("--brand-hover", darken(data.primary_color, 12));
+    root.style.setProperty("--store-brand-contrast", getLuminance(data.primary_color) > 0.36 ? "#101114" : "#FFFFFF");
   }
 
   const pageBg = data.store_page_bg || "#ffffff";
@@ -83,8 +110,8 @@ export function AppearanceProvider({ children }) {
   const appearance = runtime.compatibility.publicProfile;
 
   useEffect(() => {
-    applyGlobalStyles(appearance);
-  }, [appearance]);
+    applyGlobalStyles(appearance, runtime.site.manifest?.style);
+  }, [appearance, runtime.site.manifest?.style]);
 
   return (
     <AppearanceContext.Provider value={{ appearance, loading }}>
