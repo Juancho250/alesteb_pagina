@@ -49,6 +49,12 @@ test("public storefront renders only scoped style tokens and registered sections
   assert.match(home, /--store-section-spacing|store-site-section/);
   assert.match(footer, /--store-footer-text/);
   assert.match(footer, /showStoreLinks/);
+  const navbar = read("src/components/Navbar.jsx");
+  assert.match(navbar, /navigation\.showCategories/);
+  assert.match(navbar, /navigation\.showSupport/);
+  assert.match(navbar, /navigation\.showSearch/);
+  assert.match(navbar, /aria-label=\{\x60Carrito/);
+
   assert.match(footer, /showSupportLinks/);
   assert.match(footer, /showCountry/);
   const runtimeContext = read("src/platform/runtime/SiteRuntimeContext.jsx");
