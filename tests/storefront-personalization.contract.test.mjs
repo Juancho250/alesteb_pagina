@@ -1,0 +1,44 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { createSiteRuntime } from "../src/platform/runtime/siteRuntime.js";
+import { normalizeHomeSections, getSectionDefinition } from "../src/platform/sections/sectionRegistry.js";
+
+const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+
+test("published site style is isolated from brand and included in runtime", () => {
+  const style = {
+    surfaceColor: "#15171A",
+    footerColor: "#141619",
+    buttonShape: "square",
+    cardShape: "soft",
+    sectionSpacing: "compact",
+  };
+  const runtime = createSiteRuntime(
+    { business_name: "Test Store", primary_color: "#D19D01" },
+    { schemaVersion: 1, style, home: { sections: [{ id: "promo", type: "promotion.banner", enabled: true, settings: { title: "Test" } }] } }
+  );
+  assert.equal(runtime.brand.colors.primary, "#D19D01");
+  assert.deepEqual(runtime.site.manifest.style, style);
+  assert.equal(normalizeHomeSections(runtime.site.manifest)[0].type, "promotion.banner");
+  assert.equal(getSectionDefinition("custom.javascript"), null);
+  assert.ok(getSectionDefinition("promotion.banner"));
+});
+
+test("legacy storefront keeps its section defaults", () => {
+  const runtime = createSiteRuntime({ business_name: "Existing" });
+  assert.equal(runtime.site.manifest, null);
+  assert.equal(normalizeHomeSections(null).length, 6);
+});
+
+test("public storefront renders only scoped style tokens and registered sections", () => {
+  const appearance = read("src/context/AppearanceContext.jsx");
+  const home = read("src/pages/Home.jsx");
+  const footer = read("src/components/Footer.jsx");
+  assert.match(appearance, /--store-surface-bg/);
+  assert.match(appearance, /--store-footer-bg/);
+  assert.match(appearance, /getLuminance\(surface\)/);
+  assert.match(home, /PromotionBannerSection/);
+  assert.match(home, /--store-section-spacing|store-site-section/);
+  assert.match(footer, /--store-footer-text/);
+});
