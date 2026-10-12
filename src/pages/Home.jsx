@@ -261,6 +261,8 @@ function PromotionBannerSection({ settings }) {
     neutral: { backgroundColor: "var(--store-surface-bg)", color: "var(--store-surface-text)" },
     dark: { backgroundColor: "#131519", color: "#FFFFFF" },
     brand: { backgroundColor: "var(--brand)", color: "var(--store-brand-contrast, #FFFFFF)" },
+    secondary: { backgroundColor: "var(--brand-secondary)", color: "var(--store-secondary-contrast, #FFFFFF)" },
+    accent: { backgroundColor: "var(--brand-accent)", color: "var(--store-accent-contrast, #101114)" },
   };
   const tone = tones[settings?.tone] || tones.neutral;
 
