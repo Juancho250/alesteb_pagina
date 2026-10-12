@@ -39,6 +39,13 @@ test("public storefront renders only scoped style tokens and registered sections
   assert.match(appearance, /--store-footer-bg/);
   assert.match(appearance, /getLuminance\(surface\)/);
   assert.match(home, /PromotionBannerSection/);
+  assert.match(home, /EditorialStorySection/);
+  assert.match(home, /FaqSection/);
+  assert.match(appearance, /--store-content-width/);
+  assert.match(appearance, /--store-product-aspect/);
+  assert.match(appearance, /--brand-secondary/);
+  assert.match(appearance, /--brand-accent/);
+
   assert.match(home, /--store-section-spacing|store-site-section/);
   assert.match(footer, /--store-footer-text/);
 });
