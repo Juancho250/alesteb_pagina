@@ -102,9 +102,15 @@ function applyGlobalStyles(data, style) {
     root.style.setProperty("--store-border",         "#e2e8f0");
   }
 
-  const font = data.store_font;
-  if (font && ALLOWED_FONTS.has(font)) {
-    let link = document.getElementById("gf-dynamic");
+  const font = ALLOWED_FONTS.has(data.store_font) ? data.store_font : null;
+  root.style.setProperty(
+    "--store-font-family",
+    font ? `'${font}', system-ui, sans-serif` : "ui-sans-serif, system-ui, sans-serif"
+  );
+  document.body.style.fontFamily = "var(--store-font-family)";
+
+  let link = document.getElementById("gf-dynamic");
+  if (font) {
     const href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, "+")}:wght@400;500;600;700;800;900&display=swap`;
     if (link) {
       link.href = href;
@@ -115,7 +121,8 @@ function applyGlobalStyles(data, style) {
       link.href = href;
       document.head.appendChild(link);
     }
-    document.body.style.fontFamily = `'${font}', system-ui, sans-serif`;
+  } else {
+    link?.remove();
   }
 }
 
