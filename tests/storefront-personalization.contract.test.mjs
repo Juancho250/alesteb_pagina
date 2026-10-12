@@ -65,3 +65,24 @@ test("public storefront renders only scoped style tokens and registered sections
   assert.doesNotMatch(html, /<title>Alesteb/);
 
 });
+
+test("password change uses the authenticated identity contract without exposing secrets in console", () => {
+  const profile = read("src/pages/ProfilePage.jsx");
+  const auth = read("src/pages/Auth.jsx");
+  assert.match(profile, /api\.post\("\/auth\/change-password",\s*\{/);
+  assert.match(profile, /currentPassword: form\.current/);
+  assert.match(profile, /newPassword: form\.next/);
+  assert.match(profile, /confirmPassword: form\.confirm/);
+  assert.doesNotMatch(profile, /current_password: form\.current|new_password:\s*form\.next/);
+  assert.match(profile, /<motion\.form/);
+  assert.match(profile, /onSubmit=\{handleSubmit\}/);
+  assert.match(profile, /autoComplete: "current-password"/);
+  assert.match(profile, /autoComplete: "new-password"/);
+  assert.match(profile, /type="submit"/);
+  assert.match(profile, /clearStoredSession\(\)/);
+  assert.match(profile, /window\.location\.replace\("\/auth\?passwordUpdated=1"\)/);
+  assert.match(profile, /INVALID_CURRENT_PASSWORD/);
+  assert.match(profile, /PASSWORD_REUSE/);
+  assert.match(auth, /Contraseña actualizada\. Inicia sesión con tu nueva contraseña/);
+  assert.doesNotMatch(auth, /console\.error\(error\)/);
+});
