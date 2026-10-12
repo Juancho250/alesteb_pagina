@@ -73,6 +73,13 @@ function applyGlobalStyles(data, style) {
     root.style.setProperty("--store-brand-contrast", getLuminance(data.primary_color) > 0.36 ? "#101114" : "#FFFFFF");
   }
 
+  const secondaryColor = safeColor(data.secondary_color, "#1E40AF");
+  const accentColor = safeColor(data.accent_color, "#F59E0B");
+  root.style.setProperty("--brand-secondary", secondaryColor);
+  root.style.setProperty("--brand-accent", accentColor);
+  root.style.setProperty("--store-secondary-contrast", getLuminance(secondaryColor) > 0.36 ? "#101114" : "#FFFFFF");
+  root.style.setProperty("--store-accent-contrast", getLuminance(accentColor) > 0.36 ? "#101114" : "#FFFFFF");
+
   const pageBg = data.store_page_bg || "#ffffff";
   root.style.setProperty("--store-page-bg", pageBg);
   document.body.style.backgroundColor = pageBg;
