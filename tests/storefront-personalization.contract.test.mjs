@@ -48,4 +48,14 @@ test("public storefront renders only scoped style tokens and registered sections
 
   assert.match(home, /--store-section-spacing|store-site-section/);
   assert.match(footer, /--store-footer-text/);
+  assert.match(footer, /showStoreLinks/);
+  assert.match(footer, /showSupportLinks/);
+  assert.match(footer, /showCountry/);
+  const runtimeContext = read("src/platform/runtime/SiteRuntimeContext.jsx");
+  assert.match(runtimeContext, /applySiteDocumentMetadata/);
+  assert.match(runtimeContext, /safePublicImageUrl/);
+  const html = read("index.html");
+  assert.doesNotMatch(html, /<link rel="canonical" href="https:\/\/alesteb\.vercel\.app/);
+  assert.doesNotMatch(html, /<title>Alesteb/);
+
 });
