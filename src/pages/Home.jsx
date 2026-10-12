@@ -81,7 +81,7 @@ function TickerStrip({ settings }) {
 
   return (
     <div className="border-y border-[var(--store-surface-border)] bg-[var(--store-surface-bg)] px-6 py-4 text-[var(--store-surface-text)]">
-      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4">
+      <div className="store-site-content-width mx-auto grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-4">
         {items.map((item) => (
           <span
             key={item}
@@ -109,7 +109,7 @@ function FeaturesStrip({ settings }) {
 
   return (
     <section className="store-site-section perf-section border-t border-[var(--store-surface-border)] px-6">
-      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-10 md:grid-cols-4">
+      <div className="store-site-content-width mx-auto grid grid-cols-2 gap-10 md:grid-cols-4">
         {items.map((feature) => (
           <div key={feature.title} className="flex flex-col items-center gap-4 text-center">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--store-surface-bg)] text-[var(--store-surface-text)]">
@@ -206,6 +206,53 @@ function HeroCopySection({ runtime, settings }) {
   );
 }
 
+function EditorialStorySection({ settings }) {
+  const title = String(settings?.title || "").trim();
+  if (!title) return null;
+  const centered = settings?.alignment === "center";
+  return (
+    <section className="store-site-section border-y border-[var(--store-surface-border)] bg-[var(--store-surface-bg)] px-6 text-[var(--store-surface-text)]">
+      <div className={`store-site-content-width mx-auto ${centered ? "text-center" : "text-left"}`}>
+        {settings?.eyebrow ? <p className="mb-5 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--store-surface-muted)]">{settings.eyebrow}</p> : null}
+        <h2 className="max-w-4xl text-4xl font-semibold leading-tight tracking-tight md:text-6xl">{title}</h2>
+        {settings?.body ? (
+          <p className={`mt-6 max-w-3xl whitespace-pre-line text-base leading-relaxed text-[var(--store-surface-muted)] ${centered ? "mx-auto" : ""}`}>{settings.body}</p>
+        ) : null}
+        {settings?.ctaLabel ? (
+          <Link to={settings.ctaLink || "/contact"} className="mt-8 inline-flex items-center gap-2 text-sm font-semibold underline underline-offset-8 hover:opacity-65">
+            {settings.ctaLabel}<ArrowRight size={16} />
+          </Link>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function FaqSection({ settings }) {
+  const entries = (Array.isArray(settings?.items) ? settings.items : [])
+    .filter((item) => String(item?.question || "").trim() && String(item?.answer || "").trim())
+    .slice(0, 6);
+  if (entries.length === 0) return null;
+
+  return (
+    <section className="store-site-section px-6">
+      <div className="mx-auto max-w-3xl">
+        <h2 className="mb-9 text-3xl font-semibold tracking-tight md:text-5xl">{settings?.title || "Preguntas frecuentes"}</h2>
+        <div className="divide-y divide-[var(--store-border)] border-y border-[var(--store-border)]">
+          {entries.map((item, index) => (
+            <details key={index} className="group py-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-base font-medium">
+                {item.question}<span aria-hidden="true" className="shrink-0 text-2xl font-light transition-transform group-open:rotate-45">+</span>
+              </summary>
+              <p className="mt-3 max-w-2xl whitespace-pre-line text-sm leading-7 text-[var(--store-text-secondary)]">{item.answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function PromotionBannerSection({ settings }) {
   const title = String(settings?.title || "").trim();
   if (!title) return null;
@@ -240,7 +287,7 @@ function ProductCollectionSection({ products, loading, settings }) {
 
   return (
     <section className="store-site-section perf-section bg-[var(--store-surface-bg)] px-6 text-[var(--store-surface-text)]">
-      <div className="mx-auto max-w-6xl">
+      <div className="store-site-content-width mx-auto">
         <div className="mb-12 flex flex-col items-end justify-between gap-4 sm:flex-row">
           <div className="space-y-1">
             <div className="mb-3 h-1 w-10 rounded-full bg-current" />
@@ -264,7 +311,7 @@ function ProductCollectionSection({ products, loading, settings }) {
           {visibleProducts.length === 0 && loading
             ? Array.from({ length: Math.min(limit, 8) }).map((_, index) => (
                 <div key={index} className="animate-pulse">
-                  <div className="mb-5 aspect-[4/5] rounded-[1.5rem] bg-[#f5f5f7] md:rounded-[2rem]" />
+                  <div className="store-site-product-image mb-5 rounded-[var(--store-card-radius)] bg-[#f5f5f7]" />
                   <div className="mb-2 h-2.5 w-2/3 rounded-full bg-neutral-100" />
                   <div className="h-5 w-1/2 rounded-full bg-neutral-100" />
                 </div>
@@ -278,7 +325,7 @@ function ProductCollectionSection({ products, loading, settings }) {
                     className="group block cursor-pointer"
                   >
                     <div>
-                      <div className="store-site-card relative mb-5 aspect-[4/5] overflow-hidden bg-[var(--store-page-bg)]">
+                      <div className="store-site-card store-site-product-image relative mb-5 overflow-hidden bg-[var(--store-page-bg)]">
                         <img
                           src={getOptimizedImageUrl(product.main_image)}
                           alt={product.name}
@@ -313,7 +360,7 @@ function CategoryGridSection({ categories, settings }) {
 
   return (
     <section className="store-site-section perf-section border-t border-[var(--store-surface-border)] px-6">
-      <div className="mx-auto max-w-6xl">
+      <div className="store-site-content-width mx-auto">
         <h3 className="mb-12 text-center text-3xl font-black uppercase tracking-tighter md:text-4xl">
           {title}
         </h3>
@@ -422,6 +469,10 @@ export default function Home() {
         return <FeaturesStrip key={section.id} settings={section.settings} />;
       case "promotion.banner":
         return <PromotionBannerSection key={section.id} settings={section.settings} />;
+      case "editorial.story":
+        return <EditorialStorySection key={section.id} settings={section.settings} />;
+      case "faq.accordion":
+        return <FaqSection key={section.id} settings={section.settings} />;
       case "category.grid":
         return (
           <CategoryGridSection
