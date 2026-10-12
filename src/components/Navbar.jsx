@@ -9,6 +9,7 @@ import { loadPublicJson, readPublicCache } from "../services/publicData";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useAppearance } from "../context/AppearanceContext";
+import { useSiteRuntime } from "../platform/runtime/SiteRuntimeContext";
 import { extractCategories } from "../utils/apiResponse";
 
 // ─── Variantes ────────────────────────────────────────────────
@@ -290,6 +291,8 @@ export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
   const { cart } = useCart();
   const { appearance, loading: profileLoad } = useAppearance() ?? {};
+  const { runtime } = useSiteRuntime();
+  const navigation = runtime.site.manifest?.navigation || {};
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -374,9 +377,10 @@ export default function Navbar() {
                   : linkCls
               }`}
             >
-              Tienda
+              {navigation.catalogLabel || "Tienda"}
             </Link>
 
+            {navigation.showCategories !== false ? (
             <div ref={megaRef} className="relative h-[68px] flex items-center">
               <button
                 onClick={() => setMegaOpen(v => !v)}
@@ -387,7 +391,7 @@ export default function Navbar() {
                 }`}
               >
                 <LayoutGrid size={13} className="shrink-0" />
-                Categorías
+                {navigation.categoriesLabel || "Categorías"}
                 <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${megaOpen ? "rotate-180" : ""}`} />
               </button>
 
@@ -401,17 +405,21 @@ export default function Navbar() {
                 )}
               </AnimatePresence>
             </div>
+            ) : null}
 
+            {navigation.showSupport !== false ? (
             <Link
               to="/support"
               className={`px-3.5 py-2 text-[13px] font-semibold rounded-xl transition-all ${linkCls}`}
             >
-              Soporte
+              {navigation.supportLabel || "Soporte"}
             </Link>
+            ) : null}
           </nav>
 
           <div className="flex items-center gap-1 ml-auto">
 
+            {navigation.showSearch !== false ? (
             <div className="hidden sm:flex items-center relative">
               <AnimatePresence>
                 {searchOpen && (
@@ -444,6 +452,7 @@ export default function Navbar() {
                 {searchOpen ? <X size={17} /> : <Search size={17} />}
               </button>
             </div>
+            ) : null}
 
             {isAuthenticated && user ? (
               <div className={`hidden md:flex items-center gap-1 pl-3 border-l ml-1 ${authDividerCls}`}>
@@ -549,6 +558,7 @@ export default function Navbar() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
+              {navigation.showSearch !== false ? (
               <div className="relative">
                 <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
                 <input
@@ -563,6 +573,7 @@ export default function Navbar() {
                   }}
                 />
               </div>
+              ) : null}
 
               {isAuthenticated && user ? (
                 <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-neutral-50 border border-neutral-100">
@@ -593,11 +604,13 @@ export default function Navbar() {
                 </Link>
               )}
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className={`grid gap-2 ${navigation.showSupport === false ? "grid-cols-2" : "grid-cols-3"}`}>
                 {[
-                  { to: "/productos", label: "Tienda" },
-                  { to: "/carrito",   label: "Carrito" },
-                  { to: "/support",   label: "Soporte" },
+                  { to: "/productos", label: navigation.catalogLabel || "Tienda" },
+                  { to: "/carrito", label: "Carrito" },
+                  ...(navigation.showSupport === false ? [] : [
+                    { to: "/support", label: navigation.supportLabel || "Soporte" },
+                  ]),
                 ].map(item => (
                   <Link
                     key={item.to}
@@ -610,10 +623,10 @@ export default function Navbar() {
                 ))}
               </div>
 
-              {categories.length > 0 && (
+              {navigation.showCategories !== false && categories.length > 0 && (
                 <div>
                   <p className="text-[9.5px] font-black uppercase tracking-[0.22em] text-neutral-400 mb-3 select-none">
-                    Categorías
+                    {navigation.categoriesLabel || "Categorías"}
                   </p>
                   <MobileTree
                     nodes={categories}
