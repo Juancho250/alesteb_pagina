@@ -66,3 +66,8 @@ body {
   border-radius: var(--store-button-radius, 999px);
   color: var(--store-brand-contrast, #ffffff);
 }
+
+/* Registered layout hooks; the backend only publishes enumerated style tokens. */
+.store-site-content-width { width: 100%; max-width: var(--store-content-width, 1152px); }
+.store-site-footer-width { width: 100%; max-width: var(--store-footer-width, 1024px); }
+.store-site-product-image { aspect-ratio: var(--store-product-aspect, 4 / 5); }
