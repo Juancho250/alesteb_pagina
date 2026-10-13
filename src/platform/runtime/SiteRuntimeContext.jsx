@@ -8,6 +8,7 @@ import {
 } from "react";
 import api from "../../services/api";
 import { loadPublicJson } from "../../services/publicData";
+import { PREVIEW_READY, PREVIEW_APPLY, normalizeLivePreviewManifest, isTrustedPreviewEditorOrigin } from "./livePreviewProtocol";
 import {
   createSiteRuntime,
   extractPublicProfile,
@@ -114,6 +115,12 @@ export function SiteRuntimeProvider({ children }) {
     return new URLSearchParams(hash).get("preview") || "";
   }, []);
 
+  const editorSession = useMemo(() => {
+    const hash = typeof window === "undefined" ? "" : window.location.hash.replace(/^#/, "");
+    return new URLSearchParams(hash).get("editorSession") || "";
+  }, []);
+  const [previewVerified, setPreviewVerified] = useState(false);
+
   const [runtime, setRuntime] = useState(FALLBACK_SITE_RUNTIME);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -121,6 +128,7 @@ export function SiteRuntimeProvider({ children }) {
 
   const reload = useCallback(async () => {
     setLoading(true);
+    setPreviewVerified(false);
 
     try {
       const manifestRequest = previewToken
@@ -137,8 +145,20 @@ export function SiteRuntimeProvider({ children }) {
       ]);
       const profile = extractPublicProfile({ data: profilePayload });
       const manifest = manifestPayload?.data ?? manifestPayload ?? null;
+      if (previewToken && (
+        manifestPayload?.success !== true ||
+        !manifestPayload?.preview ||
+        !manifest ||
+        manifest.schemaVersion !== 1
+      )) {
+        throw new Error("SITE_PREVIEW_MANIFEST_INVALID");
+      }
       const nextRuntime = createSiteRuntime(profile, manifest);
+      if (previewToken && nextRuntime.status !== "resolved") {
+        throw new Error("SITE_PREVIEW_PROFILE_UNAVAILABLE");
+      }
       setRuntime(nextRuntime);
+      setPreviewVerified(Boolean(previewToken));
 
       setError(null);
       setFatalError(null);
@@ -164,6 +184,28 @@ export function SiteRuntimeProvider({ children }) {
   useEffect(() => {
     applySiteDocumentMetadata(runtime);
   }, [runtime]);
+
+  // This channel only exists inside a server-authenticated, signed-token preview.
+  // Updates affect React's in-memory presentation model; no DB writes or publishing.
+  useEffect(() => {
+    if (!previewToken || !previewVerified || !editorSession || window.parent === window) return undefined;
+
+    const onMessage = (event) => {
+      if (event.source !== window.parent || !isTrustedPreviewEditorOrigin(event.origin)) return;
+      if (event.data?.type !== PREVIEW_APPLY || event.data?.editorSession !== editorSession) return;
+      const safeManifest = normalizeLivePreviewManifest(event.data.manifest);
+      if (!safeManifest) return;
+      setRuntime((current) => (
+        current.status === "resolved"
+          ? createSiteRuntime(current.compatibility.publicProfile, safeManifest)
+          : current
+      ));
+    };
+    window.addEventListener("message", onMessage);
+    // Only a non-sensitive random session ID is announced to the embedding window.
+    window.parent.postMessage({ type: PREVIEW_READY, editorSession }, "*");
+    return () => window.removeEventListener("message", onMessage);
+  }, [previewToken, previewVerified, editorSession]);
 
 
   const value = useMemo(
