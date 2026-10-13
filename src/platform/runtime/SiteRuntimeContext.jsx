@@ -144,7 +144,11 @@ export function SiteRuntimeProvider({ children }) {
       setFatalError(null);
     } catch (loadError) {
       setError(loadError);
-      setFatalError(storefrontFatalError(loadError));
+      setFatalError(storefrontFatalError(loadError) || {
+        status: loadError?.response?.status || 503,
+        code: "STOREFRONT_PROFILE_LOAD_FAILED",
+        message: "No se pudo identificar de forma segura la tienda.",
+      });
       // Never continue displaying a cached or previously selected company
       // when authoritative profile resolution fails.
       setRuntime(FALLBACK_SITE_RUNTIME);
