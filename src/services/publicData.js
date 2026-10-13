@@ -9,6 +9,7 @@ function storage() {
 }
 
 export function readPublicCache(key, maxAgeMs = 30 * 60 * 1000) {
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).has("preview")) return null;
   const now = Date.now();
   const mem = memory.get(key);
   if (mem && now - mem.ts <= maxAgeMs) return mem.data;
