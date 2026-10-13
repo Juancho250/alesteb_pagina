@@ -86,3 +86,11 @@ test("password change uses the authenticated identity contract without exposing 
   assert.match(auth, /Contraseña actualizada\. Inicia sesión con tu nueva contraseña/);
   assert.doesNotMatch(auth, /console\.error\(error\)/);
 });
+
+test("tenant identity is resolved fresh and never hydrated from persistent local storage", () => {
+  const provider = read("src/platform/runtime/SiteRuntimeContext.jsx");
+  assert.doesNotMatch(provider, /RUNTIME_CACHE_KEY|readCachedRuntime|writeCachedRuntime/);
+  assert.match(provider, /useState\(FALLBACK_SITE_RUNTIME\)/);
+  assert.match(provider, /STOREFRONT_PROFILE_LOAD_FAILED/);
+  assert.match(provider, /setRuntime\(FALLBACK_SITE_RUNTIME\)/);
+});
