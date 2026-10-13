@@ -16,28 +16,8 @@ import {
 
 const SiteRuntimeContext = createContext(null);
 
-const RUNTIME_CACHE_KEY = "_alesteb_site_runtime_v1";
-
-function readCachedRuntime() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(RUNTIME_CACHE_KEY) || "null");
-    return parsed?.runtime?.status === "resolved" ? parsed.runtime : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeCachedRuntime(runtime) {
-  try {
-    localStorage.setItem(
-      RUNTIME_CACHE_KEY,
-      JSON.stringify({ runtime, updatedAt: Date.now() })
-    );
-  } catch {
-    // El cache es una optimización; nunca debe romper la tienda.
-  }
-}
-
+// Do not rehydrate another business identity from browser-wide storage.
+// Public data has its own scoped caching and is resolved before the store is shown.
 function upsertMeta(selector, selectorAttributes, content) {
   let element = document.head.querySelector(selector);
   if (!element) {
@@ -134,9 +114,7 @@ export function SiteRuntimeProvider({ children }) {
     return new URLSearchParams(hash).get("preview") || "";
   }, []);
 
-  const [runtime, setRuntime] = useState(
-    () => previewToken ? FALLBACK_SITE_RUNTIME : (readCachedRuntime() || FALLBACK_SITE_RUNTIME)
-  );
+  const [runtime, setRuntime] = useState(FALLBACK_SITE_RUNTIME);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [fatalError, setFatalError] = useState(null);
@@ -161,15 +139,15 @@ export function SiteRuntimeProvider({ children }) {
       const manifest = manifestPayload?.data ?? manifestPayload ?? null;
       const nextRuntime = createSiteRuntime(profile, manifest);
       setRuntime(nextRuntime);
-      if (nextRuntime.status === "resolved" && !previewToken) writeCachedRuntime(nextRuntime);
+
       setError(null);
       setFatalError(null);
     } catch (loadError) {
       setError(loadError);
       setFatalError(storefrontFatalError(loadError));
-      setRuntime((current) =>
-        current.status === "resolved" ? current : FALLBACK_SITE_RUNTIME
-      );
+      // Never continue displaying a cached or previously selected company
+      // when authoritative profile resolution fails.
+      setRuntime(FALLBACK_SITE_RUNTIME);
     } finally {
       setLoading(false);
     }
