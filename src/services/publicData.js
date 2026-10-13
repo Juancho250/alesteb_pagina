@@ -39,6 +39,7 @@ export function writePublicCache(key, data) {
 }
 
 function earlyPrefetch(path) {
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).has("preview")) return null;
   if (typeof window === "undefined") return null;
   const value = window.__ALESTEB_PREFETCH__?.[path];
   return value && typeof value.then === "function" ? value : null;
