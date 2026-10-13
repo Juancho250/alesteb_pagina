@@ -27,6 +27,7 @@ export function readPublicCache(key, maxAgeMs = 30 * 60 * 1000) {
 }
 
 export function writePublicCache(key, data) {
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).has("preview")) return data;
   const entry = { data, ts: Date.now() };
   memory.set(key, entry);
   try {
