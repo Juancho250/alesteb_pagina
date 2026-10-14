@@ -94,3 +94,22 @@ test("tenant identity is resolved fresh and never hydrated from persistent local
   assert.match(provider, /STOREFRONT_PROFILE_LOAD_FAILED/);
   assert.match(provider, /setRuntime\(FALLBACK_SITE_RUNTIME\)/);
 });
+
+test("signed tenant preview cannot fall back to the host's configured business", () => {
+  const runtimeContext = read("src/platform/runtime/SiteRuntimeContext.jsx");
+  const api = read("src/services/api.js");
+  const cache = read("src/services/publicData.js");
+  const html = read("index.html");
+  assert.match(runtimeContext, /manifestPayload\?\.tenantId/);
+  assert.match(runtimeContext, /profilePayload\?\.tenantId/);
+  assert.match(runtimeContext, /SITE_PREVIEW_TENANT_IDENTITY_MISMATCH/);
+  assert.match(runtimeContext, /tenantId: verifiedPreviewTenantId/);
+  assert.match(api, /DOCUMENT_PREVIEW_TOKEN/);
+  assert.match(api, /export function isStorefrontPreviewMode/);
+  assert.match(api, /if \(previewToken && config\.headers\.Authorization\)/);
+  assert.match(cache, /isStorefrontPreviewMode\(\)/);
+  assert.match(html, /A signed iframe must never prefetch/);
+  assert.match(runtimeContext, /ALESTEB_SITE_PREVIEW_PING_V1/);
+  assert.match(runtimeContext, /document.addEventListener\("click", stopActions, true\)/);
+  assert.match(runtimeContext, /document.addEventListener\("submit", stopSubmit, true\)/);
+});

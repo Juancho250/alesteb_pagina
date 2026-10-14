@@ -1,4 +1,4 @@
-import api from "./api";
+import api, { isStorefrontPreviewMode } from "./api";
 
 const CACHE_PREFIX = "_alesteb_public_v2:";
 const memory = new Map();
@@ -9,7 +9,7 @@ function storage() {
 }
 
 export function readPublicCache(key, maxAgeMs = 30 * 60 * 1000) {
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).has("preview")) return null;
+  if (isStorefrontPreviewMode()) return null;
   const now = Date.now();
   const mem = memory.get(key);
   if (mem && now - mem.ts <= maxAgeMs) return mem.data;
@@ -27,7 +27,7 @@ export function readPublicCache(key, maxAgeMs = 30 * 60 * 1000) {
 }
 
 export function writePublicCache(key, data) {
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).has("preview")) return data;
+  if (isStorefrontPreviewMode()) return data;
   const entry = { data, ts: Date.now() };
   memory.set(key, entry);
   try {
@@ -39,14 +39,15 @@ export function writePublicCache(key, data) {
 }
 
 function earlyPrefetch(path) {
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).has("preview")) return null;
+  if (isStorefrontPreviewMode()) return null;
   if (typeof window === "undefined") return null;
   const value = window.__ALESTEB_PREFETCH__?.[path];
   return value && typeof value.then === "function" ? value : null;
 }
 
 export function loadPublicJson(path, cacheKey = path) {
-  if (inFlight.has(cacheKey)) return inFlight.get(cacheKey);
+  const key = `${isStorefrontPreviewMode() ? "signed-preview:" : "public:"}${cacheKey}`;
+  if (inFlight.has(key)) return inFlight.get(key);
 
   const prefetched = earlyPrefetch(path);
   const promise = (
@@ -59,12 +60,12 @@ export function loadPublicJson(path, cacheKey = path) {
       return payload;
     })
     .finally(() => {
-      inFlight.delete(cacheKey);
+      inFlight.delete(key);
       if (typeof window !== "undefined" && window.__ALESTEB_PREFETCH__?.[path]) {
         delete window.__ALESTEB_PREFETCH__[path];
       }
     });
 
-  inFlight.set(cacheKey, promise);
+  inFlight.set(key, promise);
   return promise;
 }

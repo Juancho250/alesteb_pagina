@@ -25,6 +25,8 @@
     <!-- Critical public reads start before React so API latency overlaps JS. -->
     <script>
       (() => {
+        // A signed iframe must never prefetch the generic host's tenant data.
+        if (new URLSearchParams(window.location.hash.replace(/^#/, "")).has("preview")) return;
         const base = "/api/storefront/public-api/v1";
         const bucket = (window.__ALESTEB_PREFETCH__ = window.__ALESTEB_PREFETCH__ || {});
         const warm = (path) => {

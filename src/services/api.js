@@ -21,12 +21,20 @@ const TERMINAL_TOKEN_CODES = new Set([
   "INVALID_REFRESH_TOKEN",
 ]);
 
-function readStorefrontPreviewToken() {
+// Capture the signed preview scope once per page load. React Router may
+// change location.hash while navigating inside the preview iframe.
+const DOCUMENT_PREVIEW_TOKEN = (() => {
   if (typeof window === "undefined") return "";
-  const hash = window.location.hash.startsWith("#")
-    ? window.location.hash.slice(1)
-    : window.location.hash;
-  return new URLSearchParams(hash).get("preview") || "";
+  const fragment = window.location.hash.replace(/^#/, "");
+  return new URLSearchParams(fragment).get("preview") || "";
+})();
+
+export function isStorefrontPreviewMode() {
+  return Boolean(DOCUMENT_PREVIEW_TOKEN);
+}
+
+function readStorefrontPreviewToken() {
+  return DOCUMENT_PREVIEW_TOKEN;
 }
 
 export function getRefreshToken() {
@@ -59,12 +67,16 @@ api.interceptors.request.use(
   (config) => {
     config.headers = config.headers || {};
 
-    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+    const previewToken = readStorefrontPreviewToken();
+    // Never send another shop's persisted customer credentials to a signed
+    // storefront preview. Only the preview capability scopes public reads.
+    const token = previewToken ? null : localStorage.getItem(ACCESS_TOKEN_KEY);
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
-    const previewToken = readStorefrontPreviewToken();
+    if (previewToken && config.headers.Authorization) {
+      delete config.headers.Authorization;
+    }
     if (previewToken && !config.headers["X-ALESTEB-Preview-Token"]) {
       config.headers["X-ALESTEB-Preview-Token"] = previewToken;
     }
@@ -117,6 +129,9 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const code = error.response?.data?.code || "";
     const originalRequest = error.config;
+
+    // Preview never belongs to a browser's saved customer session.
+    if (isStorefrontPreviewMode()) return Promise.reject(error);
 
     if (status === 401 && TERMINAL_TOKEN_CODES.has(code)) {
       clearStoredSession();

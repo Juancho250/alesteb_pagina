@@ -119,7 +119,7 @@ export function SiteRuntimeProvider({ children }) {
     const hash = typeof window === "undefined" ? "" : window.location.hash.replace(/^#/, "");
     return new URLSearchParams(hash).get("editorSession") || "";
   }, []);
-  const [previewVerified, setPreviewVerified] = useState(false);
+  const [verifiedPreviewTenantId, setVerifiedPreviewTenantId] = useState(null);
 
   const [runtime, setRuntime] = useState(FALLBACK_SITE_RUNTIME);
   const [loading, setLoading] = useState(true);
@@ -128,7 +128,7 @@ export function SiteRuntimeProvider({ children }) {
 
   const reload = useCallback(async () => {
     setLoading(true);
-    setPreviewVerified(false);
+    setVerifiedPreviewTenantId(null);
 
     try {
       const manifestRequest = previewToken
@@ -154,11 +154,19 @@ export function SiteRuntimeProvider({ children }) {
         throw new Error("SITE_PREVIEW_MANIFEST_INVALID");
       }
       const nextRuntime = createSiteRuntime(profile, manifest);
-      if (previewToken && nextRuntime.status !== "resolved") {
-        throw new Error("SITE_PREVIEW_PROFILE_UNAVAILABLE");
+      if (previewToken) {
+        const manifestTenantId = Number(manifestPayload?.tenantId);
+        const profileTenantId = Number(profilePayload?.tenantId);
+        if (
+          !Number.isSafeInteger(manifestTenantId) || manifestTenantId <= 0 ||
+          profileTenantId !== manifestTenantId ||
+          nextRuntime.status !== "resolved"
+        ) {
+          throw new Error("SITE_PREVIEW_TENANT_IDENTITY_MISMATCH");
+        }
+        setVerifiedPreviewTenantId(manifestTenantId);
       }
       setRuntime(nextRuntime);
-      setPreviewVerified(Boolean(previewToken));
 
       setError(null);
       setFatalError(null);
@@ -185,14 +193,47 @@ export function SiteRuntimeProvider({ children }) {
     applySiteDocumentMetadata(runtime);
   }, [runtime]);
 
+  // Preview is a read-only design surface. Never allow clicks or form submissions
+  // to navigate away from the signed preview or mutate customer-facing state.
+  useEffect(() => {
+    if (!previewToken || window.parent === window) return undefined;
+    const stopActions = (event) => {
+      const target = event.target;
+      const interactive = target?.closest?.("a, button, input[type='submit'], [role='button']");
+      if (!interactive) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const stopSubmit = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    document.addEventListener("click", stopActions, true);
+    document.addEventListener("submit", stopSubmit, true);
+    return () => {
+      document.removeEventListener("click", stopActions, true);
+      document.removeEventListener("submit", stopSubmit, true);
+    };
+  }, [previewToken]);
+
   // This channel only exists inside a server-authenticated, signed-token preview.
   // Updates affect React's in-memory presentation model; no DB writes or publishing.
   useEffect(() => {
-    if (!previewToken || !previewVerified || !editorSession || window.parent === window) return undefined;
+    if (!previewToken || !verifiedPreviewTenantId || !editorSession || window.parent === window) return undefined;
 
     const onMessage = (event) => {
       if (event.source !== window.parent || !isTrustedPreviewEditorOrigin(event.origin)) return;
-      if (event.data?.type !== PREVIEW_APPLY || event.data?.editorSession !== editorSession) return;
+      if (event.data?.editorSession !== editorSession) return;
+      if (event.data?.type === "ALESTEB_SITE_PREVIEW_PING_V1") {
+        window.parent.postMessage({
+          type: PREVIEW_READY,
+          editorSession,
+          tenantId: verifiedPreviewTenantId,
+          businessName: runtime.identity.businessName,
+        }, event.origin);
+        return;
+      }
+      if (event.data?.type !== PREVIEW_APPLY) return;
       const safeManifest = normalizeLivePreviewManifest(event.data.manifest);
       if (!safeManifest) return;
       setRuntime((current) => (
@@ -203,9 +244,9 @@ export function SiteRuntimeProvider({ children }) {
     };
     window.addEventListener("message", onMessage);
     // Only a non-sensitive random session ID is announced to the embedding window.
-    window.parent.postMessage({ type: PREVIEW_READY, editorSession }, "*");
+    window.parent.postMessage({ type: PREVIEW_READY, editorSession, tenantId: verifiedPreviewTenantId, businessName: runtime.identity.businessName }, "*");
     return () => window.removeEventListener("message", onMessage);
-  }, [previewToken, previewVerified, editorSession]);
+  }, [previewToken, verifiedPreviewTenantId, editorSession, runtime.identity.businessName]);
 
 
   const value = useMemo(
