@@ -490,7 +490,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[var(--store-page-bg,#ffffff)] font-sans text-[var(--store-text-primary,#0f172a)] antialiased selection:bg-neutral-200">
-      <main className="pt-20 md:pt-24">
+      <main className="md:pt-24">
         {loadError && banners.length === 0 && featuredProducts.length === 0 && categories.length === 0 ? (
           <div className="mx-auto max-w-6xl px-6 py-3 text-center text-[11px] font-semibold text-neutral-400">
             No pudimos actualizar los datos. Reintentaremos automáticamente al volver.
