@@ -28,3 +28,19 @@ test("direct product links confirm publication before rendering", () => {
   assert.doesNotMatch(detail, /const cached = cacheGet\(id\)/);
   assert.match(detail, /\.catch\(\(\) => \{ if \(alive\) setProduct\(null\); \}\)/);
 });
+
+test("persisted favorites are checked against the public catalog before display", () => {
+  const favorites = source("src/pages/FavoritesPage.jsx");
+  assert.match(favorites, /Promise\.allSettled\(favorites\.map\(\(product\) => api\.get/);
+  assert.match(favorites, /result\.reason\?\.response\?\.status !== 404/);
+  assert.match(favorites, /publicFavorites\.map\(\(p, i\)/);
+  assert.doesNotMatch(favorites, /\{favorites\.map\(\(p, i\)/);
+});
+
+test("cart refuses checkout with previously saved unpublished products", () => {
+  const cart = source("src/pages/CartPage.jsx");
+  assert.match(cart, /Promise\.allSettled\(ids\.map\(id => api\.get/);
+  assert.match(cart, /blocked\[ids\[index\]\] = true/);
+  assert.match(cart, /No disponible en la tienda · eliminar del carrito/);
+  assert.match(cart, /disabled=\{checkingPublication \|\| publicationCheckFailed \|\| Object\.keys\(blockedProductIds\)\.length > 0\}/);
+});
