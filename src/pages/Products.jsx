@@ -380,19 +380,11 @@ export default function Products() {
   useEffect(() => {
     let active = true;
     const cacheKey = requestKey;
-    const cached   = cacheGet(cacheKey);
-
-    if (cached) {
-      // Render inmediato desde cache y revalidación silenciosa en background.
-      const items = extractProducts(cached);
-      const pag   = extractPagination(cached);
-      setProducts(items.map(applyDiscount));
-      setPagination(pag);
-      setResolvedKey(cacheKey);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
+    // Public catalog must not briefly render an unpublished product from
+    // a prior in-memory response while the fresh visibility check is pending.
+    setLoading(true);
+    setProducts([]);
+    setResolvedKey(null);
 
     const params = new URLSearchParams({ page, limit: 24 });
     if (debSearch) params.append("search", debSearch);
@@ -410,7 +402,7 @@ export default function Products() {
       })
       .catch((error) => {
         console.error(error);
-        if (!active || cached) return;
+        if (!active) return;
         setProducts([]);
         setPagination({ totalPages: 1, totalItems: 0 });
         setResolvedKey(cacheKey);

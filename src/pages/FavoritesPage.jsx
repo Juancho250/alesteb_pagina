@@ -1,10 +1,11 @@
 // src/pages/FavoritesPage.jsx
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, ArrowLeft, Percent, Plus, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
 import { useFavorites } from "../context/FavoritesContext";
 import { useCart } from "../context/CartContext";
+import api from "../services/api";
 
 const imgUrl = (url, w = 600) => {
   if (!url) return null;
@@ -137,6 +138,43 @@ export default function FavoritesPage() {
   const { favorites } = useFavorites();
   const { cart, toggleCart } = useCart();
   const handleToggle = useCallback(toggleCart, [toggleCart]);
+  const [publicFavorites, setPublicFavorites] = useState([]);
+  const [checkingPublication, setCheckingPublication] = useState(true);
+  const [publicationError, setPublicationError] = useState(false);
+  const [retryPublication, setRetryPublication] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    setCheckingPublication(true);
+    setPublicationError(false);
+    // Favorites are stored locally, so they must be revalidated against the
+    // public product endpoint before any product card may be displayed.
+    if (!favorites.length) {
+      setPublicFavorites([]);
+      setCheckingPublication(false);
+      return () => { mounted = false; };
+    }
+
+    Promise.allSettled(favorites.map((product) => api.get(`/products/${product.id}`)))
+      .then((results) => {
+        if (!mounted) return;
+        const verified = [];
+        let failed = false;
+        results.forEach((result) => {
+          if (result.status === "fulfilled") {
+            const fresh = result.value?.data?.data;
+            if (fresh?.id) verified.push(fresh);
+          } else if (result.reason?.response?.status !== 404) {
+            failed = true;
+          }
+        });
+        setPublicFavorites(verified);
+        setPublicationError(failed);
+      })
+      .finally(() => { if (mounted) setCheckingPublication(false); });
+
+    return () => { mounted = false; };
+  }, [favorites, retryPublication]);
 
   return (
     <div className="bg-white min-h-screen font-sans pb-32">
@@ -157,12 +195,19 @@ export default function FavoritesPage() {
           <div className="flex items-center gap-3">
             <div className="h-1 w-14 bg-red-400 rounded-full" />
             <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">
-              {favorites.length} {favorites.length === 1 ? "producto" : "productos"}
+              {publicFavorites.length} {publicFavorites.length === 1 ? "producto" : "productos"}
             </p>
           </div>
         </motion.div>
 
-        {favorites.length === 0 ? (
+        {checkingPublication ? (
+          <div role="status" className="py-28 text-center text-sm text-slate-500">Comprobando favoritos disponibles…</div>
+        ) : publicationError ? (
+          <div role="alert" className="flex flex-col items-center gap-4 py-28 text-sm text-slate-500">
+            No pudimos comprobar la disponibilidad de todos tus favoritos.
+            <button type="button" onClick={() => setRetryPublication((n) => n + 1)} className="text-blue-600 underline">Reintentar</button>
+          </div>
+        ) : publicFavorites.length === 0 ? (
           <motion.div
             variants={fadeUp} initial="hidden" animate="visible"
             className="flex flex-col items-center justify-center py-36 gap-5"
@@ -184,7 +229,7 @@ export default function FavoritesPage() {
           </motion.div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-14">
-            {favorites.map((p, i) => (
+            {publicFavorites.map((p, i) => (
               <FavCard
                 key={p.id} p={p} index={i}
                 onToggle={handleToggle}
