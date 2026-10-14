@@ -8,6 +8,7 @@ import {
 } from "react";
 import api from "../../services/api";
 import { loadPublicJson } from "../../services/publicData";
+import { PREVIEW_READY, PREVIEW_APPLY, normalizeLivePreviewManifest, isTrustedPreviewEditorOrigin } from "./livePreviewProtocol";
 import {
   createSiteRuntime,
   extractPublicProfile,
@@ -16,25 +17,64 @@ import {
 
 const SiteRuntimeContext = createContext(null);
 
-const RUNTIME_CACHE_KEY = "_alesteb_site_runtime_v1";
+// Do not rehydrate another business identity from browser-wide storage.
+// Public data has its own scoped caching and is resolved before the store is shown.
+function upsertMeta(selector, selectorAttributes, content) {
+  let element = document.head.querySelector(selector);
+  if (!element) {
+    element = document.createElement("meta");
+    for (const [key, value] of Object.entries(selectorAttributes)) {
+      element.setAttribute(key, value);
+    }
+    document.head.appendChild(element);
+  }
+  element.setAttribute("content", content);
+}
 
-function readCachedRuntime() {
+function safePublicImageUrl(value) {
+  if (typeof value !== "string" || !value.trim()) return "";
   try {
-    const parsed = JSON.parse(localStorage.getItem(RUNTIME_CACHE_KEY) || "null");
-    return parsed?.runtime?.status === "resolved" ? parsed.runtime : null;
+    const candidate = new URL(value, window.location.origin);
+    return candidate.protocol === "https:" || candidate.origin === window.location.origin
+      ? candidate.href
+      : "";
   } catch {
-    return null;
+    return "";
   }
 }
 
-function writeCachedRuntime(runtime) {
-  try {
-    localStorage.setItem(
-      RUNTIME_CACHE_KEY,
-      JSON.stringify({ runtime, updatedAt: Date.now() })
-    );
-  } catch {
-    // El cache es una optimización; nunca debe romper la tienda.
+function applySiteDocumentMetadata(runtime) {
+  if (runtime.status !== "resolved") return;
+  const seo = runtime.site.manifest?.seo || {};
+  const title = String(seo.title || runtime.identity.businessName || "Tienda en línea").trim().slice(0, 70);
+  const description = String(
+    seo.description || runtime.identity.description || `Explora el catálogo de ${runtime.identity.businessName || "nuestra tienda"}.`
+  ).trim().slice(0, 160);
+
+  document.title = title;
+  upsertMeta('meta[name="description"]', { name: "description" }, description);
+  upsertMeta('meta[property="og:title"]', { property: "og:title" }, title);
+  upsertMeta('meta[property="og:description"]', { property: "og:description" }, description);
+
+  const favicon = safePublicImageUrl(runtime.brand.assets.faviconUrl || runtime.brand.assets.logoUrl);
+  let icon = document.head.querySelector('link[rel="icon"]');
+  if (favicon) {
+    if (!icon) {
+      icon = document.createElement("link");
+      icon.rel = "icon";
+      document.head.appendChild(icon);
+    }
+    icon.href = favicon;
+  } else {
+    icon?.remove();
+  }
+
+  const socialImage = safePublicImageUrl(runtime.brand.assets.logoUrl);
+  const ogImage = document.head.querySelector('meta[property="og:image"]');
+  if (socialImage) {
+    upsertMeta('meta[property="og:image"]', { property: "og:image" }, socialImage);
+  } else {
+    ogImage?.remove();
   }
 }
 
@@ -75,15 +115,20 @@ export function SiteRuntimeProvider({ children }) {
     return new URLSearchParams(hash).get("preview") || "";
   }, []);
 
-  const [runtime, setRuntime] = useState(
-    () => previewToken ? FALLBACK_SITE_RUNTIME : (readCachedRuntime() || FALLBACK_SITE_RUNTIME)
-  );
+  const editorSession = useMemo(() => {
+    const hash = typeof window === "undefined" ? "" : window.location.hash.replace(/^#/, "");
+    return new URLSearchParams(hash).get("editorSession") || "";
+  }, []);
+  const [previewVerified, setPreviewVerified] = useState(false);
+
+  const [runtime, setRuntime] = useState(FALLBACK_SITE_RUNTIME);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [fatalError, setFatalError] = useState(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
+    setPreviewVerified(false);
 
     try {
       const manifestRequest = previewToken
@@ -100,17 +145,33 @@ export function SiteRuntimeProvider({ children }) {
       ]);
       const profile = extractPublicProfile({ data: profilePayload });
       const manifest = manifestPayload?.data ?? manifestPayload ?? null;
+      if (previewToken && (
+        manifestPayload?.success !== true ||
+        !manifestPayload?.preview ||
+        !manifest ||
+        manifest.schemaVersion !== 1
+      )) {
+        throw new Error("SITE_PREVIEW_MANIFEST_INVALID");
+      }
       const nextRuntime = createSiteRuntime(profile, manifest);
+      if (previewToken && nextRuntime.status !== "resolved") {
+        throw new Error("SITE_PREVIEW_PROFILE_UNAVAILABLE");
+      }
       setRuntime(nextRuntime);
-      if (nextRuntime.status === "resolved" && !previewToken) writeCachedRuntime(nextRuntime);
+      setPreviewVerified(Boolean(previewToken));
+
       setError(null);
       setFatalError(null);
     } catch (loadError) {
       setError(loadError);
-      setFatalError(storefrontFatalError(loadError));
-      setRuntime((current) =>
-        current.status === "resolved" ? current : FALLBACK_SITE_RUNTIME
-      );
+      setFatalError(storefrontFatalError(loadError) || {
+        status: loadError?.response?.status || 503,
+        code: "STOREFRONT_PROFILE_LOAD_FAILED",
+        message: "No se pudo identificar de forma segura la tienda.",
+      });
+      // Never continue displaying a cached or previously selected company
+      // when authoritative profile resolution fails.
+      setRuntime(FALLBACK_SITE_RUNTIME);
     } finally {
       setLoading(false);
     }
@@ -119,6 +180,33 @@ export function SiteRuntimeProvider({ children }) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    applySiteDocumentMetadata(runtime);
+  }, [runtime]);
+
+  // This channel only exists inside a server-authenticated, signed-token preview.
+  // Updates affect React's in-memory presentation model; no DB writes or publishing.
+  useEffect(() => {
+    if (!previewToken || !previewVerified || !editorSession || window.parent === window) return undefined;
+
+    const onMessage = (event) => {
+      if (event.source !== window.parent || !isTrustedPreviewEditorOrigin(event.origin)) return;
+      if (event.data?.type !== PREVIEW_APPLY || event.data?.editorSession !== editorSession) return;
+      const safeManifest = normalizeLivePreviewManifest(event.data.manifest);
+      if (!safeManifest) return;
+      setRuntime((current) => (
+        current.status === "resolved"
+          ? createSiteRuntime(current.compatibility.publicProfile, safeManifest)
+          : current
+      ));
+    };
+    window.addEventListener("message", onMessage);
+    // Only a non-sensitive random session ID is announced to the embedding window.
+    window.parent.postMessage({ type: PREVIEW_READY, editorSession }, "*");
+    return () => window.removeEventListener("message", onMessage);
+  }, [previewToken, previewVerified, editorSession]);
+
 
   const value = useMemo(
     () => ({ runtime, loading, error, fatalError, reload, previewMode: Boolean(previewToken) }),

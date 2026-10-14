@@ -60,10 +60,9 @@ function AppContent() {
 }
 
 function StorefrontGate() {
-  const { fatalError, reload } = useSiteRuntime();
+  const { fatalError, reload, runtime, loading } = useSiteRuntime();
 
-  // El perfil ya no bloquea el primer render. La tienda pinta de inmediato
-  // con runtime cacheado/fallback y revalida /profile en segundo plano.
+  // Never render a business before its authoritative tenant profile resolves.
   if (fatalError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white px-6">
@@ -84,6 +83,14 @@ function StorefrontGate() {
             Reintentar
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (loading || runtime.status !== "resolved") {
+    return (
+      <div role="status" className="grid min-h-screen place-items-center bg-white">
+        <span className="text-sm text-neutral-600">Preparando tienda segura…</span>
       </div>
     );
   }

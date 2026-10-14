@@ -20,6 +20,7 @@ export default function Auth() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
+  const passwordUpdated = new URLSearchParams(location.search).get("passwordUpdated") === "1";
   const postLoginDestination =
     typeof location.state?.from === "string" && location.state.from.startsWith("/")
       ? location.state.from
@@ -81,7 +82,7 @@ export default function Auth() {
         setVerificationCode("");
       }
     } catch (error) {
-      console.error(error);
+      // Avoid logging Axios errors: request config may contain credentials.
       const msg = error.response?.data?.message || error.message || "Error en la autenticación";
       
       if (error.response?.data?.code === "EMAIL_NOT_VERIFIED") {
@@ -194,11 +195,16 @@ export default function Auth() {
               {step === "verify" ? "Confirmar Código" : (isLogin ? "Iniciar Sesión" : "Crear Cuenta")}
             </h3>
             <p className="text-slate-400 text-sm font-medium mt-1">
-              {step === "verify" 
-                ? `Enviamos un código de 6 dígitos a ${formData.email}` 
+              {step === "verify"
+                ? `Enviamos un código de 6 dígitos a ${formData.email}`
                 : "Introduce tus datos para acceder al sistema."
               }
             </p>
+            {passwordUpdated && isLogin && step === "auth" ? (
+              <div role="status" className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+                Contraseña actualizada. Inicia sesión con tu nueva contraseña.
+              </div>
+            ) : null}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -225,7 +231,8 @@ export default function Auth() {
                 <AuthInput 
                   icon={<Mail size={16}/>} 
                   placeholder="EMAIL" 
-                  type="email" 
+                  type="email"
+                  autoComplete="email"
                   value={formData.email}
                   onChange={e => setFormData({...formData, email: e.target.value})}
                   required
@@ -233,7 +240,8 @@ export default function Auth() {
                 <AuthInput 
                   icon={<Lock size={16}/>} 
                   placeholder="CONTRASEÑA" 
-                  type="password" 
+                  type="password"
+                  autoComplete={isLogin ? "current-password" : "new-password"}
                   value={formData.password}
                   onChange={e => setFormData({...formData, password: e.target.value})}
                   required

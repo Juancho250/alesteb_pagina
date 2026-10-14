@@ -54,3 +54,27 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Storefront presentation tokens: published per tenant, never arbitrary tenant CSS. */
+.store-site-section {
+  padding-top: var(--store-section-spacing, 80px);
+  padding-bottom: var(--store-section-spacing, 80px);
+}
+.store-site-card { border-radius: var(--store-card-radius, 32px); }
+.store-site-cta {
+  border-radius: var(--store-button-radius, 999px);
+  color: var(--store-brand-contrast, #ffffff);
+}
+
+/* Registered layout hooks; the backend only publishes enumerated style tokens. */
+.store-site-content-width { width: 100%; max-width: var(--store-content-width, 1152px); }
+.store-site-footer-width { width: 100%; max-width: var(--store-footer-width, 1024px); }
+.store-site-product-image { aspect-ratio: var(--store-product-aspect, 4 / 5); }
+
+@media (min-width: 1280px) {
+  .store-catalog-grid { grid-template-columns: repeat(var(--store-catalog-columns, 4), minmax(0, 1fr)); }
+}
+
+/* Tailwind font-sans cannot override a tenant's published typography. */
+body, .font-sans { font-family: var(--store-font-family, ui-sans-serif, system-ui, sans-serif); }

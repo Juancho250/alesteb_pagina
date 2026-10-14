@@ -9,6 +9,7 @@ function storage() {
 }
 
 export function readPublicCache(key, maxAgeMs = 30 * 60 * 1000) {
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).has("preview")) return null;
   const now = Date.now();
   const mem = memory.get(key);
   if (mem && now - mem.ts <= maxAgeMs) return mem.data;
@@ -26,6 +27,7 @@ export function readPublicCache(key, maxAgeMs = 30 * 60 * 1000) {
 }
 
 export function writePublicCache(key, data) {
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).has("preview")) return data;
   const entry = { data, ts: Date.now() };
   memory.set(key, entry);
   try {
@@ -37,6 +39,7 @@ export function writePublicCache(key, data) {
 }
 
 function earlyPrefetch(path) {
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).has("preview")) return null;
   if (typeof window === "undefined") return null;
   const value = window.__ALESTEB_PREFETCH__?.[path];
   return value && typeof value.then === "function" ? value : null;

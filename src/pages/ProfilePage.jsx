@@ -9,7 +9,7 @@ import {
   Upload, Shield, Eye, EyeOff
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import api from "../services/api";
+import api, { clearStoredSession } from "../services/api";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Lazy-load ProofUploader solo cuando se necesita
@@ -591,170 +591,193 @@ function OrdersTab({ userId }) {
 // Tab: Seguridad
 // ─────────────────────────────────────────────────────────────────────────────
 function SecurityTab() {
-  const [form, setForm]     = useState({ current: "", next: "", confirm: "" });
-  const [show, setShow]     = useState({ current: false, next: false, confirm: false });
+  const [form, setForm] = useState({ current: "", next: "", confirm: "" });
+  const [show, setShow] = useState({ current: false, next: false, confirm: false });
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError]   = useState("");
+  const [error, setError] = useState("");
 
-  const toggle = (key) => setShow(p => ({ ...p, [key]: !p[key] }));
+  const toggle = (key) => setShow((previous) => ({ ...previous, [key]: !previous[key] }));
 
-  const handleChange = (e) => {
-    setForm(p => ({ ...p, [e.target.name]: e.target.value }));
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((previous) => ({ ...previous, [name]: value }));
     setError("");
-    setSuccess(false);
   };
 
+  // Mirrors the backend password policy; the server remains authoritative.
+  const passwordChecks = [
+    { label: "Entre 8 y 128 caracteres", valid: form.next.length >= 8 && form.next.length <= 128 },
+    { label: "Al menos una mayúscula", valid: /[A-Z]/.test(form.next) },
+    { label: "Al menos una minúscula", valid: /[a-z]/.test(form.next) },
+    { label: "Al menos un número", valid: /[0-9]/.test(form.next) },
+    { label: "Al menos un símbolo", valid: /[^A-Za-z0-9]/.test(form.next) },
+  ];
+
   const validate = () => {
-    if (!form.current.trim())     return "Ingresa tu contraseña actual";
-    if (form.next.length < 8)      return "Mínimo 8 caracteres";
-    if (!/[A-Z]/.test(form.next)) return "Incluye al menos una mayúscula";
-    if (!/[0-9]/.test(form.next)) return "Incluye al menos un número";
-    if (form.next !== form.confirm) return "Las contraseñas no coinciden";
+    if (!form.current) return "Ingresa tu contraseña actual.";
+    if (!form.next) return "Ingresa una contraseña nueva.";
+    const missing = passwordChecks.find((check) => !check.valid);
+    if (missing) return `La nueva contraseña debe cumplir: ${missing.label.toLowerCase()}.`;
+    if (!form.confirm) return "Confirma la contraseña nueva.";
+    if (form.next !== form.confirm) return "Las contraseñas nuevas no coinciden.";
+    if (form.next === form.current) return "La contraseña nueva debe ser diferente a la actual.";
     return null;
   };
 
-  const handleSubmit = async () => {
-    const err = validate();
-    if (err) { setError(err); return; }
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (saving) return;
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setSaving(true);
     setError("");
     try {
-      await api.post("/auth/change-password", {
-        current_password: form.current,
-        new_password:     form.next,
+      // Exact contract for /auth/change-password (camelCase, not snake_case).
+      const response = await api.post("/auth/change-password", {
+        currentPassword: form.current,
+        newPassword: form.next,
+        confirmPassword: form.confirm,
       });
-      setSuccess(true);
+
+      if (response.data?.success !== true) {
+        throw new Error("No se pudo confirmar el cambio de contraseña.");
+      }
+
       setForm({ current: "", next: "", confirm: "" });
-    } catch (err) {
-      setError(err.response?.data?.message || "Error al cambiar la contraseña");
+      // Backend revokes refresh tokens. Discard the local session as well;
+      // a full navigation prevents a stale in-memory authenticated profile.
+      clearStoredSession();
+      window.location.replace("/auth?passwordUpdated=1");
+    } catch (requestError) {
+      const code = requestError.response?.data?.code;
+      const defaultMessage = {
+        MISSING_FIELDS: "Completa la contraseña actual y las nuevas contraseñas.",
+        WEAK_PASSWORD: "Usa entre 8 y 128 caracteres e incluye mayúscula, minúscula, número y símbolo.",
+        INVALID_CURRENT_PASSWORD: "La contraseña actual es incorrecta.",
+        PASSWORD_CONFIRMATION_MISMATCH: "Las contraseñas nuevas no coinciden.",
+        PASSWORD_REUSE: "Elige una contraseña distinta de la actual.",
+      };
+      setError(defaultMessage[code] || requestError.response?.data?.message ||
+        "No fue posible actualizar la contraseña. Intenta de nuevo.");
     } finally {
       setSaving(false);
     }
   };
 
-  const strength = [
-    form.next.length >= 8,
-    /[A-Z]/.test(form.next),
-    /[0-9]/.test(form.next),
-    form.next.length >= 12,
-  ];
-  const strengthLabel = [
-    form.next.length < 8 && "Muy corta",
-    form.next.length >= 8  && !/[A-Z]/.test(form.next) && "Agrega una mayúscula",
-    form.next.length >= 8  && /[A-Z]/.test(form.next) && !/[0-9]/.test(form.next) && "Agrega un número",
-    form.next.length >= 8  && /[A-Z]/.test(form.next) && /[0-9]/.test(form.next) && form.next.length < 12 && "Buena",
-    form.next.length >= 12 && /[A-Z]/.test(form.next) && /[0-9]/.test(form.next) && "Excelente",
-  ].find(Boolean);
-
+  const passed = passwordChecks.filter((check) => check.valid).length;
   const fields = [
-    { key: "current", label: "Contraseña actual",   placeholder: "••••••••" },
-    { key: "next",    label: "Nueva contraseña",     placeholder: "Mín. 8 caracteres" },
-    { key: "confirm", label: "Confirmar contraseña", placeholder: "Repite la nueva contraseña" },
+    { key: "current", label: "Contraseña actual", placeholder: "Contraseña actual", autoComplete: "current-password" },
+    { key: "next", label: "Nueva contraseña", placeholder: "Nueva contraseña segura", autoComplete: "new-password" },
+    { key: "confirm", label: "Confirmar contraseña", placeholder: "Repite la nueva contraseña", autoComplete: "new-password" },
   ];
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="visible" className="space-y-4">
-      {/* Info */}
-      <motion.div
-        variants={fadeUp}
-        className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-start gap-3"
-      >
-        <Shield size={14} className="text-slate-500 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-slate-500 font-medium leading-relaxed">
-          Usa al menos 8 caracteres, una mayúscula y un número. No la compartas con nadie.
+      <motion.div variants={fadeUp} className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+        <Shield size={15} className="mt-0.5 shrink-0 text-slate-500" />
+        <p className="text-xs font-medium leading-relaxed text-slate-600">
+          Elige una contraseña única. Después de actualizarla tendrás que iniciar sesión de nuevo.
         </p>
       </motion.div>
 
-      <motion.div variants={fadeUp} className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
-        <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400">Cambiar contraseña</h3>
+      <motion.form
+        variants={fadeUp}
+        onSubmit={handleSubmit}
+        autoComplete="on"
+        className="space-y-5 rounded-2xl border border-slate-100 bg-white p-5"
+        aria-label="Formulario para cambiar contraseña"
+      >
+        <div>
+          <h3 className="text-[12px] font-semibold text-slate-900">Cambiar contraseña</h3>
+          <p className="mt-1 text-[11px] text-slate-500">Todos los campos son obligatorios.</p>
+        </div>
 
         <AnimatePresence>
-          {success && (
+          {error ? (
             <motion.div
-              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-              className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2"
+              role="alert"
+              aria-live="assertive"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-3"
             >
-              <CheckCircle size={13} className="text-emerald-500 flex-shrink-0" />
-              <p className="text-xs font-bold text-emerald-700">Contraseña actualizada</p>
+              <AlertCircle size={14} className="shrink-0 text-red-500" />
+              <p className="text-xs font-medium text-red-700">{error}</p>
             </motion.div>
-          )}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-              className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2"
-            >
-              <AlertCircle size={13} className="text-red-400 flex-shrink-0" />
-              <p className="text-xs font-bold text-red-600">{error}</p>
-            </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
 
-        {fields.map(({ key, label, placeholder }) => (
+        {fields.map(({ key, label, placeholder, autoComplete }) => (
           <div key={key}>
-            <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">
+            <label htmlFor={`security-password-${key}`} className="mb-1.5 block text-[10px] font-semibold text-slate-600">
               {label}
             </label>
             <div className="relative">
               <input
+                id={`security-password-${key}`}
                 name={key}
                 type={show[key] ? "text" : "password"}
                 value={form[key]}
                 onChange={handleChange}
+                autoComplete={autoComplete}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                required
+                maxLength={128}
+                disabled={saving}
                 placeholder={placeholder}
-                className="w-full px-3 py-2.5 pr-10 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium
-                  text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2
-                  focus:ring-slate-900/10 focus:border-slate-300 transition-all"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 pr-11 text-sm font-medium text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-900/10 disabled:opacity-65"
               />
               <button
                 type="button"
                 onClick={() => toggle(key)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label={show[key] ? `Ocultar ${label.toLowerCase()}` : `Mostrar ${label.toLowerCase()}`}
+                aria-pressed={show[key]}
+                disabled={saving}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
               >
-                {show[key] ? <EyeOff size={14} /> : <Eye size={14} />}
+                {show[key] ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
         ))}
 
-        {/* Barra de fortaleza */}
-        <AnimatePresence>
-          {form.next && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-              className="space-y-1.5"
-            >
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Fortaleza</p>
-              <div className="flex gap-1">
-                {strength.map((ok, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ scaleX: 0 }}
-                    animate={{ scaleX: 1 }}
-                    className={`h-1 flex-1 rounded-full origin-left transition-colors duration-500
-                      ${ok ? (i < 2 ? "bg-amber-400" : "bg-emerald-500") : "bg-slate-100"}`}
-                  />
-                ))}
-              </div>
-              {strengthLabel && (
-                <p className="text-[10px] text-slate-400 font-medium">{strengthLabel}</p>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {form.next ? (
+          <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50 p-3" aria-live="polite">
+            <div className="flex items-center justify-between text-[11px] font-medium text-slate-700">
+              <span>Requisitos de seguridad</span>
+              <span>{passed} de {passwordChecks.length}</span>
+            </div>
+            <div className="grid grid-cols-5 gap-1" aria-hidden="true">
+              {passwordChecks.map((check) => (
+                <span key={check.label} className={`h-1.5 rounded-full ${check.valid ? "bg-emerald-500" : "bg-slate-200"}`} />
+              ))}
+            </div>
+            <ul className="grid gap-x-3 gap-y-2 text-[10px] sm:grid-cols-2">
+              {passwordChecks.map((check) => (
+                <li key={check.label} className={check.valid ? "text-emerald-700" : "text-slate-500"}>
+                  {check.valid ? "✓" : "○"} {check.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         <button
-          onClick={handleSubmit}
+          type="submit"
           disabled={saving}
-          className="w-full py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl font-bold text-sm
-            flex items-center justify-center gap-2 transition-all active:scale-[0.98] hover:shadow-lg hover:shadow-slate-900/10"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
         >
-          {saving
-            ? <><Loader2 size={14} className="animate-spin" /> Guardando…</>
-            : <><Shield size={14} /> Actualizar contraseña</>
-          }
+          {saving ? <><Loader2 size={15} className="animate-spin" /> Actualizando…</> :
+            <><Shield size={15} /> Actualizar contraseña</>}
         </button>
-      </motion.div>
+      </motion.form>
     </motion.div>
   );
 }
