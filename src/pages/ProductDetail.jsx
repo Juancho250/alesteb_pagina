@@ -14,19 +14,8 @@ import { useAvailability } from "../hooks/useAvailability";
 import { useDiscounts } from "../context/DiscountsContext";
 import ProductReviewsSection from "../components/reviews/ProductReviewsSection";
 
-// ─── Cache ────────────────────────────────────────────────────────────────────
-const prodCache = new Map();
-const CACHE_TTL = 120_000;
-
-function cacheGet(key) {
-  const e = prodCache.get(key);
-  if (!e) return null;
-  if (Date.now() - e.ts > CACHE_TTL) { prodCache.delete(key); return null; }
-  return e.data;
-}
-function cacheSet(key, data) {
-  prodCache.set(key, { data, ts: Date.now() });
-}
+// Product publication is authoritative on the backend. Product details must
+// never flash an older locally cached copy after the item has been unpublished.
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const optimizeUrl = (url, width = 800) => {
@@ -194,16 +183,9 @@ export default function ProductDetail() {
     setQuantity(1);
     setSelectedImg("");
 
-    const cached = cacheGet(id);
-    if (cached) {
-      // Pintar instantáneamente desde cache y revalidar en background.
-      const withDiscount = applyDiscount(cached);
-      setProduct(withDiscount);
-      autoSelectSingleVariant(withDiscount);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
+    // Wait for the public API to verify that this product is still published.
+    setProduct(null);
+    setLoading(true);
     loadPublicJson(`/products/${id}`, `product:${id}`)
       .then((data) => {
         if (!alive) return;
@@ -222,8 +204,6 @@ export default function ProductDetail() {
         // Esto garantiza que final_price en el carrito sea el precio con descuento.
         const withDiscount = resolved ? applyDiscount(resolved) : null;
 
-        // Guardamos en cache el producto YA con descuento aplicado
-        cacheSet(id, withDiscount || null);
         setProduct(withDiscount || null);
         autoSelectSingleVariant(withDiscount);
       })
