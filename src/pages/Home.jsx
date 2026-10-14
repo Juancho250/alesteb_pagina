@@ -396,13 +396,9 @@ export default function Home() {
     () => extractBanners(readPublicCache("banners", 6 * 60 * 60 * 1000) || {})
       .filter((banner) => banner.is_active)
   );
-  const [featuredProducts, setFeaturedProducts] = useState(
-    () => extractProducts(
-      readPublicCache(productCacheKey, 10 * 60 * 1000)
-      || readPublicCache("home-products", 10 * 60 * 1000)
-      || {}
-    )
-  );
+  // Never hydrate product cards from persisted cache: a product may have been
+  // unpublished in ALESTEB since this visitor last loaded the store.
+  const [featuredProducts, setFeaturedProducts] = useState([]);
   const [categories, setCategories] = useState(
     () => extractCategories(readPublicCache("categories", 6 * 60 * 60 * 1000) || {})
   );
@@ -436,7 +432,10 @@ export default function Home() {
         setCategories(Array.isArray(categoriesData) ? categoriesData : []);
         setLoadError(false);
       } catch {
-        if (active) setLoadError(true);
+        if (active) {
+          setFeaturedProducts([]);
+          setLoadError(true);
+        }
       } finally {
         if (active) setLoading(false);
       }
