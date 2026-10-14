@@ -109,4 +109,7 @@ test("signed tenant preview cannot fall back to the host's configured business",
   assert.match(api, /if \(previewToken && config\.headers\.Authorization\)/);
   assert.match(cache, /isStorefrontPreviewMode\(\)/);
   assert.match(html, /A signed iframe must never prefetch/);
+  assert.match(runtimeContext, /ALESTEB_SITE_PREVIEW_PING_V1/);
+  assert.match(runtimeContext, /document.addEventListener\("click", stopActions, true\)/);
+  assert.match(runtimeContext, /document.addEventListener\("submit", stopSubmit, true\)/);
 });
