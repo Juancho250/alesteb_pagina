@@ -41,6 +41,9 @@ export default function CartPage() {
   const [stockErrors, setStockErrors] = useState({});
   // Global 409 banner (shown when backend rejects due to insufficient stock)
   const [globalStockError, setGlobalStockError] = useState(null);
+  const [blockedProductIds, setBlockedProductIds] = useState({});
+  const [checkingPublication, setCheckingPublication] = useState(true);
+  const [publicationCheckFailed, setPublicationCheckFailed] = useState(false);
 
   const total = cart.reduce((sum, item) => sum + getItemPrice(item) * (item.quantity || 1), 0);
   const count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
@@ -54,6 +57,36 @@ export default function CartPage() {
   // ── Load live availability for all cart items in parallel ──────────────────
   // Re-runs when the set of cart keys changes (item added / removed).
   const cartKeyString = cart.map(i => i.cartKey).join(",");
+  useEffect(() => {
+    let mounted = true;
+    setCheckingPublication(true);
+    setPublicationCheckFailed(false);
+    if (!cart.length) {
+      setBlockedProductIds({});
+      setCheckingPublication(false);
+      return () => { mounted = false; };
+    }
+    const ids = [...new Set(cart.map(item => String(item.id)))];
+    Promise.allSettled(ids.map(id => api.get(`/products/${id}`)))
+      .then(results => {
+        if (!mounted) return;
+        const blocked = {};
+        let failed = false;
+        results.forEach((result, index) => {
+          if (result.status === "rejected") {
+            if (result.reason?.response?.status === 404) blocked[ids[index]] = true;
+            else failed = true;
+          } else if (!result.value?.data?.data?.id) {
+            failed = true;
+          }
+        });
+        setBlockedProductIds(blocked);
+        setPublicationCheckFailed(failed);
+      })
+      .finally(() => { if (mounted) setCheckingPublication(false); });
+    return () => { mounted = false; };
+  }, [cartKeyString]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!cart.length) { setAvailMap({}); return; }
 
@@ -101,6 +134,14 @@ export default function CartPage() {
   }, [availMap, updateQty, removeFromCart]);
 
   const handleCheckout = () => {
+    if (checkingPublication || publicationCheckFailed) {
+      setGlobalStockError("No pudimos verificar la disponibilidad de la tienda. Intenta nuevamente.");
+      return;
+    }
+    if (Object.keys(blockedProductIds).length) {
+      setGlobalStockError("Hay productos que ya no están disponibles en la tienda. Elimínalos del carrito para continuar.");
+      return;
+    }
     // Check for any 0-stock items before proceeding
     const soldOut = cart.filter(item => {
       if (item.fulfillment_mode === "on_demand" || item.fulfillment_mode === "hybrid") return false;
@@ -212,7 +253,8 @@ export default function CartPage() {
                 const avail      = av?.available ?? null;
                 const minStock   = av?.minStock  ?? null;
                 const itemOnDemand = item.fulfillment_mode === "on_demand";
-                const isOut      = !itemOnDemand && avail !== null && avail <= 0;
+                const unpublished = blockedProductIds[String(item.id)] === true;
+                const isOut      = unpublished || (!itemOnDemand && avail !== null && avail <= 0);
                 const isLow      = avail !== null && avail > 0 && minStock !== null && avail <= minStock && !itemOnDemand;
                 const maxQty     = itemOnDemand ? Infinity : (avail !== null ? avail : Infinity);
                 const itemDeliveryDate = itemOnDemand && item.supplier_lead_time_days
@@ -264,7 +306,7 @@ export default function CartPage() {
                       {/* Disponibilidad badge */}
                       {isOut && (
                         <p className="text-[10px] font-black text-red-500 dark:text-red-400 uppercase tracking-wider">
-                          Sin stock · eliminar del carrito
+                          {unpublished ? "No disponible en la tienda · eliminar del carrito" : "Sin stock · eliminar del carrito"}
                         </p>
                       )}
                       {isLow && !isOut && (
@@ -379,12 +421,16 @@ export default function CartPage() {
             )}
 
             {/* CTA */}
+            {publicationCheckFailed ? (
+              <p role="alert" className="text-xs text-red-600">No fue posible verificar los productos. Vuelve a cargar el carrito.</p>
+            ) : null}
             <button
+              disabled={checkingPublication || publicationCheckFailed || Object.keys(blockedProductIds).length > 0}
               onClick={handleCheckout}
               className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl
                 bg-slate-900 text-white font-black text-[10px] tracking-[0.25em] uppercase
                 hover:bg-[var(--brand-hover)] transition-all duration-300 hover:scale-[1.02]
-                active:scale-95 shadow-xl shadow-brand/10"
+                active:scale-95 shadow-xl shadow-brand/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {user
                 ? <><ArrowRight size={14} /> Ir al checkout</>
